@@ -1,0 +1,63 @@
+
+
+
+
+
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/AdminController.cs
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/CommonController.cs
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/DocumentController.cs
+M	RevenUWeb/src/app/common/BulkEdit/bulk-deletion/BulkDeletionViewModel.ts
+M	RevenUWeb/src/app/common/BulkEdit/bulk-deletion/bulk-deletion.component.html
+M	RevenUWeb/src/app/common/BulkEdit/bulk-deletion/bulk-deletion.component.ts
+M	RevenUWeb/src/app/common/common-field-popup/CommonFieldPopupViewModel.ts
+M	RevenUWeb/src/app/common/common-field-popup/common-field-popup.component.html
+M	RevenUWeb/src/app/document/add-edit-document/AddEditDocumentViewModel.ts
+M	RevenUWeb/src/app/document/add-edit-document/Document.ts
+M	RevenUWeb/src/app/document/doc-link/link/LinkDocument.ts
+M	RevenUWeb/src/app/document/document-number/DocumentNumberViewModel.ts
+M	RevenUWeb/src/app/ess/Check-In-Out-Widget/check-in-out-widget.component.html
+M	RevenUWeb/src/app/ess/Check-In-Out-Widget/check-in-out-widget.component.ts
+M	RevenUWeb/src/app/pages/home/RibbonExtViewModel.ts
+M	RevenUWeb/src/app/pages/login-screen/LoginScreenViewModel.ts
+M	RevenUWeb/src/app/reports/StaticReports/ACC_TradingReports.ts
+M	RevenUWeb/src/app/reports/report-view/ReportViewModel.ts
+M	RevenUWeb/src/app/reports/static-report-filter/StaticReportFilterViewModel.ts
+M	RevenUWeb/src/app/services/api/admin.service.ts
+M	RevenUWeb/src/app/services/api/document.service.ts
+M	RevenUWeb/src/app/services/session-manager.service.ts
+M	RevenUWeb/src/app/shared/controls/Fields/PactCheckBoxComponent.ts
+M	RevenUWeb/src/app/shared/controls/PactGridView/PactGridView.component.ts
+M	RevenUWeb/src/app/shared/controls/data-widget/data-widget.component.ts
+M	RevenUWeb/src/app/shared/controls/master-tabs/activity/ActivitiesViewModel.ts
+M	RevenUWeb/src/app/shared/controls/org-chart/OrgChartViewModel.ts
+M	RevenUWeb/src/app/shared/controls/org-chart/org-chart.component.html
+M	RevenUWeb/src/app/shared/controls/org-chart/org-chart.component.scss
+M	RevenUWeb/src/app/shared/models/controls/PactCheckBoxData.ts
+M	RevenUWeb/src/scss/PACTUI/@theme/_base.scss
+M	RevenUWeb/src/scss/PACTUI/@theme/_page.scss
+M	RevenUWebWhiteTheme/src/app/dashboard/aging-widget/aging-widget.html
+M	RevenUWebWhiteTheme/src/app/dashboard/aging-widget/aging-widget.scss
+M	RevenUWebWhiteTheme/src/app/dashboard/aging-widget/aging-widget.ts
+M	RevenUWebWhiteTheme/src/app/dashboard/widget-view/WidgetViewModel.ts
+M	RevenUWebWhiteTheme/src/app/dashboard/widget-view/widget-view.component.ts
+M	RevenUWebWhiteTheme/src/app/document/doc-link/link/LinkDocument.ts
+M	RevenUWebWhiteTheme/src/app/document/document-number/DocumentNumberViewModel.ts
+M	RevenUWebWhiteTheme/src/app/ess/Check-In-Out-Widget/check-in-out-widget.component.html
+M	RevenUWebWhiteTheme/src/app/ess/Check-In-Out-Widget/check-in-out-widget.component.ts
+M	RevenUWebWhiteTheme/src/app/pages/login-screen/LoginScreenViewModel.ts
+M	RevenUWebWhiteTheme/src/app/reports/StaticReports/ACC_TradingReports.ts
+A	RevenUWebWhiteTheme/src/app/reports/StaticReports/Pay_Report.ts
+M	RevenUWebWhiteTheme/src/app/reports/report-view/ReportViewModel.ts
+M	RevenUWebWhiteTheme/src/app/reports/static-report-filter/StaticReportFilterViewModel.ts
+M	RevenUWebWhiteTheme/src/app/services/api/aging-data.service.ts
+M	RevenUWebWhiteTheme/src/app/services/session-manager.service.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/Fields/PactCheckBoxComponent.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/PactGridView/PactGridView.component.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/data-widget/data-widget.component.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/master-tabs/activity/ActivitiesViewModel.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/org-chart/OrgChartViewModel.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/org-chart/org-chart.component.html
+M	RevenUWebWhiteTheme/src/app/shared/controls/org-chart/org-chart.component.scss
+M	RevenUWebWhiteTheme/src/app/shared/models/controls/PactCheckBoxData.ts
+M	RevenUWebWhiteTheme/src/scss/PACTUI/@theme/_base.scss
+M	RevenUWebWhiteTheme/src/scss/PACTUI/@theme/_page.scss

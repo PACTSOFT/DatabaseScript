@@ -1,0 +1,4 @@
+--CHARY
+
+ALTER TABLE ADM_DashBoard ALTER COLUMN [Description] NVARCHAR(MAX)
+

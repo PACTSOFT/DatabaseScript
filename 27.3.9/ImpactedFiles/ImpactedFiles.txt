@@ -1,0 +1,55 @@
+
+
+
+
+
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/PactRequestTokenController.cs
+M	RevenUNestAPI/src/PACTAPI/Controllers/Admin/admin.controller.ts
+M	RevenUNestAPI/src/PACTAPI/Controllers/Common/common.controller.ts
+M	RevenUNestAPI/src/PACTAPI/Controllers/PactRequestToken/pact-request-token.controller.ts
+M	RevenUNestAPI/src/PACTAPI/Controllers/Report/report.controller.ts
+M	RevenUNestAPI/src/PACTAPI/Services/Admin/admin.service.ts
+M	RevenUNestAPI/src/PACTAPI/Services/Common/common.service.ts
+M	RevenUNestAPI/src/PACTAPI/Services/Document/document.service.ts
+M	RevenUNestAPI/src/PACTAPI/Services/PactRequestToken/pact-request-token.service.ts
+M	RevenUNestAPI/src/PACTAPI/Services/Report/report.service.ts
+M	RevenUNestAPI/src/common/APIBase.ts
+M	RevenUWeb/src/app/crm/crmcalendar/CRMFullCalendar.component.ts
+M	RevenUWeb/src/app/crm/crmcalendar/crmcalendar.component.html
+M	RevenUWeb/src/app/crm/crmcalendar/crmcalendar.component.scss
+M	RevenUWeb/src/app/ess/Check-In-Out-Widget/check-in-out-widget.component.html
+M	RevenUWeb/src/app/ess/Check-In-Out-Widget/check-in-out-widget.component.ts
+M	RevenUWeb/src/app/reports/StaticReports/ACC_TradingReports.ts
+M	RevenUWeb/src/app/reports/report-view/ReportViewModel.ts
+M	RevenUWeb/src/app/reports/static-report-filter/StaticReportFilterViewModel.ts
+M	RevenUWeb/src/app/services/session-manager.service.ts
+M	RevenUWeb/src/scss/PACTUI/common.scss
+M	RevenUWebWhiteTheme/src/app/crm/crmcalendar/CRMFullCalendar.component.ts
+M	RevenUWebWhiteTheme/src/app/crm/crmcalendar/crmcalendar.component.html
+M	RevenUWebWhiteTheme/src/app/crm/crmcalendar/crmcalendar.component.scss
+M	RevenUWebWhiteTheme/src/app/document/add-edit-document/VoucherGenerator.ts
+M	RevenUWebWhiteTheme/src/app/document/enquiries/EnquiriesViewModel.ts
+M	RevenUWebWhiteTheme/src/app/document/payment-terms/PaymentTermsViewModel.ts
+M	RevenUWebWhiteTheme/src/app/document/product-search-catalog/ProductSearchCatalogViewModel.ts
+M	RevenUWebWhiteTheme/src/app/facility-management/Artifacts/Artifact.component.ts
+M	RevenUWebWhiteTheme/src/app/pages/home/RibbonExtViewModel.ts
+M	RevenUWebWhiteTheme/src/app/pos/touch-screen/touch-screen.component.html
+M	RevenUWebWhiteTheme/src/app/property/Tenant/AddEditTenantViewModel.ts
+M	RevenUWebWhiteTheme/src/app/property/contract/AddEditRenContractViewModel.ts
+M	RevenUWebWhiteTheme/src/app/reports/StaticReports/ACC_TradingReports.ts
+M	RevenUWebWhiteTheme/src/app/reports/re-order-level/ReOrderLevelNewViewModel.ts
+M	RevenUWebWhiteTheme/src/app/reports/report-view/IPrefetchFilter.ts
+M	RevenUWebWhiteTheme/src/app/reports/report-view/ReportViewModel.ts
+M	RevenUWebWhiteTheme/src/app/reports/static-report-filter/StaticReportFilterViewModel.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/Fields/PListView.component.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/org-chart/org-chart.component.html
+M	RevenUWebWhiteTheme/src/app/shared/controls/org-chart/org-chart.component.scss
+M	RevenUWebWhiteTheme/src/app/shared/models/controls/PactGridViewModel.ts
+M	RevenUWebWhiteTheme/src/app/shared/models/controls/PactImageControlData.ts
+M	RevenUWebWhiteTheme/src/app/shared/models/master-tabs/ViewAttachmentViewModel.ts
+M	RevenUWebWhiteTheme/src/app/shared/models/ribbon/RibbonGenerator.ts
+M	RevenUWebWhiteTheme/src/assets/i18n/en.json
+M	RevenUWebWhiteTheme/src/assets/i18n/fa.json
+M	RevenUWebWhiteTheme/src/scss/PACTUI/common.scss
+M	RevenUWebWhiteTheme/src/scss/PACTUI/document.scss
+M	RevenUWebWhiteTheme/src/scss/PACTUI/report.scss

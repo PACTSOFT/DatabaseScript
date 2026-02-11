@@ -1,0 +1,21 @@
+
+
+
+
+
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/DocumentController.cs
+M	RevenUWeb/src/app/accounting/add-edit-account/AddEditAccountViewModel.ts
+M	RevenUWeb/src/app/accounting/quick-account/QuickAccoutViewModel.ts
+M	RevenUWeb/src/app/common/BulkEdit/bulk-deletion/BulkDeletionViewModel.ts
+M	RevenUWeb/src/app/common/BulkEdit/bulk-deletion/bulk-deletion.component.html
+M	RevenUWeb/src/app/common/BulkEdit/bulk-deletion/bulk-deletion.component.ts
+M	RevenUWeb/src/app/inventory/add-product/AddProductScreenViewModel.ts
+M	RevenUWeb/src/app/pages/home/RibbonExtViewModel.ts
+M	RevenUWeb/src/app/pages/home/forgot-password/forgot-password.component.ts
+M	RevenUWeb/src/app/reports/add-edit-filter-field/AddEditFilterFieldViewModel.ts
+M	RevenUWeb/src/app/reports/add-edit-filter/AddEditFilterViewModel.ts
+M	RevenUWeb/src/app/reports/report-view/IPrefetchFilter.ts
+M	RevenUWeb/src/app/services/session-manager.service.ts
+M	RevenUWeb/src/app/shared/models/ControlGenerator.ts
+M	RevenUWeb/src/app/shared/models/PageBase.ts
+M	RevenUWeb/src/scss/PACTUI/@theme/_control.scss

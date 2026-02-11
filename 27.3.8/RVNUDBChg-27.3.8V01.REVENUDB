@@ -1,0 +1,3 @@
+--Ibrahim
+
+UPDATE ADM_CostCenterDef SET IsMandatory=1 WHERE CostCenterID=94 AND SysColumnName='FirstName'

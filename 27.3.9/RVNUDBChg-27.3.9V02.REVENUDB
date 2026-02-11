@@ -1,0 +1,8 @@
+--CHARY
+
+ALTER TABLE ADM_DashBoard 
+ADD IsAnalysisDB bit default(0) NOT NULL,
+	AnalysisDBId INT
+
+
+
