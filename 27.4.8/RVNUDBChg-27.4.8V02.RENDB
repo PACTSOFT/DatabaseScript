@@ -1,0 +1,3 @@
+--Khaja
+
+update ADM_CostCenterDef set UserColumnType='Date' where CostCenterID=95 and SysColumnName like '%date'

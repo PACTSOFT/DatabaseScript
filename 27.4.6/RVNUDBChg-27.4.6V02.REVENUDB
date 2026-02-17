@@ -1,0 +1,56 @@
+--Sajid
+DECLARE @Rid INT
+SELECT @Rid=MAX(ResourceID) from COM_LanguageResources WITH(NOLOCK)
+
+--FavouritesDimension
+SET @Rid=@Rid+1
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'FavouritesDimension',1,'English','Favourites','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',convert(float,getdate()),NULL,NULL,'')
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@RId,'FavouritesDimension',2,'Arabic',N'Favourites-AR','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',convert(float,getdate()),NULL,NULL,'')
+
+IF NOT EXISTS(SELECT Name FROM [ADM_GlobalPreferences] WITH(NOLOCK) WHERE  Name='FavouritesDimension')
+BEGIN
+	INSERT [dbo].[ADM_GlobalPreferences] ( [ResourceID], [Name], [Value], [DefaultValue], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate], [Version])
+	VALUES (@RId, N'FavouritesDimension','','', N'guid', NULL, N'admin', convert(float,getdate()),  N'admin', convert(float,getdate()), 1)
+END
+
+--DashBoardDimension
+SET @Rid=@Rid+1
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'DashBoardDimension',1,'English','DashBoard','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',convert(float,getdate()),NULL,NULL,'')
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@RId,'DashBoardDimension',2,'Arabic',N'DashBoard-AR','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',convert(float,getdate()),NULL,NULL,'')
+
+IF NOT EXISTS(SELECT Name FROM [ADM_GlobalPreferences] WITH(NOLOCK) WHERE  Name='DashBoardDimension')
+BEGIN
+	INSERT [dbo].[ADM_GlobalPreferences] ( [ResourceID], [Name], [Value], [DefaultValue], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate], [Version])
+	VALUES (@RId, N'DashBoardDimension','','', N'guid', NULL, N'admin', convert(float,getdate()),  N'admin', convert(float,getdate()), 1)
+END
+
+
+
+if(not exists(select 1 from sys.columns where name = 'TypeCCID' and Object_ID=Object_ID('dbo.ADM_DashBoardUserRoleMap')))
+begin
+	ALTER TABLE ADM_DashBoardUserRoleMap ADD TypeCCID int;
+end
+if(not exists(select 1 from sys.columns where name = 'TypeNodeID' and Object_ID=Object_ID('dbo.ADM_DashBoardUserRoleMap')))
+begin
+	ALTER TABLE ADM_DashBoardUserRoleMap ADD TypeNodeID int;
+end
+
+
+
+if(not exists(select 1 from sys.columns where name = 'TypeCCID' and Object_ID=Object_ID('dbo.ADM_Assign')))
+begin
+	ALTER TABLE ADM_Assign ADD TypeCCID int;
+end
+if(not exists(select 1 from sys.columns where name = 'TypeNodeID' and Object_ID=Object_ID('dbo.ADM_Assign')))
+begin
+	ALTER TABLE ADM_Assign ADD TypeNodeID int;
+end
+

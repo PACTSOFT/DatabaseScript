@@ -1,0 +1,41 @@
+--waseem
+GO
+/****** Object:  StoredProcedure [dbo].[spAdm_WhatsAppUpdateDocStatus]    Script Date: 06-02-2026 16:08:54 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spAdm_WhatsAppUpdateDocStatus]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spAdm_WhatsAppUpdateDocStatus]
+GO
+/****** Object:  StoredProcedure [dbo].[spAdm_WhatsAppUpdateDocStatus]    Script Date: 06-02-2026 16:08:54 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spAdm_WhatsAppUpdateDocStatus]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'
+create PROCEDURE [dbo].[spAdm_WhatsAppUpdateDocStatus]
+	@DocNo NVARCHAR(MAX),
+	@PhoneNo NVARCHAR(MAX)=0
+AS
+BEGIN
+Declare @Costcenterid bigint
+select @Costcenterid=costcenterid from [INV_DocDetails] WITH(NOLOCK) where voucherno=@DocNo
+	
+	--update IDD set CommonNarration=''Updated from Whatsapp by  ''+@PhoneNo
+	--FROM [INV_DocDetails] IDD WITH(NOLOCK) 
+	--where IDD.CostCenterID=@Costcenterid AND idd.voucherno=@DocNo
+
+	
+	--update dst set dcCCNID17=3
+	--FROM [INV_DocDetails] IDD WITH(NOLOCK) 
+	--JOIN com_docccdata DST WITH(NOLOCK) ON DST.InvDocDetailsID=IDD.InvDocDetailsID 
+	--where IDD.CostCenterID=@Costcenterid AND idd.voucherno=@DocNo 
+
+
+END
+
+--exec [spEXT_UpdateWhatsappStatus] ''T-UAE/P/In Out /24/Aug/3/1'',0
+
+
+			' 
+END
+GO

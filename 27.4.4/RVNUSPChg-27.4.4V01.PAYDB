@@ -1,0 +1,464 @@
+-- SHASHANK
+
+/****** Object:  StoredProcedure [dbo].[spRPT_PayReports]    Script Date: 09-02-2026 13:15:43 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spRPT_PayReports]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spRPT_PayReports]
+GO
+/****** Object:  StoredProcedure [dbo].[spRPT_PayReports]    Script Date: 09-02-2026 13:15:43 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spRPT_PayReports]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'CREATE procedure [dbo].[spRPT_PayReports]
+@FromDate DATETIME,    
+@ToDate DATETIME,    
+@ReportID int, 
+@Select NVARCHAR(MAX)=null,
+@SelectAlias NVARCHAR(MAX)=null,
+@strCCJoin NVARCHAR(MAX)=null,   
+@strCCWhere NVARCHAR(MAX)=null,
+@OptionsXML NVARCHAR(MAX)=null,
+@LangID INT = 1    
+AS      
+BEGIN TRY      
+SET NOCOUNT ON;
+  
+DECLARE @SQL NVARCHAR(MAX)   
+DECLARE @From FLOAT,@To FLOAT
+
+SET @From=CONVERT(FLOAT,@FromDate)  
+SET @To=CONVERT(FLOAT,@ToDate)  
+
+IF (@ReportID=288)
+BEGIN
+SET @SQL=''
+SELECT CONVERT(DATETIME,D.DueDate) as PayrollMonth,D.VoucherType
+,isnull(sum(CONVERT(FLOAT,TXT.dcAlpha25)),0) GrossSalary
+,sum(CONVERT(FLOAT,TXT.dcAlpha3)) NetSalary
+,isnull(sum(CONVERT(FLOAT,TXT.dcAlpha26)),0)-isnull(sum(CONVERT(FLOAT,TXT.dcAlpha29)),0) as Arears--,TXT.*
+FROM INV_DocDetails D WITH(NOLOCK)   
+JOIN COM_DocCCData DCC WITH(NOLOCK) ON DCC.INVDOCDETAILSID=D.INVDOCDETAILSID
+JOIN PAY_DocNumData NUM ON NUM.INVDOCDETAILSID=D.INVDOCDETAILSID
+JOIN COM_DocTextData TXT WITH(NOLOCK) ON TXT.INVDOCDETAILSID=D.INVDOCDETAILSID
+WHERE D.CostCenterID=40054 AND D.StatusID=369 and (D.VoucherType=11 or D.VoucherType=12)
+--AND DCC.dcCCNID51=443
+AND (D.DueDate=''+convert(nvarchar,@From)+'' or D.DueDate=''+convert(nvarchar,@To)+'')
+''+@strCCWhere+''
+group by D.DueDate,D.VoucherType
+order by D.DueDate
+
+declare @Tbl as Table(EmpID INT primary key)
+
+insert into @Tbl
+select EmpID
+from
+(
+SELECT E.NodeID EmpID,E.Code,CONVERT(DATETIME,D.DueDate) as PayrollMonth,D.VoucherType,case when D.DueDate=''+convert(nvarchar,@To)+'' then 1 else -1 end IsCurrentMonth
+,CONVERT(FLOAT,TXT.dcAlpha3) NetSalary
+,isnull(CONVERT(FLOAT,TXT.dcAlpha25),0) GrossSalary
+,isnull(CONVERT(FLOAT,TXT.dcAlpha26),0)-isnull(CONVERT(FLOAT,TXT.dcAlpha29),0) as Arrears
+,isnull(CONVERT(FLOAT,TXT.dcAlpha29),0) ArrearDudctions--,TXT.*
+FROM INV_DocDetails D WITH(NOLOCK)   
+JOIN COM_DocCCData DCC WITH(NOLOCK) ON DCC.INVDOCDETAILSID=D.INVDOCDETAILSID
+JOIN PAY_DocNumData NUM ON NUM.INVDOCDETAILSID=D.INVDOCDETAILSID
+JOIN COM_DocTextData TXT WITH(NOLOCK) ON TXT.INVDOCDETAILSID=D.INVDOCDETAILSID
+JOIN COM_CC50051 E with(nolock) on E.NodeID=DCC.dcCCNID51
+WHERE D.CostCenterID=40054 AND D.StatusID=369 and (D.VoucherType=11 or D.VoucherType=12)
+--AND DCC.dcCCNID51=443
+AND (D.DueDate=''+convert(nvarchar,@From)+'' or D.DueDate=''+convert(nvarchar,@To)+'')
+''+@strCCWhere+''
+--group by D.DueDate,D.VoucherType,DCC.dcCCNID51
+) AS T
+group by EmpID
+having (sum(NetSalary*IsCurrentMonth)!=0 or sum(Arrears*IsCurrentMonth)!=0 or sum(GrossSalary*IsCurrentMonth)!=0)
+
+SELECT E.NodeID EmpID,E.Code,CONVERT(DATETIME,D.DueDate) as PayrollMonth,D.VoucherType,case when D.DueDate=''+convert(nvarchar,@To)+'' then 1 else -1 end IsCurrentMonth
+,CONVERT(FLOAT,TXT.dcAlpha3) NetSalary
+,isnull(CONVERT(FLOAT,TXT.dcAlpha25),0) GrossSalary
+,isnull(CONVERT(FLOAT,TXT.dcAlpha26),0)-isnull(CONVERT(FLOAT,TXT.dcAlpha29),0) as Arrears
+,isnull(CONVERT(FLOAT,TXT.dcAlpha29),0) ArrearDudctions
+,NUM.*,TXT.*
+FROM INV_DocDetails D WITH(NOLOCK)   
+JOIN COM_DocCCData DCC WITH(NOLOCK) ON DCC.INVDOCDETAILSID=D.INVDOCDETAILSID
+JOIN PAY_DocNumData NUM ON NUM.INVDOCDETAILSID=D.INVDOCDETAILSID
+JOIN COM_DocTextData TXT WITH(NOLOCK) ON TXT.INVDOCDETAILSID=D.INVDOCDETAILSID
+JOIN COM_CC50051 E with(nolock) on E.NodeID=DCC.dcCCNID51
+JOIN @Tbl T on E.NodeID=T.EmpID
+WHERE D.CostCenterID=40054 AND D.StatusID=369 and (D.VoucherType=11 or D.VoucherType=12)
+--AND DCC.dcCCNID51=443
+AND (D.DueDate=''+convert(nvarchar,@From)+'' or D.DueDate=''+convert(nvarchar,@To)+'')
+
+
+select EmpSeqNo,convert(datetime,ArrearsCalcMonths) ArrearsCalcMonths from PAY_EmpMonthlyArrears with(nolock) where PayrollMonth=''+convert(nvarchar,@To)+''
+''
+	--EXEC (@SQL)  
+
+
+	SET @SQL=''
+SELECT CONVERT(DATETIME,D.DueDate) as PayrollMonth,D.VoucherType
+,isnull(sum(CONVERT(FLOAT,TXT.dcAlpha25)),0) GrossSalary
+,sum(CONVERT(FLOAT,TXT.dcAlpha3)) NetSalary
+FROM INV_DocDetails D WITH(NOLOCK)   
+JOIN COM_DocCCData DCC WITH(NOLOCK) ON DCC.INVDOCDETAILSID=D.INVDOCDETAILSID
+JOIN PAY_DocNumData NUM ON NUM.INVDOCDETAILSID=D.INVDOCDETAILSID
+JOIN COM_DocTextData TXT WITH(NOLOCK) ON TXT.INVDOCDETAILSID=D.INVDOCDETAILSID
+WHERE D.CostCenterID=40054 AND D.StatusID=369 and D.VoucherType=11
+AND (D.DueDate=''+convert(nvarchar,@From)+'' or D.DueDate=''+convert(nvarchar,@To)+'')
+''+@strCCWhere+''
+group by D.DueDate,D.VoucherType
+order by D.DueDate
+
+select EmpID,Code,VoucherType
+,sum(NetSalary*IsCurrentMonth) NetSalary
+,sum(GrossSalary*IsCurrentMonth) GrossSalary
+,sum(Arrears*IsCurrentMonth) Arrears
+,sum(ArrearDudctions*IsCurrentMonth) ArrearDudctions
+,sum(Adjustments*IsCurrentMonth) Adjustments
+,sum(IsCurrentMonth) IsCurrentMonth''+@SelectAlias+''
+from
+(
+SELECT E.NodeID EmpID,E.Code,CONVERT(DATETIME,D.DueDate) as PayrollMonth,D.VoucherType,case when D.DueDate=''+convert(nvarchar,@To)+'' then 1 else -1 end IsCurrentMonth
+,CONVERT(FLOAT,TXT.dcAlpha3) NetSalary
+,isnull(CONVERT(FLOAT,TXT.dcAlpha25),0) GrossSalary
+,isnull(CONVERT(FLOAT,TXT.dcAlpha26),0)-isnull(CONVERT(FLOAT,TXT.dcAlpha29),0) as Arrears
+,isnull(CONVERT(FLOAT,TXT.dcAlpha27),0)-isnull(CONVERT(FLOAT,TXT.dcAlpha30),0) as Adjustments
+,isnull(CONVERT(FLOAT,TXT.dcAlpha29),0) ArrearDudctions''+@Select+''
+FROM INV_DocDetails D WITH(NOLOCK)   
+JOIN COM_DocCCData DCC WITH(NOLOCK) ON DCC.INVDOCDETAILSID=D.INVDOCDETAILSID
+JOIN PAY_DocNumData NUM ON NUM.INVDOCDETAILSID=D.INVDOCDETAILSID
+JOIN COM_DocTextData TXT WITH(NOLOCK) ON TXT.INVDOCDETAILSID=D.INVDOCDETAILSID
+JOIN COM_CC50051 E with(nolock) on E.NodeID=DCC.dcCCNID51
+WHERE D.CostCenterID=40054 AND D.StatusID=369 and (D.VoucherType=11 or D.VoucherType=12)
+--AND DCC.dcCCNID51=443
+AND (D.DueDate=''+convert(nvarchar,@From)+'' or D.DueDate=''+convert(nvarchar,@To)+'')
+''+@strCCWhere+''
+--group by D.DueDate,D.VoucherType,DCC.dcCCNID51
+) AS T
+group by EmpID,Code,VoucherType
+having (sum(NetSalary*IsCurrentMonth)!=0 or sum(Arrears*IsCurrentMonth)!=0 or sum(GrossSalary*IsCurrentMonth)!=0 or sum(Adjustments*IsCurrentMonth)!=0)
+order by Code
+
+select EmpSeqNo,convert(datetime,ArrearsCalcMonths) ArrearsCalcMonths from PAY_EmpMonthlyArrears with(nolock) where PayrollMonth=''+convert(nvarchar,@To)+''
+
+select EmpSeqNo,convert(datetime,AdjMonth) AdjMonth, Days from PAY_EmpMonthlyAdjustments with(nolock) where PayrollMonth=''+convert(nvarchar,@To)+''
+
+select NodeID from COM_CC50051 with(nolock) where DOResign>=''+convert(nvarchar,@From)+'' and DOResign<=''+convert(nvarchar,convert(float,dateadd(month,1,@ToDate)))+''
+
+''
+print (@SQL) 
+	EXEC (@SQL)  
+	
+END
+ELSE IF (@ReportID=289)
+BEGIN
+	SET @SQL=''
+select 1 Type,count(*) Value from COM_CC50051 E with(nolock)''+@strCCJoin+''
+where E.StatusID=250 and E.IsGroup=0 and E.DOJ<''+convert(nvarchar,@From)+'' and (E.DORelieve is null or E.DORelieve>''+convert(nvarchar,@From)+'')
+''+@strCCWhere+''
+union all
+select 2 Type,count(*) Value from COM_CC50051 E with(nolock)''+@strCCJoin+''
+where E.StatusID=250 and E.IsGroup=0 and (E.DOJ between ''+convert(nvarchar,@From)+'' and ''+convert(nvarchar,@To)+'')
+''+@strCCWhere+''
+union all
+select 3 Type,count(*) Value from COM_CC50051 E with(nolock)''+@strCCJoin+''
+where E.StatusID=250 and E.IsGroup=0 and (E.DORelieve between ''+convert(nvarchar,@From)+'' and ''+convert(nvarchar,@To)+'')
+''+@strCCWhere
+/*
+SELECT E.Code ECode,E.Name EName,CONVERT(DATETIME,E.DOJ) DOJ,CONVERT(DATETIME,E.DORelieve) DOR,T2.Name Department,T5.Name Designation,E.Name''+@Select+''
+FROM COM_CC50051 E with(nolock),COM_CCCCDATA ECCMAP with(nolock),COM_Department T2 with(nolock),COM_CC50069 T5 with(nolock)
+''+@strCCJoin+''
+WHERE E.IsGroup=0 and E.StatusID=250 and E.NodeID=ECCMAP.NodeID AND ECCMAP.CostCenterID=50051 AND ECCMAP.CCNID4=T2.NodeID AND ECCMAP.CCNID69=T5.NodeID
+and (E.DOJ between ''+convert(nvarchar,@From)+'' and ''+convert(nvarchar,@To)+'' or E.DORelieve between ''+convert(nvarchar,@From)+'' and ''+convert(nvarchar,@To)+'')
+''+@strCCWhere
+*/
+--print (@SQL) 
+	EXEC (@SQL)  
+	
+END
+ELSE IF (@ReportID=300)
+BEGIN
+	SET @SQL=''SELECT DISTINCT a.VoucherNo,a.CostCenterID,a.DocID,
+DCC.dcCCNID51 as EmpSeqNo,c51.Code as EmpCode,c51.Name as EmpName,
+CONVERT(DATETIME,d.dcAlpha2) as FromDate,CONVERT(DATETIME,d.dcAlpha3) as ToDate,CONVERT(FLOAT,d.dcAlpha4) as NoOfDays
+FROM INV_DocDetails a WITH(NOLOCK) 
+JOIN COM_DocCCData DCC WITH(NOLOCK) ON DCC.InvDocDetailsID=a.InvDocDetailsID
+JOIN COM_DocTextData d WITH(NOLOCK) ON d.InvDocDetailsID=a.InvDocDetailsID
+JOIN COM_CC50051 c51 WITH(NOLOCK) ON c51.NodeID=DCC.dcCCNID51
+WHERE a.CostCenterID=40072 and a.StatusID=369
+AND ISNULL(d.dcAlpha16,'''''''')=''''NO'''' AND ISNULL(d.dcAlpha17,'''''''')=''''NO''''
+and (convert(float,CONVERT(DATETIME,d.dcAlpha2)) between ''+convert(nvarchar,@From)+'' and ''+convert(nvarchar,@To)+''
+or convert(float,CONVERT(DATETIME,d.dcAlpha3)) between ''+convert(nvarchar,@From)+'' and ''+convert(nvarchar,@To)+''
+or ''+convert(nvarchar,@From)+'' between convert(float,CONVERT(DATETIME,d.dcAlpha2)) and convert(float,CONVERT(DATETIME,d.dcAlpha3)))
+AND ISDATE(d.dcAlpha2)=1 AND ISDATE(d.dcAlpha3)=1''+@strCCWhere+''
+ORDER BY c51.Code,CONVERT(DATETIME,d.dcAlpha2)''
+--print (@SQL) 
+	EXEC (@SQL)  
+	
+END
+ELSE IF(@ReportID=311)
+BEGIN
+DECLARE @TMPDATE DATETIME,@CNT INT,@I INT,@DateVal DATETIME,@SQ NVARCHAR(MAX),@DIM INT
+
+CREATE TABLE #TEMP (ID INT IDENTITY(1,1),DimNode INT,MonthDim NVARCHAR(MAX),OpeningCount INT,NewJoin INT,NNetSalary FLOAT,NBasicMonthly FLOAT,NAnnualCTC FLOAT,Relived INT,RNetSalary FLOAT,RBasicMonthly FLOAT,RAnnualCTC FLOAT,CurrentCount INT)
+
+if(@OptionsXML=1)
+BEGIN
+
+----START::MONTH WISE
+
+SET @tmpDate = @FromDate
+
+WHILE (@tmpDate <= @ToDate)
+BEGIN
+	INSERT INTO #TEMP
+	SELECT 0,@tmpDate,0,0,0,0,0,0,0,0,0,0
+
+	SET @tmpDate = DATEADD(MONTH, 1, @tmpDate)
+END
+
+SELECT @CNT=COUNT(*) FROM #TEMP WITH(NOLOCK)
+SET @I=1
+
+WHILE(@I<=@CNT)
+BEGIN
+
+SELECT @DateVal=CONVERT(DATETIME,MONTHDIM) FROM #TEMP WITH(NOLOCK) WHERE ID=@I
+
+UPDATE H SET H.NEWJOIN=ISNULL(G.NewJoin,0),H.NNetSalary=G.NNetSalary,H.NBasicMonthly=G.NBasicMonthly,H.NAnnualCTC=G.NAnnualCTC,H.Relived=G.Relived,H.RNetSalary=G.RNetSalary,H.RBasicMonthly=G.RBasicMonthly,H.RAnnualCTC=G.RAnnualCTC
+ FROM (
+SELECT M [Months],SUM(T.NEWJOIN) NewJoin,SUM(NNetSalary) NNetSalary,SUM(NBasicMonthly) NBasicMonthly,SUM(NAnnualCTC) NAnnualCTC
+,SUM(RELIVED) Relived,SUM(RNetSalary) RNetSalary,SUM(RBasicMonthly) RBasicMonthly,SUM(RAnnualCTC) RAnnualCTC
+FROM (
+
+SELECT SUBSTRING(CONVERT(VARCHAR(11),CONVERT(DATETIME,A1.DOJ), 113), 4, 8) M,COUNT(A1.NODEID) AS NEWJOIN,SUM(P.NetSalary) NNetSalary,SUM(P.BasicMonthly) NBasicMonthly,SUM(P.AnnualCTC) NAnnualCTC,0 RELIVED,0 RNetSalary,0 RBasicMonthly,0 RAnnualCTC
+FROM COM_CC50051 A1 WITH(NOLOCK)
+LEFT JOIN COM_CCCCDATA CC WITH(NOLOCK) ON CC.NODEID=A1.NODEID AND CC.COSTCENTERID=50051
+LEFT JOIN PAY_EMPPAY P WITH(NOLOCK) ON P.EMPLOYEEID=A1.NODEID AND P.EffectFrom=(Select MAX(EffectFrom) From PAY_EmpPay p1 where p1.EmployeeID=A1.NodeID)
+WHERE A1.ISGROUP=0 AND A1.NODEID<>1 AND A1.DOJ IS NOT NULL
+AND A1.DOJ BETWEEN CONVERT(FLOAT,CONVERT(DATETIME,@DateVal)) AND CONVERT(FLOAT,CONVERT(DATETIME,DATEADD(D,-1,DATEADD(M,DATEDIFF(M,0,@DateVal)+1,0)))) 
+GROUP BY A1.DOJ
+
+UNION	
+	
+SELECT SUBSTRING(CONVERT(VARCHAR(11),CONVERT(DATETIME,A1.DORELIEVE), 113), 4, 8),0 NEWJOIN,0,0,0,COUNT(A1.NODEID) AS RELIVED,SUM(P.NetSalary) RNetSalary,SUM(P.BasicMonthly) RBasicMonthly,SUM(P.AnnualCTC) RAnnualCTC
+FROM COM_CC50051 A1 WITH(NOLOCK)
+LEFT JOIN COM_CCCCDATA CC WITH(NOLOCK) ON CC.NODEID=A1.NODEID AND CC.COSTCENTERID=50051
+LEFT JOIN PAY_EMPPAY P WITH(NOLOCK) ON P.EMPLOYEEID=A1.NODEID AND P.EffectFrom=(Select MAX(EffectFrom) From PAY_EmpPay p1 where p1.EmployeeID=A1.NodeID)
+WHERE A1.ISGROUP=0 AND A1.NODEID<>1 AND A1.DORELIEVE IS NOT NULL
+AND A1.DORELIEVE BETWEEN CONVERT(FLOAT,CONVERT(DATETIME,@DateVal)) AND CONVERT(FLOAT,CONVERT(DATETIME,DATEADD(D,-1,DATEADD(M,DATEDIFF(M,0,@DateVal)+1,0)))) 
+GROUP BY A1.DORELIEVE
+) AS T
+GROUP BY M
+) AS G
+JOIN #TEMP H WITH(NOLOCK) ON CONVERT(DATETIME,H.MONTHDIM)=CONVERT(DATETIME,G.Months)
+
+
+UPDATE #TEMP SET OPENINGCOUNT=(SELECT COUNT(NODEID) FROM COM_CC50051 C51 WITH(NOLOCK) WHERE C51.ISGROUP=0 AND C51.NODEID<>1 AND CONVERT(DATETIME,DOJ)<CONVERT(DATETIME,@DateVal)) WHERE CONVERT(DATETIME,MONTHDIM)=@DateVal
+UPDAte #TEMP SET CurrentCount=OPENINGCOUNT+NewJoin WHERE CONVERT(DATETIME,MONTHDIM)=@DateVal
+
+SET @I=@I+1
+END
+
+
+----END:: MONTH WISE
+
+END
+ELSE if(@OptionsXML=2)
+BEGIN
+--START:: DIMENSION WISE
+
+SET @SQ=''''
+
+
+SET @SQ=''
+SELECT CC.CCNID''+ CONVERT(NVARCHAR,CONVERT(INT,@Select)-50000) +'',MAX(a.Name) NAME,0,0,0,0,0,0,0,0,0,0 FROM COM_CC50051 C51 WITH(NOLOCK)
+LEFT JOIN COM_CCCCDATA CC WITH(NOLOCK) ON CC.NodeID=C51.NodeID AND CC.CostCenterID=50051
+JOIN ''+@SelectAlias+'' A WITH(NOLOCK) ON A.NodeID=CC.CCNID''+ CONVERT(NVARCHAR,CONVERT(INT,@Select)-50000) +''
+WHERE C51.ISGROUP=0 AND C51.NODEID<>1
+GROUP BY CC.CCNID''+ CONVERT(NVARCHAR,CONVERT(INT,@Select)-50000)
+
+INSERT INTO #TEMP
+EXEC(@SQ)
+
+SELECT @CNT=COUNT(*) FROM #TEMP WITH(NOLOCK)
+SET @I=1
+
+WHILE(@I<=@CNT)
+BEGIN
+
+SELECT @DIM=DimNode FROM #TEMP WITH(NOLOCK) WHERE ID=@I
+
+SET @SQ=''''
+
+SET @SQ=''
+UPDATE H SET H.NEWJOIN=ISNULL(G.NewJoin,0),H.NNetSalary=G.NNetSalary,H.NBasicMonthly=G.NBasicMonthly,H.NAnnualCTC=G.NAnnualCTC,H.Relived=G.Relived,H.RNetSalary=G.RNetSalary,H.RBasicMonthly=G.RBasicMonthly,H.RAnnualCTC=G.RAnnualCTC
+ FROM (
+SELECT M [Months],SUM(T.NEWJOIN) NewJoin,SUM(NNetSalary) NNetSalary,SUM(NBasicMonthly) NBasicMonthly,SUM(NAnnualCTC) NAnnualCTC
+,SUM(RELIVED) Relived,SUM(RNetSalary) RNetSalary,SUM(RBasicMonthly) RBasicMonthly,SUM(RAnnualCTC) RAnnualCTC
+FROM (
+
+SELECT CC.CCNID''+ CONVERT(NVARCHAR,CONVERT(INT,@Select)-50000) +'' M,COUNT(A1.NODEID) AS NEWJOIN,SUM(P.NetSalary) NNetSalary,SUM(P.BasicMonthly) NBasicMonthly,SUM(P.AnnualCTC) NAnnualCTC,0 RELIVED,0 RNetSalary,0 RBasicMonthly,0 RAnnualCTC
+FROM COM_CC50051 A1 WITH(NOLOCK)
+LEFT JOIN COM_CCCCDATA CC WITH(NOLOCK) ON CC.NODEID=A1.NODEID AND CC.COSTCENTERID=50051
+LEFT JOIN PAY_EMPPAY P WITH(NOLOCK) ON P.EMPLOYEEID=A1.NODEID AND P.EffectFrom=(Select MAX(EffectFrom) From PAY_EmpPay p1 where p1.EmployeeID=A1.NodeID)
+WHERE A1.ISGROUP=0 AND A1.NODEID<>1 AND A1.DOJ IS NOT NULL
+AND A1.DOJ BETWEEN CONVERT(FLOAT,CONVERT(DATETIME,@FromDate)) AND CONVERT(FLOAT,CONVERT(DATETIME,@ToDate)) 
+GROUP BY CC.CCNID''+ CONVERT(NVARCHAR,CONVERT(INT,@Select)-50000) +''
+
+UNION	
+	
+SELECT CC.CCNID''+ CONVERT(NVARCHAR,CONVERT(INT,@Select)-50000) +'' M,0 NEWJOIN,0,0,0,COUNT(A1.NODEID) AS RELIVED,SUM(P.NetSalary) RNetSalary,SUM(P.BasicMonthly) RBasicMonthly,SUM(P.AnnualCTC) RAnnualCTC
+FROM COM_CC50051 A1 WITH(NOLOCK)
+LEFT JOIN COM_CCCCDATA CC WITH(NOLOCK) ON CC.NODEID=A1.NODEID AND CC.COSTCENTERID=50051
+LEFT JOIN PAY_EMPPAY P WITH(NOLOCK) ON P.EMPLOYEEID=A1.NODEID AND P.EffectFrom=(Select MAX(EffectFrom) From PAY_EmpPay p1 where p1.EmployeeID=A1.NodeID)
+WHERE A1.ISGROUP=0 AND A1.NODEID<>1 AND A1.DORELIEVE IS NOT NULL
+AND A1.DORELIEVE BETWEEN CONVERT(FLOAT,CONVERT(DATETIME,@FromDate)) AND CONVERT(FLOAT,CONVERT(DATETIME,@ToDate)) 
+GROUP BY CC.CCNID''+ CONVERT(NVARCHAR,CONVERT(INT,@Select)-50000) +''
+) AS T
+GROUP BY M
+) AS G
+JOIN #TEMP H WITH(NOLOCK) ON H.DimNode=G.Months
+
+
+UPDATE #TEMP SET OPENINGCOUNT=(SELECT COUNT(C51.NODEID) FROM COM_CC50051 C51 WITH(NOLOCK)
+LEFT JOIN COM_CCCCDATA CC WITH(NOLOCK) ON CC.NodeID=C51.NodeID AND CC.CostCenterID=50051 WHERE C51.ISGROUP=0 AND C51.NODEID<>1 AND CONVERT(DATETIME,DOJ)<CONVERT(DATETIME,@FromDate) AND CC.CCNID''+ CONVERT(NVARCHAR,CONVERT(INT,@Select)-50000) +''=@DIM) WHERE DimNode=@DIM
+UPDAte #TEMP SET CurrentCount=OPENINGCOUNT+NewJoin WHERE DimNode=@DIM''
+
+
+EXEC sp_executesql @SQ,N''@FROMDATE DATETIME,@TODate DATETIME,@DIM INT'',@FROMDATE,@TODate,@DIM
+
+SET @I=@I+1
+END
+
+
+--END::DIMENSION WISE
+END
+
+SELECT MonthDim,OpeningCount,NewJoin,NNetSalary,NBasicMonthly,NAnnualCTC,Relived,RNetSalary,RBasicMonthly,RAnnualCTC,CurrentCount FROM #TEMP WITH(NOLOCK)
+
+DROP TABLE #TEMP
+
+END
+ELSE IF (@ReportID=319)
+BEGIN 
+
+	SET @SQL=''SELECT Code,Name,MonthNo,Payroll,Voucherno''+@SelectAlias+'' FROM (
+	SELECT C51.Code Code,C51.NAME Name,CONVERT(DATETIME,''+convert(nvarchar,@To)+'') MonthNo,ISNULL(mp.process,''''UnProcessed'''') Payroll,ISNULL(MP.Voucherno,'''''''') Voucherno''+@Select+'' FROM COM_CC50051 C51
+JOIN COM_CCCCDATA CC WITH(NOLOCK) ON CC.NodeID=C51.NodeID AND CC.CostCenterID=50051''+@strCCJoin+''
+LEFT JOIN (Select ''''Processed  '''' process,b1.dcCCNID51 as EmpSeqNo,a1.DueDate as PayrollMonth,a1.VoucherNo Voucherno
+		from INV_DocDetails a1 WITH(NOLOCK) 
+		JOIN COM_DocCCData b1 WITH(NOLOCK) ON b1.InvDocDetailsID=a1.InvDocDetailsID
+		JOIN PAY_DocNumData c1 WITH(NOLOCK) ON c1.InvDocDetailsID=a1.InvDocDetailsID
+		JOIN COM_DocTextData d1 WITH(NOLOCK) ON d1.InvDocDetailsID=a1.InvDocDetailsID
+		WHERE a1.CostCenterID=40054 and a1.StatusID=369 AND a1.VoucherType=11 AND CONVERT(DATETIME,a1.DueDate)=''+convert(nvarchar,@To)+''
+	 ) mp on mp.EmpSeqNo=C51.NODEID 
+
+WHERE C51.ISGROUP=0 AND C51.NODEID>1 AND C51.StatusID NOT IN(251,300) AND CONVERT(DATETIME,C51.DOJ)<=DATEADD(D,-1,DATEADD(MM,DATEDIFF(M,0,CONVERT(DATETIME,''''''+convert(nvarchar,@ToDate)+''''''))+1,0)) and (C51.DORelieve is null or C51.DORelieve>''+convert(nvarchar,@To)+'') ''+@strCCWhere+'') AS T WHERE 1=1''
+
+IF(ISNULL(@OptionsXML,''All'')=''Processed'')
+	SET @SQL=@SQL + '' AND T.Payroll=''''Processed''''''
+ELSE IF(ISNULL(@OptionsXML,''All'')=''UnProcessed'')
+	SET @SQL=@SQL + '' AND T.Payroll=''''UnProcessed''''''
+ELSE
+	SET @SQL=@SQL + '' AND T.Payroll IN(''''UnProcessed'''',''''Processed'''')''
+
+--print (@SQL) 
+	EXEC (@SQL)  
+	
+END
+ELSE IF (@ReportID=328)
+BEGIN 
+
+IF(ISNULL(@OptionsXML,0)=0)
+BEGIN
+	SET @SQL=''SELECT C51.Code,C51.Name,CONVERT(DATETIME,AP.EffectFrom) EffectFrom,CONVERT(DATETIME,AP.ApplyFrom) ApplyFrom,AP.NetSalary,AP.AnnualCTC,AP.BasicMonthly''+@Select+'' FROM COM_CC50051 C51 WITH(NOLOCK)
+JOIN COM_CCCCData CC WITH(NOLOCK) ON CC.NodeID=C51.NodeID AND CC.CostCenterID=50051
+JOIN PAY_EMPPAY AP WITH(NOLOCK) ON AP.EmployeeID=C51.NodeID''+@strCCJoin+''
+WHERE C51.ISGROUP=0 AND C51.NODEID>1 AND AP.EFFECTFROM between ''+convert(nvarchar,@From)+'' and ''+convert(nvarchar,@To) +'' ''+@strCCWhere+''
+ORDER BY C51.NodeID''
+END
+ELSE
+BEGIN
+	SET @SQL=''SELECT C51.Code,C51.Name,CONVERT(DATETIME,AP.EffectFrom) EffectFrom,CONVERT(DATETIME,AP.ApplyFrom) ApplyFrom,AP.NetSalary,AP.AnnualCTC,AP.BasicMonthly''+@Select+'' FROM COM_CC50051 C51 WITH(NOLOCK)
+JOIN COM_CCCCData CC WITH(NOLOCK) ON CC.NodeID=C51.NodeID AND CC.CostCenterID=50051
+JOIN PAY_EMPPAY AP WITH(NOLOCK) ON AP.EmployeeID=C51.NodeID''+@strCCJoin+''
+WHERE C51.ISGROUP=0 AND C51.NODEID>1 ''+@strCCWhere+''
+ORDER BY C51.NodeID''
+END
+
+--print (@SQL) 
+	EXEC (@SQL)  
+	
+END
+
+ELSE IF (@ReportID=353)
+BEGIN 
+
+
+	SET @SQL=''SELECT MAX(I.VoucherNo) DOCNO,MAX(Convert(DATETIME,I.DOCDATE)) DOCDATE,MAX(C51.NodeID) CODE_ID,MAX(C51.NodeID) NAME_ID,MAX(C51.CODE) CODE,MAX(C51.NAME) NAME,MAX(CONVERT(DATETIME,C51.DOJ)) DOJ,MAX(CONVERT(DATETIME,C51.DORELIEVE)) DOR,
+MAX(CASE WHEN (T.DCALPHA1=1 AND T.DCALPHA2=1) THEN dcCalcNum3 ELSE 0 END) NetAmount,
+MAX(CASE WHEN (T.DCALPHA1=1 AND T.DCALPHA2=1) THEN CommonNarration ELSE '''''''' END) Remarks,
+MAX(CASE WHEN (T.DCALPHA1=1 AND T.DCALPHA2=1) THEN T.DCALPHA11 ELSE '''''''' END) ResignType,
+MAX(CASE WHEN (T.DCALPHA1=1 AND T.DCALPHA2=1) THEN dcCalcNum3 ELSE 0 END) TotGratuityAmount,
+MAX(CASE WHEN (T.DCALPHA1=1 AND T.DCALPHA2=1) THEN dcCalcNum2 ELSE 0 END) TotAvailedGratuityAmount,
+SUM(CASE WHEN (T.DCALPHA1=1 ) THEN CONVERT(FLOAT,ISNULL(T.DCALPHA28,0)) ELSE 0 END) TotGratuityDays,
+MAX(CASE WHEN (T.DCALPHA1=1 AND T.DCALPHA2=1) THEN T.DCALPHA8 ELSE '''''''' END) GratuityRemarks,
+MAX(CASE WHEN (T.DCALPHA1=1 AND T.DCALPHA2=1) THEN T.DCALPHA14 ELSE '''''''' END) ServiceDaysYMD,
+MAX(CASE WHEN (T.DCALPHA1=1 AND T.DCALPHA2=1) THEN CONVERT(FLOAT,ISNULL(T.DCALPHA4,0)) ELSE 0 END) GrServiceDays,
+MAX(CASE WHEN (T.DCALPHA1=1 AND T.DCALPHA2=1) THEN CONVERT(FLOAT,ISNULL(T.DCALPHA5,0)) ELSE 0 END) GrLOPDays,
+MAX(CASE WHEN (T.DCALPHA1=1 AND T.DCALPHA2=1) THEN CONVERT(FLOAT,ISNULL(T.DCALPHA6,0)) ELSE 0 END) GrBalDays,
+MAX(CASE WHEN (T.DCALPHA1=1 AND T.DCALPHA2=1) THEN CONVERT(FLOAT,ISNULL(T.DCALPHA7,0)) ELSE 0 END) GrTotGratuityDays,
+SUM(CASE WHEN (T.DCALPHA1=2) THEN CONVERT(FLOAT,ISNULL(T.DCALPHA15,0)) ELSE 0 END) TotLeaveEncashDays,
+MAX(CASE WHEN (T.DCALPHA1=2) THEN dcCalcNum1 ELSE 0 END) TotLeaveEncashAmount,
+MAX(CASE WHEN (T.DCALPHA1=2) THEN dcCalcNum2 ELSE 0 END) CumLeaveSalBalAmt,
+MAX(CASE WHEN (T.DCALPHA1=2 AND T.DCALPHA2=1) THEN T.DCALPHA8 ELSE '''''''' END) LeaveEncashRemarks,
+MAX(CASE WHEN (T.DCALPHA1=3) THEN dcCalcNum1 ELSE 0 END) TotUnProcessedSalAmount,
+MAX(CASE WHEN (T.DCALPHA1=3 AND T.DCALPHA2=1) THEN T.DCALPHA8 ELSE '''''''' END) UnProcessedSalRemarks,
+MAX(CASE WHEN (T.DCALPHA1=4) THEN dcCalcNum1 ELSE 0 END) TotNoticePayAmount,
+MAX(CASE WHEN (T.DCALPHA1=4 AND T.DCALPHA2=1) THEN T.DCALPHA8 ELSE '''''''' END) NoticePayRemarks,
+MAX(CASE WHEN (T.DCALPHA1=5) THEN dcCalcNum1 ELSE 0 END) TotOthAddAmount,
+MAX(CASE WHEN (T.DCALPHA1=5 AND T.DCALPHA2=1) THEN T.DCALPHA8 ELSE '''''''' END) OthAddRemarks,
+MAX(CASE WHEN (T.DCALPHA1=6) THEN dcCalcNum1 ELSE 0 END) TotOthDedAmount,
+MAX(CASE WHEN (T.DCALPHA1=6 AND T.DCALPHA2=1) THEN T.DCALPHA8 ELSE '''''''' END) OthDedRemarks,
+MAX(CASE WHEN (T.DCALPHA1=7) THEN dcCalcNum1 ELSE 0 END) TotLoanBalAmt,
+MAX(CASE WHEN (T.DCALPHA1=7 AND T.DCALPHA2=1) THEN T.DCALPHA8 ELSE '''''''' END) LoanRemarks ''+@Select+''
+FROM INV_DOCDETAILS I WITH(NOLOCK)
+JOIN COM_DOCCCDATA C  WITH(NOLOCK) ON C.INVDOCDETAILSID=I.INVDOCDETAILSID
+JOIN COM_DOCTEXTDATA T WITH(NOLOCK) ON T.INVDOCDETAILSID=I.INVDOCDETAILSID
+JOIN COM_DOCNUMDATA N WITH(NOLOCK) ON N.INVDOCDETAILSID=I.INVDOCDETAILSID
+JOIN COM_CC50051 C51 WITH(NOLOCK) ON C51.NodeID=C.dcCCNID51
+JOIN COM_CCCCDATA CC WITH(NOLOCK) ON CC.NodeID=C51.NodeID AND CC.CostCenterID=50051 ''+@strCCJoin+''
+WHERE T.tCostCenterID=40095 AND (I.DocDate BETWEEN ''+convert(nvarchar,@From)+'' and ''+convert(nvarchar,@To)+'') ''+@strCCWhere+''
+GROUP BY C51.CODE,I.VoucherNo''
+
+--print substring(@SQL,0,4000)
+--print substring(@SQL,4001,8000)
+--print (@SQL) 
+	EXEC (@SQL)  
+	
+END
+
+
+SET NOCOUNT OFF;      
+RETURN 1    
+END TRY    
+BEGIN CATCH      
+ --Return exception info [Message,Number,ProcedureName,LineNumber]      
+ IF ERROR_NUMBER()=50000    
+ BEGIN    
+  SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(NOLOCK) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID    
+ END    
+ ELSE    
+ BEGIN    
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() AS ErrorNumber, ERROR_PROCEDURE()AS ProcedureName, ERROR_LINE() AS ErrorLine    
+  FROM COM_ErrorMessages WITH(NOLOCK) WHERE ErrorNumber=-999 AND LanguageID=@LangID    
+ END    
+SET NOCOUNT OFF      
+RETURN -999       
+END CATCH
+
+' 
+END
+GO

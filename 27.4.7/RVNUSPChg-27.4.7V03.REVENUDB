@@ -1,0 +1,172 @@
+--Ibrahim
+/****** Object:  StoredProcedure [dbo].[spADM_SetBatchMapping]    Script Date: 11-02-2026 13:02:48 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spADM_SetBatchMapping]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spADM_SetBatchMapping]
+GO
+/****** Object:  StoredProcedure [dbo].[spADM_SetBatchMapping]    Script Date: 11-02-2026 13:02:48 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spADM_SetBatchMapping]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'-- =============================================    
+ -- spADM_SetDocumentTempProduct 1,1,1  
+-- =============================================    
+CREATE procedure [dbo].[spADM_SetBatchMapping]  
+  @DocumentTypeID INT, 
+  @MapXml NVARCHAR(MAX),
+  @CCID INT,
+  @isDoc BIT,
+  @AutoCode NVARCHAR(50),
+  @IsSeq NVARCHAR(50),
+  @Inactiveonsuspend NVARCHAR(50),
+  @OnPosted NVARCHAR(50),
+  @BasedOnValue INT=0,
+  @CompanyGUID NVARCHAR(50),
+  @UserName NVARCHAR(200),
+  @UserID INT,  
+  @LangID INT=1    
+AS  
+BEGIN TRANSACTION    
+BEGIN TRY    
+SET NOCOUNT ON;  
+   
+	Declare @XML XML,@CostCenterID INT,@dt float,@val nvarchar(max),@i int,@cnt int,@BaseColumn NVARCHAR(50),@LinkColumn NVARCHAR(50)
+	--SP Required Parameters Check  
+	IF @DocumentTypeID=0  
+	BEGIN  
+	RAISERROR(''-100'',16,1)  
+	END  
+
+	if(@isDoc=0)
+		set @CostCenterID=@DocumentTypeID
+	else if(@DocumentTypeID>0)
+	begin
+		SELECT @CostCenterID=COSTCENTERID FROM ADM_DocumentTypes             
+		WITH(NOLOCK) WHERE  DocumentTypeID=@DocumentTypeID
+	end  
+	  
+	set @XML=@MapXml
+	set @dt=convert(float,getdate())
+
+	delete from COM_DocumentBatchLinkDetails
+	where [CostCenterID]=@CostCenterID and LinkDimCCID=@CCID AND BasedOnValue=@BasedOnValue
+	
+	DECLARE @Tab TABLE(ID INT IDENTITY(1,1),BaseColumn NVARCHAR(50),LinkColumn NVARCHAR(50))
+	INSERT INTO @Tab
+	select CCD.SysColumnName BaseColumn,CCB.SysColumnName LinkColumn
+	from @XML.nodes(''/XML/Row'') as Data(X)
+	JOIN ADM_CostCenterDef CCD WITH(NOLOCK) ON CCD.CostCenterColID=X.value(''@CostCenterColID'',''INT'')
+	JOIN ADM_CostCenterDef CCB WITH(NOLOCK) ON CCB.CostCenterColID=X.value(''@BatchColID'',''INT'')
+	select @i=1,@cnt=count(*) from @Tab
+	if(@cnt > 0)
+	begin
+		while(@i<=@cnt)
+		begin
+			select @BaseColumn=BaseColumn,@LinkColumn=LinkColumn from @Tab where ID=@i
+			if(@BaseColumn=''IsGroup'' AND @LinkColumn LIKE ''%CCNID%'')
+				RAISERROR(''Invalid mapping for Group'',16,1)  
+			set @i=@i+1
+		end
+	end
+
+	insert into COM_DocumentBatchLinkDetails([CostCenterID],[CostCenterColIDBase],[BatchColID],
+	LinkDimCCID,[CompanyGUID],[GUID],[CreatedBy],[CreatedDate],BasedOnValue)
+	select @CostCenterID,X.value(''@CostCenterColID'',''INT''),X.value(''@BatchColID'',''INT''),@CCID,@CompanyGUID
+	,newid(),@UserName,@dt,@BasedOnValue
+	from @XML.nodes(''/XML/Row'') as Data(X)
+	
+	if(@isDoc<>0)
+	BEGIN
+		UPDATE COM_DocumentPreferences               
+		SET [PrefValue]=@AutoCode,              
+		[ModifiedBy]=@UserName,              
+		[ModifiedDate]=@dt            
+		WHERE [PrefName]=''AutoCode'' AND CostCenterID=@CostCenterID 
+		
+		UPDATE COM_DocumentPreferences               
+		SET [PrefValue]=@IsSeq,              
+		[ModifiedBy]=@UserName,              
+		[ModifiedDate]=@dt            
+		WHERE [PrefName]=''GenerateSeq'' AND CostCenterID=@CostCenterID 
+		
+		UPDATE COM_DocumentPreferences               
+		SET [PrefValue]=@Inactiveonsuspend,              
+		[ModifiedBy]=@UserName,              
+		[ModifiedDate]=@dt            
+		WHERE [PrefName]=''Inactiveonsuspend'' AND CostCenterID=@CostCenterID 
+	
+		UPDATE COM_DocumentPreferences               
+		SET [PrefValue]=@OnPosted,              
+		[ModifiedBy]=@UserName,              
+		[ModifiedDate]=@dt            
+		WHERE [PrefName]=''OnPosted'' AND CostCenterID=@CostCenterID
+		 
+		declare @PostAsset NVARCHAR(10),@EnableAssetSerialNo NVARCHAR(10),@AssetBasedOn NVARCHAR(10),@UpdateAssetValue NVARCHAR(10)
+		
+		if exists (select X.value(''@EnableAssetSerialNo'',''NVARCHAR(10)'') from @XML.nodes(''/XML/Pref'') as Data(X))
+		begin 
+			select @EnableAssetSerialNo=ISNULL(X.value(''@EnableAssetSerialNo'',''NVARCHAR(10)''),''false'')
+			,@PostAsset=ISNULL(X.value(''@PostAsset'',''NVARCHAR(10)''),''false'')
+			,@UpdateAssetValue=ISNULL(X.value(''@UpdateAssetValue'',''NVARCHAR(10)''),''false'')
+			,@AssetBasedOn=ISNULL(X.value(''@AssetBasedOn'',''NVARCHAR(10)''),'''')
+			from @XML.nodes(''/XML/Pref'') as Data(X)
+			
+			UPDATE COM_DocumentPreferences               
+			SET [PrefValue]=@EnableAssetSerialNo,              
+			[ModifiedBy]=@UserName,              
+			[ModifiedDate]=@dt            
+			WHERE [PrefName]=''EnableAssetSerialNo'' AND CostCenterID=@CostCenterID 
+			
+			UPDATE COM_DocumentPreferences               
+			SET [PrefValue]=@PostAsset,              
+			[ModifiedBy]=@UserName,              
+			[ModifiedDate]=@dt            
+			WHERE [PrefName]=''PostAsset'' AND CostCenterID=@CostCenterID 						
+			
+			UPDATE COM_DocumentPreferences               
+			SET [PrefValue]=@AssetBasedOn,              
+			[ModifiedBy]=@UserName,              
+			[ModifiedDate]=@dt            
+			WHERE [PrefName]=''AssetBasedOn'' AND CostCenterID=@CostCenterID 
+
+			UPDATE COM_DocumentPreferences               
+			SET [PrefValue]=@UpdateAssetValue,              
+			[ModifiedBy]=@UserName,              
+			[ModifiedDate]=@dt            
+			WHERE [PrefName]=''UpdateAssetValue'' AND CostCenterID=@CostCenterID 
+		end
+		UPDATE ADM_DocumentTypes SET GUID=NEWID()where CostCenterID=@CostCenterID 
+	END
+	
+	COMMIT TRANSACTION   
+	SET NOCOUNT OFF;  
+	SELECT * FROM COM_DocumentBatchLinkDetails WITH(nolock) WHERE CostCenterid=@CostCenterID
+	SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock)   
+	WHERE ErrorNumber=100 AND LanguageID=@LangID 
+	RETURN @DocumentTypeID
+END TRY  
+BEGIN CATCH    
+	--Return exception info [Message,Number,ProcedureName,LineNumber]    
+	IF ERROR_MESSAGE() LIKE ''%Invalid%''
+	BEGIN
+		SELECT ERROR_MESSAGE() ErrorMessage,-999 ErrorNumber
+	END
+	ELSE IF ERROR_NUMBER()=50000  
+	BEGIN  
+		SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(NOLOCK) 
+		WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID  
+	END  
+	ELSE  
+	BEGIN  
+		SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine  
+		FROM COM_ErrorMessages WITH(NOLOCK) WHERE ErrorNumber=-999 AND LanguageID=@LangID  
+	END  
+	ROLLBACK TRANSACTION  
+	SET NOCOUNT OFF    
+	RETURN -999     
+END CATCH
+' 
+END
+GO

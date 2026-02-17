@@ -1,0 +1,5 @@
+--CHARY
+
+Update COM_DocumentPreferences SET PrefValue='True',PrefDefalutValue='True' WHERE PrefName='TwoColumnLayout'
+Update COM_CostCenterPreferences SET Value='True',DefaultValue='True' WHERE Name='TwoColumnLayout'
+

@@ -1,0 +1,16 @@
+--waseem
+DECLARE @Rid INT
+SELECT @Rid=MAX(ResourceID)+1 from COM_LanguageResources WITH(NOLOCK)
+IF NOT EXISTS(SELECT PrefName FROM [COM_DOCUMENTPREFERENCES] WITH(NOLOCK) WHERE  PrefName='IgnoreFieldlevelAttachments')
+BEGIN
+	
+	INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid,'IgnoreFieldlevelAttachments',1,'English','Ignore Field level Attachments','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',convert(float,getdate()),NULL,NULL,'')
+
+	INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@RId,'IgnoreFieldlevelAttachments',2,'Arabic','Ignore Field level Attachments-AR','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',convert(float,getdate()),NULL,NULL,'')
+
+	INSERT INTO [COM_DOCUMENTPREFERENCES] ([CostCenterID],[DocumentTypeID],[DocumentType],[ResourceID],[PreferenceTypeID],[PreferenceTypeName],[PrefValueType],[PrefName],[PrefValue],[PrefDefalutValue],[IsPrefValid],[PrefColOrder],[PrefRowOrder],[UnderGroupBox],[CompanyGUID],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate])
+	SELECT 0,0,0,@RID,1,'General','CheckBox','IgnoreFieldlevelAttachments',N'False',N'False',1,1,12,NULL,'guid','guid',NULL,'admin',convert(float,getdate()),'admin',convert(float,getdate())
+end
+ 

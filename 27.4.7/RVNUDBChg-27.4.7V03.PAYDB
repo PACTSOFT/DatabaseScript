@@ -1,0 +1,6 @@
+-- SHASHANK
+
+insert into PAY_BioMetricConfig
+select 'PickShiftBasedOnTimingsXML','<PickShiftBasedOnTimings></PickShiftBasedOnTimings>','DPConfig','1',CONVERT(float,getdate())
+union all
+select 'PickShiftBasedOnTimings','False','DPConfig','1',CONVERT(float,getdate())

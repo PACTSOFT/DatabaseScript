@@ -1,0 +1,24 @@
+--Sajid
+declare @RId BIGINT,@gpID INT
+SELECT @RId=MAX([ResourceID])+1 FROM [Com_LanguageResources] WITH(NOLOCK)
+select @gpID=max(GlobalPrefID)  from ADM_GlobalPreferences WITH(NOLOCK)
+SET @gpID=@gpID+1
+
+IF NOT EXISTS(SELECT * FROM [ADM_GlobalPreferences] WITH(NOLOCK) WHERE Name='DonotAllowMaturityDatebeforeDocumentDatePDC')
+BEGIN
+	INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@RId,'DonotAllowMaturityDatebeforeDocumentDatePDC',1,'English','Do not allow Maturitydate before document date in PDC','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+	INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@RId,'DonotAllowMaturityDatebeforeDocumentDatePDC',2,'Arabic','Do not allow Maturitydate before document date in PDC-AR','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+	SET IDENTITY_INSERT [dbo].[ADM_GlobalPreferences] ON
+	INSERT [dbo].[ADM_GlobalPreferences] ([GlobalPrefID], [ResourceID], [Name], [Value], [DefaultValue], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate],[PreferenceTypeName],[PrefRowOrder],[PrefValueType]) 
+	VALUES (@gpID, @Rid, N'DonotAllowMaturityDatebeforeDocumentDatePDC', N'False', N'False', N'guid', N'desc', N'admin', convert(float,getdate()), N'admin', convert(float,getdate()),'Transactions',52,'CheckBox')
+	SET IDENTITY_INSERT [dbo].[ADM_GlobalPreferences] OFF
+END
+
+IF EXISTS(SELECT * FROM [ADM_GlobalPreferences] WITH(NOLOCK) WHERE Name='DonotAllowMaturityDatebeforeDocumentDate' and isnull(value,'')<>'' and value='true')
+BEGIN
+	Update ADM_GlobalPreferences set Value='True' where Name='DonotAllowMaturityDatebeforeDocumentDatePDC'
+END
