@@ -1,0 +1,45 @@
+--CHARY
+
+if not exists( select RibbonViewID from [ADM_RibbonView] with(nolock) where FeatureID = 511)
+Begin
+	DECLARE @FeatureID INT,@FeatureActionID bigint,@Rid bigint,@RibbonViewID bigint 
+	SET @FeatureID=511
+
+	SELECT @RibbonViewID=MAX(RibbonViewID)+1 FROM [ADM_RibbonView] WITH(NOLOCK)  
+	SELECT @FeatureActionID=MAX(FeatureActionID)+1 FROM [ADM_FeatureAction] WITH(NOLOCK)   
+	SELECT @Rid=MAX([ResourceID])+1 FROM [Com_LanguageResources] WITH(NOLOCK)  
+
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid,'PrintLayouts',1,'English','Print Layouts',NEWID(),NULL,'Admin',convert(float,getdate()),NULL,NULL,'Admin') 
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid,'PrintLayouts',2,'Arabic','Print Layouts-AR',NEWID(),NULL,'Admin',convert(float,getdate()),NULL,NULL,'Admin') 
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid,'PrintLayouts',3,'Italian','Print Layouts-IT',NEWID(),NULL,'Admin',convert(float,getdate()),NULL,NULL,'Admin') 
+
+	INSERT [dbo].[ADM_Features] ([FeatureID], [ParentFeatureID], [Name], [SysName], [ResourceID], [FeatureTypeID], [FeatureTypeName], [IsEnabled], [IsUserDefined], [FeatureTypeResourceID], [Description], [ApplicationID], [StatusID], [CreatedDate], [CreatedBy], [TableName], [AllowCustomization], [PrimaryKey]) VALUES
+	(@FeatureID, 1, N'Print Layouts', NULL, @Rid, 1, N'Print Layouts', 1, 0, NULL, N'Print Layouts', 1, 1, 4, N'Admin', NULL, 1, NULL)
+
+
+	SET IDENTITY_INSERT [ADM_FeatureAction] ON
+	INSERT INTO [ADM_FeatureAction] ([FeatureActionID],[Name],[ResourceID],[FeatureID],[FeatureActionTypeID],[ApplicationID],[GridShortCut],[Description],[Status],[CreatedDate],[CreatedBy])
+	SELECT @FeatureActionID,'Print Layouts',@Rid,@FeatureID,1,1,NULL,NULL,1,4.004000000000000e+003,'ADMIN'
+	SET IDENTITY_INSERT [ADM_FeatureAction] OFF
+
+	INSERT INTO [ADM_FeatureActionRoleMap]([RoleID],[FeatureActionID],[Description],[Status],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate])
+	SELECT 1,[FeatureActionID],'Print Layouts',1,'Admin',CONVERT(FLOAT,GETDATE()),NULL,NULL
+	FROM [ADM_FeatureAction] WITH(NOLOCK) WHERE FeatureID=@FeatureID
+
+	--RIBBON
+
+	INSERT INTO [ADM_RibbonView]([RibbonViewID],[TabID],[GroupID],[DrpID],[TabName],[GroupName],[DrpName],[TabResourceID],[GroupResourceID],[DrpResourceID],[TabOrder],[GroupOrder],[FeatureID],[FeatureActionID],[FeatureActionResourceID],[FeatureActionName],[TabKeyTip],[GroupKeyTip],[DrpKeyTip],[ButtonKeyTip],[IsEnabled],[ScreenName],[ScreenResourceID],[ImageType],[ImagePath],[DrpImage],[ToolTipTitleResourceID],[ToolTipTitle],[ToolTipImg],[ToolTipDescResourceID],[ToolTipDesc],[RoleID],[UserID],[UserName],[CompanyGUID],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[DisplayName],[DisplayNameResourceID],[ColumnOrder],[ShowInWeb],[IsMobile])
+	VALUES(@RibbonViewID,9,49,null,'ADMIN','Define',null,
+	(select Tabresourceid from [ADM_RibbonView] with(nolock) where ribbonviewid=224),
+	(select GROUPresourceid from [ADM_RibbonView] with(nolock) where ribbonviewid=224),
+	(select Drpresourceid from [ADM_RibbonView] with(nolock) where ribbonviewid=224),
+	9,2,@FeatureID,@FeatureActionID,@Rid,
+	'Print Layouts','Y',NULL,NULL,'P',1,'Print Layouts',@Rid,0,'docPrint.png','docPrint.png',@Rid,
+	'Print Layouts','docPrint.png',@Rid,'Print Layouts',1,1,'Admin','CompanyGUID',NEWID(),
+	'Print Layouts','Admin',CONVERT(FLOAT,GETDATE()),NULL,NULL,'Print Layouts',@Rid,0,0,0)
+
+End
+

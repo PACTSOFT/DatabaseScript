@@ -1,0 +1,17 @@
+
+
+
+
+
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/PactRequestTokenController.cs
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/ReportController.cs
+M	RevenUWeb/src/app/document/add-edit-document/AddEditDocumentViewModel.ts
+M	RevenUWeb/src/app/document/field-calculator/FieldCalculatorViewModel.ts
+M	RevenUWeb/src/app/ess/payroll-common-pop-up/PayrollCommonPopUpViewModel.ts
+M	RevenUWeb/src/app/ess/payroll-common-pop-up/payroll-common-pop-up.component.html
+M	RevenUWeb/src/app/facility-management/Tenant/TenantDashboard.component.ts
+M	RevenUWeb/src/app/facility-management/Tickets/NewServiceRequest.component.ts
+M	RevenUWeb/src/app/reports/StaticReports/PAY_Reports.ts
+M	RevenUWeb/src/app/services/api/reports.service.ts
+M	RevenUWeb/src/app/services/page.service.ts
+M	RevenUWeb/src/app/services/session-manager.service.ts

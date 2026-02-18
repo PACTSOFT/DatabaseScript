@@ -1,0 +1,38 @@
+--CHARY
+
+
+DECLARE @CCColID INT,@RId INT,@FId INT,@GVId INT
+SET @FId=511
+SET @GVId=286
+
+SELECT @CCColID=MAX(CostCenterColID)+1 FROM ADM_CostCenterDef WITH(NOLOCK)
+SELECT @RId=MAX(ResourceID)+1 FROM COM_LanguageResources WITH(NOLOCK)
+
+INSERT INTO COM_LanguageResources (ResourceID, ResourceName, LanguageID, LanguageName, ResourceData,FEATURE)
+SELECT @RId, 'Name',1,'English', 'Name','PrintLayouts' UNION ALL SELECT @RId, 'Name',2,'Arabic', 'Name-AR','PrintLayouts'
+
+INSERT INTO COM_LanguageResources (ResourceID, ResourceName, LanguageID, LanguageName, ResourceData,FEATURE)
+SELECT @RId+1, 'Type',1,'English', 'Type','PrintLayouts' UNION ALL SELECT @RId+1, 'Type',2,'Arabic', 'Type-AR','PrintLayouts'
+
+INSERT INTO COM_LanguageResources (ResourceID, ResourceName, LanguageID, LanguageName, ResourceData,FEATURE)
+SELECT @RId+2, 'Print Layouts',1,'English', 'Print Layouts','PrintLayouts' UNION ALL SELECT @RId+2, 'Print Layouts',2,'Arabic', 'Print Layouts-AR','PrintLayouts'
+
+
+SET IDENTITY_INSERT [dbo].[ADM_CostCenterDef] ON
+INSERT INTO [ADM_CostCenterDef] ([CostCenterID],[CostCenterColID],[ResourceID],[CostCenterName],[SysTableName],[UserColumnName],[SysColumnName],[ColumnTypeSeqNumber],[UserColumnType],[ColumnDataType],[UserDefaultValue],[UserProbableValues],[ColumnOrder],[IsMandatory],[IsEditable],[IsVisible],[IsCostCenterUserDefined],[IsColumnUserDefined],[IsCCDeleted],[IsColumnDeleted],[ColumnCostCenterID],[ColumnCCListViewTypeID],[FetchMaxRows],[IsColumnGroup],[ColumnGroupNumber],[SectionSeqNumber],[SectionID],[SectionName],[RowNo],[ColumnNo],[ColumnSpan],[IsColumnInUse],[UIWidth],[CompanyGUID],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[IsUnique],[IsForeignKey],[ParentCostCenterID],[ParentCostCenterColID],[IsValidReportBuilderCol],[ParentCostCenterSysName],[ParentCostCenterColSysName],[ParentCCDefaultColID],[LinkData],[LocalReference],[Decimal],[TextFormat],[Filter],[IsRepeat],[LastValueVouchers],[IsnoTab],[dependancy],[dependanton],[IsTransfer],[DbFilter],[CrFilter],[ShowInQuickAdd],[QuickAddOrder],[Calculate],[Cformula],[IsReEvaluate],[IgnoreChar],[WaterMark],[MinChar],[MaxChar],[FieldExpression],[LabelColor],[EvalAfter],[CopyBasedon],[HelpText])
+VALUES(@FId,@CCColID,@RId,'Print Layouts','ADM_DocPrintLayouts','Name','Name',NULL,'TEXT','STRING',NULL,NULL,1,1,1,1,0,0,0,0,0,0,NULL,0,NULL,1,NULL,NULL,NULL,NULL,NULL,1,NULL,'741DC145-7EC1-4FC9-BD02-E4CB91F836C5','90C5BE1C-47FB-4738-84A3-32F407455D98',NULL,'Admin',4.073353878070987e+004,NULL,NULL,0,0,NULL,NULL,1,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,0,NULL,0,NULL,NULL,NULL,NULL,NULL,0,NULL,NULL,NULL,1,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL)
+INSERT INTO [ADM_CostCenterDef] ([CostCenterID],[CostCenterColID],[ResourceID],[CostCenterName],[SysTableName],[UserColumnName],[SysColumnName],[ColumnTypeSeqNumber],[UserColumnType],[ColumnDataType],[UserDefaultValue],[UserProbableValues],[ColumnOrder],[IsMandatory],[IsEditable],[IsVisible],[IsCostCenterUserDefined],[IsColumnUserDefined],[IsCCDeleted],[IsColumnDeleted],[ColumnCostCenterID],[ColumnCCListViewTypeID],[FetchMaxRows],[IsColumnGroup],[ColumnGroupNumber],[SectionSeqNumber],[SectionID],[SectionName],[RowNo],[ColumnNo],[ColumnSpan],[IsColumnInUse],[UIWidth],[CompanyGUID],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[IsUnique],[IsForeignKey],[ParentCostCenterID],[ParentCostCenterColID],[IsValidReportBuilderCol],[ParentCostCenterSysName],[ParentCostCenterColSysName],[ParentCCDefaultColID],[LinkData],[LocalReference],[Decimal],[TextFormat],[Filter],[IsRepeat],[LastValueVouchers],[IsnoTab],[dependancy],[dependanton],[IsTransfer],[DbFilter],[CrFilter],[ShowInQuickAdd],[QuickAddOrder],[Calculate],[Cformula],[IsReEvaluate],[IgnoreChar],[WaterMark],[MinChar],[MaxChar],[FieldExpression],[LabelColor],[EvalAfter],[CopyBasedon],[HelpText])
+VALUES(@FId,@CCColID+1,@RId+1,'Print Layouts','ADM_DocPrintLayouts','Type','DocType',NULL,'TEXT','STRING',NULL,NULL,2,1,1,1,0,0,0,0,0,0,NULL,0,NULL,2,NULL,NULL,NULL,NULL,NULL,1,NULL,'741DC145-7EC1-4FC9-BD02-E4CB91F836C5','90C5BE1C-47FB-4738-84A3-32F407455D98',NULL,'Admin',4.073353878070987e+004,NULL,NULL,0,0,NULL,NULL,1,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,0,NULL,0,NULL,NULL,NULL,NULL,NULL,0,NULL,NULL,NULL,1,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL)
+SET IDENTITY_INSERT [dbo].[ADM_CostCenterDef] OFF
+
+
+SET IDENTITY_INSERT [dbo].[ADM_GridView] ON
+INSERT INTO [ADM_GridView] ([GridViewID],[FeatureID],[CostCenterID],[ViewName],[ResourceID],[SearchFilter],[RoleID],[UserID],[IsViewRoleDefault],[IsViewUserDefault],[IsUserDefined],[CompanyGUID],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FilterXml],[ChunkCount],[DefaultColID],[DefaultFilterID],[DefaultSearchListviews],[DefaultListViewID],[IsDefault],[AccountView])
+VALUES(@GVId,@FId,@FId,'Print Layouts',convert(nvarchar,@RId+2),'',1,1,1,0,0,'CompanyGUID','03EFFCBB-03E1-4CD1-AE64-5CEDBBA99B41',NULL,'ADMIN',4.086352637372685e+004,NULL,NULL,'<FilterXMl></FilterXMl>',1000,0,0,NULL,NULL,NULL,NULL)
+SET IDENTITY_INSERT [dbo].[ADM_GridView] OFF
+
+INSERT INTO [ADM_GridViewColumns] ([GridViewID],[CostCenterColID],[ColumnResourceID],[ColumnFilter],[ColumnOrder],[ColumnWidth],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[ColumnType],[IsCode],[HeaderAlignment],[DataAlignment])
+VALUES(@GVId,@CCColID,convert(nvarchar,@RId),'',0,500,'Description','ADMIN',4.086352637372685e+004,NULL,NULL,1,NULL,'Left','Left')
+INSERT INTO [ADM_GridViewColumns] ([GridViewID],[CostCenterColID],[ColumnResourceID],[ColumnFilter],[ColumnOrder],[ColumnWidth],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[ColumnType],[IsCode],[HeaderAlignment],[DataAlignment])
+VALUES(@GVId,@CCColID+1,convert(nvarchar,@RId+1),'',1,100,'Description','ADMIN',4.086352637372685e+004,NULL,NULL,1,NULL,'Left','Left')
+

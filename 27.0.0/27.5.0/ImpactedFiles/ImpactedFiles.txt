@@ -1,0 +1,17 @@
+
+
+
+
+
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/PactRequestTokenController.cs
+M	RevenUWeb/src/app/accounting/ViewLocDivWise-Credit-DebitV/ViewLocDivWiseCreditDebitViewModel.ts
+M	RevenUWeb/src/app/common/tree-view-page/landingpage.component.html
+M	RevenUWeb/src/app/document/product-search-catalog/ProductSearchCatalogViewModel.ts
+M	RevenUWeb/src/app/document/serial-number/SerialNumberViewModel.ts
+M	RevenUWeb/src/app/ess/Models/CommonMonthlyPayroll.ts
+M	RevenUWeb/src/app/reports/report-view/ReportViewModel.ts
+M	RevenUWeb/src/app/reports/report-view/report.component.html
+M	RevenUWeb/src/app/services/session-manager.service.ts
+M	RevenUWebWhiteTheme/src/app/document/serial-number/SerialNumberViewModel.ts
+M	RevenUWebWhiteTheme/src/app/ess/Models/CommonMonthlyPayroll.ts
+M	RevenUWebWhiteTheme/src/app/pages/home/RibbonExtViewModel.ts
