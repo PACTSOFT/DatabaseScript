@@ -1,0 +1,136 @@
+--Sajid
+/****** Object:  StoredProcedure [dbo].[spDOC_PostChequeReturnDetails]    Script Date: 18-02-2026 15:28:43 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spDOC_PostChequeReturnDetails]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spDOC_PostChequeReturnDetails]
+GO
+/****** Object:  StoredProcedure [dbo].[spDOC_PostChequeReturnDetails]    Script Date: 18-02-2026 15:28:43 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spDOC_PostChequeReturnDetails]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'
+CREATE procedure [dbo].[spDOC_PostChequeReturnDetails]  
+	@AccountID INT=0,
+	@VoucherNo NVARCHAR(500),
+	@DOCSEQNO INT,		
+	@DocDate datetime,
+	@CostCenterID INT,
+	@DocDetailsID INT,	
+	@ReturnXML NVARCHAR(max),
+	@guid nvarchar(50), 
+	@CompanyGUID NVARCHAR(50),  
+	@UserName nvarchar(50),     
+	@UserID int,
+	@LangID int=1
+AS
+BEGIN TRANSACTION  
+SET NOCOUNT ON
+BEGIN TRY 
+   
+		DECLARE @DocumentType int,@dt float,@DueDate float
+		DECLARE @EXTRAXML xml,@DUPLICATECODE  NVARCHAR(MAX),@CCreplCols nvarchar(max)
+
+		--SP Required Parameters Check
+		IF @AccountID=0
+		BEGIN
+			RAISERROR(''-100'',16,1)
+		END
+
+		SET @Dt=convert(float,getdate())--Setting Current Date    
+
+		set @CCreplCols=''''
+		select @CCreplCols =@CCreplCols +'',''+a.name from sys.columns a
+		join sys.tables b on a.object_id=b.object_id
+		where b.name=''COM_DocCCData'' and a.name like ''dcCCNID%'' and convert(int,replace(a.name,''dcCCNID'',''''))<51
+		
+		select @DueDate=DueDate from Acc_DocDetails WITH(NOLOCK) where VoucherNo=@VoucherNo
+		select @DocumentType=DocumentType from ADM_DocumentTypes WITH(NOLOCK)	where CostCenterID=@CostCenterID
+	
+		IF(@ReturnXML is not null and LTRIM(RTRIM(CAST(@ReturnXML AS NVARCHAR(MAX))))<>'''')
+		BEGIN
+			set @EXTRAXML=@ReturnXML
+
+			Delete from COM_ChequeReturn where DocNo=@VoucherNo
+
+			set @DUPLICATECODE=''INSERT INTO COM_ChequeReturn    
+		   ([DocNo]    
+		   ,[DocDate]    
+		   ,[DocDueDate]    
+		   ,[DocSeqNo]    
+		   ,[AccountID]    
+		   ,[AdjAmount]    
+		   ,[AdjCurrID]    
+		   ,[AdjExchRT],AmountFC    
+		   ,[DocType]    
+		   ,[IsNewReference]    
+		   ,[RefDocNo]    
+		   ,[RefDocSeqNo]    
+		   ,[RefDocDate]    
+		   ,[RefDocDueDate] 
+		   ,[Narration]    
+		   ,[IsDocPDC]
+		   ,[CompanyGUID]    
+		   ,[GUID]    
+		   ,[CreatedBy]    
+		   ,[CreatedDate]''+@CCreplCols+'')    
+		 SELECT ''''''+convert(nvarchar(max),@VoucherNo)+''''''
+		   , ''''''+convert(nvarchar(max),CONVERT(FLOAT,@DocDate))
+       
+		   if(@DueDate is not null)
+			set @DUPLICATECODE=@DUPLICATECODE+'''''',''''''+convert(nvarchar(max),CONVERT(FLOAT,@DueDate))+''''''''
+		   else
+			set @DUPLICATECODE=@DUPLICATECODE+'''''',NULL''	
+       
+		   set @DUPLICATECODE=@DUPLICATECODE+'', ''+convert(nvarchar(max),@DOCSEQNO )+''  
+		   , X.value(''''@AccountID'''',''''INT'''')        
+			, replace(X.value(''''@AdjAmount'''',''''nvarchar(50)''''),'''','''','''''''')
+		   , X.value(''''@AdjCurrID'''',''''int'''')    
+		   , X.value(''''@AdjExchRT'''',''''float'''')    , replace(X.value(''''@AmountFC'''',''''nvarchar(50)''''),'''','''','''''''')
+		   ,''+convert(nvarchar(max), @DocumentType)+''   
+		   , X.value(''''@IsNewReference'''',''''bit'''')    
+		   , X.value(''''@RefDocNo'''',''''nvarchar(200)'''')    
+		   , X.value(''''@RefDocSeqNo'''',''''int'''')    
+		   , CONVERT(FLOAT,X.value(''''@RefDocDate'''',''''DATETIME''''))    
+		   , CONVERT(FLOAT,X.value(''''@RefDueDate'''',''''DATETIME''''))             
+		   , X.value(''''@Narration'''',''''nvarchar(max)'''')    
+		   , X.value(''''@IsDocPDC'''',''''bit'''') 
+		   , ''''''+convert(nvarchar(max),@CompanyGUID)+'' ''''
+		 , ''''''+convert(nvarchar(max),@guid)+''''''
+		 , ''''''+convert(nvarchar(max),@UserName)+'' ''''
+		 , ''''''+convert(nvarchar(max),@Dt)+''''''''+@CCreplCols+''
+		 from @EXTRAXML.nodes(''''/XML/Row'''') as Data(X)    
+		 join [COM_DocCCData] d WITH(NOLOCK)  on d.AccDocDetailsID=''+convert(nvarchar(max),@DocDetailsID )
+    
+		 EXEC sp_executesql @DUPLICATECODE,N''@EXTRAXML XML'',@EXTRAXML
+     END	
+	
+		
+ COMMIT TRANSACTION
+
+ SELECT   ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock)     
+WHERE ErrorNumber=100 AND LanguageID=@LangID    
+
+SET NOCOUNT OFF;  
+RETURN 1
+END TRY
+BEGIN CATCH  
+	--Return exception info [Message,Number,ProcedureName,LineNumber]  
+	IF ERROR_NUMBER()=50000
+	BEGIN
+		SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID
+	END
+	ELSE
+	BEGIN
+		SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() AS ErrorNumber, ERROR_PROCEDURE()AS ProcedureName, ERROR_LINE() AS ErrorLine
+		FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=-999 AND LanguageID=@LangID
+	END
+	
+ROLLBACK TRANSACTION    
+SET NOCOUNT OFF  
+RETURN -999   
+END CATCH
+' 
+END
+GO

@@ -1,0 +1,145 @@
+--Ibrahim
+/****** Object:  StoredProcedure [dbo].[spADM_SetImportQCProducts]    Script Date: 18-02-2026 11:04:19 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spADM_SetImportQCProducts]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spADM_SetImportQCProducts]
+GO
+/****** Object:  StoredProcedure [dbo].[spADM_SetImportQCProducts]    Script Date: 18-02-2026 11:04:19 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spADM_SetImportQCProducts]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'-- =============================================  
+-- Author:  Hafeez  
+-- Create date: 13 mar 2013  
+-- Description:BINS IMPORT WITH PRODUCT
+-- EXAMPLE :
+-- [spADM_SetPriceChart] 0,''Profile'','''',1,1,1,1
+--spADM_SetImportToBinsDimension 
+--  ''<XML><Row    Sno="1"  Bin =''''Bin1''''   Location =''''Loc''''  ></Row></XML>''
+-- ,''LINKED SERVICE - 2''
+-- ,''LINKED SERVICE - 2''
+-- ,True
+-- ,''830b4366-ab3c-4150-aefe-f5acaddc7089''
+-- ,''admin''
+-- ,1
+--  ,1
+-- =============================================  
+CREATE procedure [dbo].[spADM_SetImportQCProducts] 
+	@QcXML NVARCHAR(MAX), 
+	@ProductName nvarchar(max)=null,
+	@ProductCode nvarchar(max)=null, 
+	@IsCode bit =NULL,
+	@IsAppend BIT=0,
+	@CompanyGUID NVARCHAR(50),
+	@UserName NVARCHAR(50),
+	@UserID INT,
+	@RoleID int=1,
+	@LangID INT=1
+AS  
+BEGIN TRANSACTION  
+BEGIN TRY  
+SET NOCOUNT ON;
+		--Declaration Section  
+		DECLARE @Dt FLOAT ,@XML XML,@TSQL NVARCHAR(MAX),@SQL NVARCHAR(MAX),@TABLEname NVARCHAR(300),@return_value INT
+		DECLARE @NodeID INT,@BINID INT,@LOCATIONID INT,@BIN NVARCHAR(300),@DIVISIONID INT,@I INT,@COUNT INT,@CCID INT,@LOCATIONNAME NVARCHAR(300),@DIVISIONNAME NVARCHAR(300)
+		DECLARE @TABLE TABLE(ID INT IDENTITY(1,1),BIN NVARCHAR(300),LOCATION NVARCHAR(300), DIVISION NVARCHAR(300))
+		SET @Dt=CONVERT(FLOAT,GETDATE())
+		----DELETE FROM [INV_ProductBins]
+		----WHERE CostcenterID=3 and NodeID=@NodeID
+		
+		if(@IsCode=1)
+			select @NodeID=ProductID from INV_Product with(nolock) where ProductCode=@ProductCode
+		else
+ 			select @NodeID=ProductID from INV_Product with(nolock) where ProductName=@ProductName
+ 		--	SELECT @NodeID
+		if(@NodeID is null)
+		begin
+				declare @TEMPxml NVARCHAR(500)
+				SET @TEMPxml=''<XML><Row AccountName ="''+replace(@ProductName,''&'',''&amp;'')+''" 
+						AccountCode ="''+replace(@ProductCode,''&'',''&amp;'')+''" TypeID ="1" ></Row></XML>''       
+				EXEC @NodeID = [dbo].[spADM_SetImportData]      
+				@XML = @TEMPxml,      
+				@COSTCENTERID = 3,      
+				@IsDuplicateNameAllowed = 0,      
+				@IsCodeAutoGen = 0,      
+				@IsOnlyName = 0,      
+				@CompanyGUID = @CompanyGUID,      
+				@UserName = @UserName ,      
+				@UserID = @UserID, 
+				@RoleID=@RoleID,     
+				@LangID = @LangID   
+			if(@IsCode=1)
+				select @NodeID=ProductID from INV_Product with(nolock) where ProductCode=@ProductCode
+			else
+ 				select @NodeID=ProductID from INV_Product with(nolock) where ProductName=@ProductName
+ 	
+		end	
+		 	
+		if(@NodeID>0)  
+		BEGIN
+			IF(@IsAppend = 0)
+			BEGIN
+				DELETE FROM [INV_ProductTestcases]
+				WHERE ProductID=@NodeID
+			END
+
+			IF (@QcXML IS NOT NULL AND @QcXML <> '''')
+			BEGIN
+				
+				SET @XML=@QcXML				
+				
+				INSERT INTO [INV_ProductTestcases]  
+					([ProductID],
+					[TestCaseID],
+					[Min],
+					[Max] ,
+					[Iteration],
+					[Sample],
+					[CostCenterID],
+					[CCNodeID],
+					[DocumentID],
+					TestType,
+					ProbableValues,
+					Variance,
+					SampleType,
+					RetestDays)  			  
+				SELECT @NodeID,X.value(''@TestCaseID'',''INT''),X.value(''@Min'',''float'')
+					,X.value(''@Max'',''float''),X.value(''@Observation'',''INT''),X.value(''@Sample'',''float'')
+					,X.value(''@CostCenterID'',''INT''),X.value(''@CCNodeID'',''INT'')
+					,X.value(''@Document'',''INT'')
+					,X.value(''@Type'',''INT'')
+					,X.value(''@Probableval'',''NVARCHAR(max)'')
+					,X.value(''@Varience'',''float'')
+					,X.value(''@SampleType'',''INT'')
+					,X.value(''@RetestDays'',''INT'')
+				from @XML.nodes(''/XML/Row'') as Data(X)
+			END
+		END
+	  
+COMMIT TRANSACTION  
+--ROLLBACK TRANSACTION
+SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) 
+WHERE ErrorNumber=100 AND LanguageID=@LangID     
+SET NOCOUNT OFF;  
+RETURN @NodeID
+END TRY
+BEGIN CATCH  
+	--Return exception info [Message,Number,ProcedureName,LineNumber]  
+	IF ERROR_NUMBER()=50000
+	BEGIN
+		SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(NOLOCK) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID
+	END
+	ELSE
+	BEGIN
+		SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine
+		FROM COM_ErrorMessages WITH(NOLOCK) WHERE ErrorNumber=-999 AND LanguageID=@LangID
+	END
+ROLLBACK TRANSACTION
+SET NOCOUNT OFF  
+RETURN -999   
+END CATCH
+' 
+END
+GO
