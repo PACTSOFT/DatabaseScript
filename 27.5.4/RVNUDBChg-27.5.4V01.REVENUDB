@@ -1,0 +1,26 @@
+--waseem
+DECLARE @FeatureActionID bigint,@I INT,@CNT INT,@FeatureActionTypeID INT,@CCID BigINT,@RID BIGINT
+DECLARE @Tab Table(ID INT IDENTITY(1,1),CCID BigINT)
+
+INSERT INTO @Tab 
+SELECT FeatureID from ADM_Features WITH(NOLOCK) where ((FeatureID in (83,89,94,86,73,65,95,88)) OR (FeatureID BETWEEN 40000 AND 50000))
+
+SELECT @RID=ResourceID FROM [ADM_FeatureAction] WITH(NOLOCK) WHERE Name='ReSchedule'
+
+SELECT @I=1,@CNT=COUNT(*) FROM @Tab
+WHILE(@I<=@CNT)
+BEGIN
+	SELECT @CCID=CCID from @Tab where ID=@I 
+	IF NOT EXISTS (SELECT FeatureID FROM [ADM_FeatureAction] WITH(NOLOCK) WHERE [FeatureID]=@CCID AND [Name]='ReSchedule') 
+	BEGIN
+
+		INSERT INTO [ADM_FeatureAction] ([Name],[ResourceID],[FeatureID],[FeatureActionTypeID],[ApplicationID],[GridShortCut],[Description],[Status],[CreatedDate],[CreatedBy])
+		SELECT 'ReSchedule',@RID,@CCID,2,1,NULL,NULL,1,CONVERT(FLOAT,GETDATE()),'ADMIN'
+			
+		SET @FeatureActionID=@@IDENTITY
+			
+		INSERT INTO [ADM_FeatureActionRoleMap]([RoleID],[FeatureActionID],[Description],[Status],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate])
+		SELECT 1,@FeatureActionID,'ReSchedule',1,'Admin',CONVERT(FLOAT,GETDATE()),NULL,NULL
+	END
+	SET @I=@I+1
+END

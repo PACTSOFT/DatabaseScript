@@ -1,0 +1,36 @@
+
+
+
+
+
+M       PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/PactRequestTokenController.cs
+M       PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/ReportController.cs
+M       RevenUNestAPI/src/PACTAPI/Controllers/CRM/CRM.controller.ts
+M       RevenUNestAPI/src/PACTAPI/Services/CRM/crm.service.ts
+M       RevenUNestAPI/src/PACTAPI/Services/Inventory/Inventory.service.ts
+M       RevenUNestAPI/src/auth/dto/api-object.ts
+M       RevenUNestAPI/src/common/DBHandler.ts
+M       RevenUWeb/src/app/admin/mobile-preferences/mobile-preferences-customize/MobilePreferencesCustomize.component.ts
+M       RevenUWeb/src/app/document/add-edit-document/add-edit-document.component.ts
+M       RevenUWeb/src/app/document/bill-wise/bill-wise.component.html
+M       RevenUWeb/src/app/document/cheque-return/ChequeReturnViewModel.ts
+M       RevenUWeb/src/app/facility-management/Tenant/TenantDashboard.component.html
+M       RevenUWeb/src/app/facility-management/Tickets/NewServiceRequest.component.ts
+M       RevenUWeb/src/app/facility-management/Tickets/ServiceRequestDetails.component.ts
+M       RevenUWeb/src/app/facility-management/Tickets/TechnicianListView.component.ts
+M       RevenUWeb/src/app/pages/home/RibbonExtViewModel.ts
+M       RevenUWeb/src/app/pages/login-screen/LoginScreenViewModel.ts
+M       RevenUWeb/src/app/property/contract/AddEditRenContractViewModel.ts
+M       RevenUWeb/src/app/reports/StaticReports/ACC_CashFlow.ts
+M       RevenUWeb/src/app/services/api/common.service.ts
+M       RevenUWeb/src/app/services/formula.service.ts
+M       RevenUWeb/src/app/services/session-manager.service.ts
+M       RevenUWebWhiteTheme/src/app/document/add-edit-document/add-edit-document.component.ts
+M       RevenUWebWhiteTheme/src/app/document/documents-list/DocumentsListViewModel.ts
+M       RevenUWebWhiteTheme/src/app/document/documents-list/documents-list.component.html
+M       RevenUWebWhiteTheme/src/app/document/donut-component/donut-component.html
+M       RevenUWebWhiteTheme/src/app/facility-management/Tenant/TenantDashboard.component.html
+M       RevenUWebWhiteTheme/src/app/pages/home/RibbonExtViewModel.ts
+M       RevenUWebWhiteTheme/src/app/pages/login-screen/LoginScreenViewModel.ts
+M       RevenUWebWhiteTheme/src/app/property/contract/AddEditRenContractViewModel.ts
+M       RevenUWebWhiteTheme/src/app/reports/models/ReportColumnProperties.ts

@@ -1,0 +1,5 @@
+--Sajid
+IF EXISTS(SELECT * FROM [ADM_GlobalPreferences] WITH(NOLOCK) WHERE Name='DonotAllowMaturityDatebeforeDocumentDatePDC')
+BEGIN
+	Update [ADM_GlobalPreferences] set PreferenceTypeName='',PrefRowOrder=null,PrefValueType=null where Name='DonotAllowMaturityDatebeforeDocumentDatePDC'
+END

@@ -1,0 +1,13 @@
+M       PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/PactRequestTokenController.cs
+M       PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/ReportController.cs
+M       RevenUWeb/src/app/admin/mobile-preferences/mobile-preferences-customize/MobilePreferencesCustomize.component.ts
+M       RevenUWeb/src/app/document/cheque-return/ChequeReturnViewModel.ts
+M       RevenUWeb/src/app/facility-management/Tickets/NewServiceRequest.component.ts
+M       RevenUWeb/src/app/facility-management/Tickets/ServiceRequestDetails.component.ts
+M       RevenUWeb/src/app/facility-management/Tickets/TechnicianListView.component.ts
+M       RevenUWeb/src/app/pages/login-screen/LoginScreenViewModel.ts
+M       RevenUWeb/src/app/property/contract/AddEditRenContractViewModel.ts
+M       RevenUWeb/src/app/services/session-manager.service.ts
+M       RevenUWebWhiteTheme/src/app/document/documents-list/DocumentsListViewModel.ts
+M       RevenUWebWhiteTheme/src/app/document/documents-list/documents-list.component.html
+M       RevenUWebWhiteTheme/src/app/document/donut-component/donut-component.html

@@ -1,0 +1,94 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+M       PactRevenUMobileAuthAPI/PactRevenUWebapi2.0/Controllers/BaseController.cs
+M       PactRevenUMobileAuthAPI/PactRevenUWebapi2.0/Controllers/CompanyController.cs
+M       PactRevenUMobileAuthAPI/PactRevenUWebapi2.0/Controllers/PactRequestTokenController.cs
+M       PactRevenUMobileAuthAPI/PactRevenUWebapi2.0/Controllers/UserController.cs
+M       PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/PactRequestTokenController.cs
+M       RevenUNestAPI/src/PACTAPI/Controllers/BPrinting/BPrinting.controller.ts
+M       RevenUNestAPI/src/PACTAPI/Controllers/CRM/CRM.controller.ts
+M       RevenUNestAPI/src/PACTAPI/Controllers/CasesController/Cases.controller.ts
+M       RevenUNestAPI/src/PACTAPI/Controllers/Common/common.controller.ts
+M       RevenUNestAPI/src/PACTAPI/Controllers/Contracts/contracts.controller.ts
+M       RevenUNestAPI/src/PACTAPI/Controllers/Document/document.controller.ts
+M       RevenUNestAPI/src/PACTAPI/Controllers/ESS/ESS.controller.ts
+M       RevenUNestAPI/src/PACTAPI/Controllers/Inventory/Inventory.controller.ts
+M       RevenUNestAPI/src/PACTAPI/Controllers/PactRequestToken/pact-request-token.controller.ts
+M       RevenUNestAPI/src/PACTAPI/Controllers/PactWhatsapp/PactWhatsapp.controller.ts
+M       RevenUNestAPI/src/PACTAPI/Controllers/Rental/Rental.controller.ts
+M       RevenUNestAPI/src/PACTAPI/Controllers/Report/report.controller.ts
+M       RevenUNestAPI/src/PACTAPI/Models/AdminRepository/AdminRepository.ts
+M       RevenUNestAPI/src/PACTAPI/Services/CRM/crm.service.ts
+M       RevenUNestAPI/src/PACTAPI/Services/Common/common.service.ts
+M       RevenUNestAPI/src/PACTAPI/Services/accounts/accounts.service.ts
+M       RevenUNestAPI/src/common/DBHandler.ts
+M       RevenUWeb/src/app/common/common-field-popup/CommonFieldPopupViewModel.ts
+M       RevenUWeb/src/app/document/add-edit-document/AddEditDocumentViewModel.ts
+M       RevenUWeb/src/app/document/add-edit-document/add-edit-document.component.ts
+M       RevenUWeb/src/app/property/contract/AddEditRenContractViewModel.ts
+M       RevenUWeb/src/app/reports/StaticReports/INV_StockLedger.ts
+M       RevenUWeb/src/app/reports/models/ReportColumnProperties.ts
+M       RevenUWeb/src/app/services/session-manager.service.ts
+M       RevenUWeb/src/app/shared/controls/data-widget/data-widget.component.ts
+M       RevenUWeb/src/app/shared/directives/screen.directive.ts
+M       RevenUWeb/src/app/shared/models/ControlGenerator.ts
+M       RevenUWeb/src/assets/StaticData/ScanChequeData.json
+D       RevenUWebAuth/angular.json
+M       RevenUWebAuth/package.json
+A       RevenUWebAuth/src/app/add-company/add-company.component.html
+A       RevenUWebAuth/src/app/add-company/add-company.component.scss
+A       RevenUWebAuth/src/app/add-company/add-company.component.spec.ts
+A       RevenUWebAuth/src/app/add-company/add-company.component.ts
+M       RevenUWebAuth/src/app/app-routing.module.ts
+M       RevenUWebAuth/src/app/app.module.ts
+A       RevenUWebAuth/src/app/dashboard-header/dashboard-header.component.html
+A       RevenUWebAuth/src/app/dashboard-header/dashboard-header.component.scss
+A       RevenUWebAuth/src/app/dashboard-header/dashboard-header.component.spec.ts
+A       RevenUWebAuth/src/app/dashboard-header/dashboard-header.component.ts
+M       RevenUWebAuth/src/app/guards/auth.guard.ts
+M       RevenUWebAuth/src/app/pages/add-edit-company/add-edit-company.component.ts
+M       RevenUWebAuth/src/app/pages/add-edit-user/add-edit-user.component.ts
+M       RevenUWebAuth/src/app/pages/companies/companies.component.scss
+M       RevenUWebAuth/src/app/services/api/PactHttp.ts
+M       RevenUWebAuth/src/app/services/api/common.service.ts
+M       RevenUWebAuth/src/app/services/app-inerceptor.ts
+M       RevenUWebAuth/src/app/services/auth.service.ts
+M       RevenUWebAuth/src/app/shared/functions/validators/must-match.ts
+M       RevenUWebAuth/src/index.html
+M       RevenUWebWhiteTheme/src/app/common/common-field-popup/CommonFieldPopupViewModel.ts
+M       RevenUWebWhiteTheme/src/app/common/tree-view-page/landingpage.component.html
+M       RevenUWebWhiteTheme/src/app/document/add-edit-document/AddEditDocumentViewModel.ts
+M       RevenUWebWhiteTheme/src/app/document/add-edit-document/VoucherGenerator.ts
+M       RevenUWebWhiteTheme/src/app/document/cheque-return/ChequeReturnViewModel.ts
+M       RevenUWebWhiteTheme/src/app/document/cheque-return/cheque-return.component.html
+M       RevenUWebWhiteTheme/src/app/document/documents-list/DocumentsListViewModel.ts
+M       RevenUWebWhiteTheme/src/app/document/donut-component/donut-component.ts
+M       RevenUWebWhiteTheme/src/app/ess/Models/CommonMonthlyPayroll.ts
+M       RevenUWebWhiteTheme/src/app/ess/Models/PayrollOtherClasses.ts
+M       RevenUWebWhiteTheme/src/app/ess/add-edit-appraisal/AddEditAppraisalViewModel.ts
+M       RevenUWebWhiteTheme/src/app/ess/add-edit-emp-master/AddEditEmpMasterViewModel.ts
+M       RevenUWebWhiteTheme/src/app/property/contract/AddEditRenContractViewModel.ts
+M       RevenUWebWhiteTheme/src/app/services/api/document.service.ts
+M       RevenUWebWhiteTheme/src/app/shared/controls/tree/pact-tree/pact-tree.component.ts
+M       RevenUWebWhiteTheme/src/app/shared/models/ControlGenerator.ts
