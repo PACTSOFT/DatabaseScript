@@ -1,0 +1,7 @@
+--Waseem
+if(exists(select VALUE from COM_CostCenterPreferences WITH(NOLOCK) where name='NotAllowFutureDatedSerialNumbers'))
+begin
+	delete from COM_CostCenterPreferences where  name='NotAllowFutureDatedSerialNumbers'
+	delete from COM_LanguageResources where  ResourceName='NotAllowFutureDatedSerialNumbers'
+end
+

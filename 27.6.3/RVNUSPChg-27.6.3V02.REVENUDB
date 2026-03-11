@@ -1,0 +1,564 @@
+--Waseem
+
+/****** Object:  StoredProcedure [dbo].[spDOC_GetSerialNumberScreenDetails]    Script Date: 09-03-2026 11:10:02 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spDOC_GetSerialNumberScreenDetails]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spDOC_GetSerialNumberScreenDetails]
+GO
+/****** Object:  StoredProcedure [dbo].[spCom_SetActivitiesAndSchedules]    Script Date: 09-03-2026 11:10:02 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spCom_SetActivitiesAndSchedules]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spCom_SetActivitiesAndSchedules]
+GO
+/****** Object:  StoredProcedure [dbo].[spCom_SetActivitiesAndSchedules]    Script Date: 09-03-2026 11:10:02 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spCom_SetActivitiesAndSchedules]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'--[spCom_SetActivitiesAndSchedules] ''[spCom_SetActivitiesAndSchedules] ''<ScheduleActivityXml><Row  rowno="1"  ActivityID="0"  ScheduleID="-1001" SchID="-1001" Status="" FreqType="4" FreqInterval="2" FreqSubdayType="0" FreqSubdayInterval="0" FreqRelativeInterval="0" FreqRecurrenceFactor="0" CStartDate="17/Dec/2014" CEndDate="23/Dec/2014" StartTime="00:00:00" isRecu="1" ActivityTypeID="3" CostCenterID="86" NodeID="0" StatusID="412" Subject="test recurr" Priority="2" PctComplete="" Location="" IsAllDayActivity="1" ActualCloseDate="" ActualCloseTime="12/17/2014 12:00:00 AM" CustomerID="FDASFDSAFAS" ContactID="" Remarks="fasdfs dfsa dfas " AssignGroupID="1" AssignRoleID="1" AssignUserID="1" ActStartDate="18/Dec/2014" ActEndDate="18/Dec/2014" ActStartTime="01/01/1900 12:00 AM" ActEndTime="01/01/1900 12:00 AM" UsersXML="1" RolesXML="" GroupXML="" TeamNodeID="" UserID="" isTeam="" ExtraUserDefinedFields ="Alpha1='''' ,Alpha2=''1/1/1900 11:47:13 AM'' ,Alpha3=''12/17/2014 12:00:00 AM'' ,Alpha4=''fffffff'' ,CCNID43=''33''"  AttachmentXML =""  isEdited="0"/><Row  rowno="2"  ActivityID="0"  ScheduleID="-1001" SchID="-1001" Status="" FreqType="4" FreqInterval="2" FreqSubdayType="0" FreqSubdayInterval="0" FreqRelativeInterval="0" FreqRecurrenceFactor="0" CStartDate="17/Dec/2014" CEndDate="23/Dec/2014" StartTime="00:00:00" isRecu="1" ActivityTypeID="3" CostCenterID="86" NodeID="0" StatusID="412" Subject="test recurr" Priority="2" PctComplete="" Location="" IsAllDayActivity="1" ActualCloseDate="" ActualCloseTime="12/17/2014 12:00:00 AM" CustomerID="FDASFDSAFAS" ContactID="" Remarks="fasdfs dfsa dfas " AssignGroupID="1" AssignRoleID="1" AssignUserID="1" ActStartDate="20/Dec/2014" ActEndDate="20/Dec/2014" ActStartTime="01/01/1900 12:00 AM" ActEndTime="01/01/1900 12:00 AM" UsersXML="1" RolesXML="" GroupXML="" TeamNodeID="" UserID="" isTeam="" ExtraUserDefinedFields ="Alpha1='''' ,Alpha2=''1/1/1900 11:47:13 AM'' ,Alpha3=''12/17/2014 12:00:00 AM'' ,Alpha4=''fffffff'' ,CCNID43=''33''"  AttachmentXML =""  isEdited="0"/><Row  rowno="3"  ActivityID="0"  ScheduleID="-1001" SchID="-1001" Status="" FreqType="4" FreqInterval="2" FreqSubdayType="0" FreqSubdayInterval="0" FreqRelativeInterval="0" FreqRecurrenceFactor="0" CStartDate="17/Dec/2014" CEndDate="23/Dec/2014" StartTime="00:00:00" isRecu="1" ActivityTypeID="3" CostCenterID="86" NodeID="0" StatusID="412" Subject="test recurr" Priority="2" PctComplete="" Location="" IsAllDayActivity="1" ActualCloseDate="" ActualCloseTime="12/17/2014 12:00:00 AM" CustomerID="FDASFDSAFAS" ContactID="" Remarks="fasdfs dfsa dfas " AssignGroupID="1" AssignRoleID="1" AssignUserID="1" ActStartDate="22/Dec/2014" ActEndDate="22/Dec/2014" ActStartTime="01/01/1900 12:00 AM" ActEndTime="01/01/1900 12:00 AM" UsersXML="1" RolesXML="" GroupXML="" TeamNodeID="" UserID="" isTeam="" ExtraUserDefinedFields ="Alpha1='''' ,Alpha2=''1/1/1900 11:47:13 AM'' ,Alpha3=''12/17/2014 12:00:00 AM'' ,Alpha4=''fffffff'' ,CCNID43=''33''"  AttachmentXML =""  isEdited="0"/><Row  rowno="4"  ActivityID="0"  ScheduleID="-1001" SchID="-1001" Status="" FreqType="4" FreqInterval="2" FreqSubdayType="0" FreqSubdayInterval="0" FreqRelativeInterval="0" FreqRecurrenceFactor="0" CStartDate="17/Dec/2014" CEndDate="23/Dec/2014" StartTime="00:00:00" isRecu="1" ActivityTypeID="3" CostCenterID="86" NodeID="0" StatusID="412" Subject="test recurr" Priority="2" PctComplete="" Location="" IsAllDayActivity="1" ActualCloseDate="" ActualCloseTime="12/17/2014 12:00:00 AM" CustomerID="FDASFDSAFAS" ContactID="" Remarks="fasdfs dfsa dfas " AssignGroupID="1" AssignRoleID="1" AssignUserID="1" ActStartDate="24/Dec/2014" ActEndDate="24/Dec/2014" ActStartTime="01/01/1900 12:00 AM" ActEndTime="01/01/1900 12:00 AM" UsersXML="1" RolesXML="" GroupXML="" TeamNodeID="" UserID="" isTeam="" ExtraUserDefinedFields ="Alpha1='''' ,Alpha2=''1/1/1900 11:47:13 AM'' ,Alpha3=''12/17/2014 12:00:00 AM'' ,Alpha4=''fffffff'' ,CCNID43=''33''"  AttachmentXML =""  isEdited="0"/></ScheduleActivityXml>'',86,56,''830b4366-ab3c-4150-aefe-f5acaddc7089'',''3D529636-7B0C-4C04-BCB1-0DB96EAB77D7'',''admin'',41113.4972703704,1'',86,
+--56,''830b4366-ab3c-4150-aefe-f5acaddc7089'',''3D529636-7B0C-4C04-BCB1-0DB96EAB77D7'',''admin'',41113.4972703704,1
+CREATE procedure [dbo].[spCom_SetActivitiesAndSchedules]
+	 @ActivityXml nvarchar(max),
+	 @CostCenterID INT,
+	 @NodeID INT,
+	 @CompanyGUID nvarchar(max),
+	 @GUID nvarchar(max),
+	 @UserName nvarchar(300),
+	 @dt float,
+	 @LangID int 
+ 
+AS
+SET NOCOUNT ON 
+BEGIN TRANSACTION
+BEGIN TRY
+	
+	declare @LocalXml XML, @ScheduleID int, @ActivityID int,@TeamNodeID INT=0,@USERID INT=0,@IsTeam BIT=0,  
+	@UsersList nvarchar(max)=null, @RolesList nvarchar(max)=null, @AttacthList nvarchar(max)=null,  @AttachXml XML, 
+	@GroupsList nvarchar(max)=null, @MaxCount int ,@Count int,@IsEdited int, @stract nvarchar(max), @isRecur bit,@EXTRAFIELDSDATA NVARCHAR(MAX),
+	@UpdateSQL NVARCHAR(MAX),@ContactID INT,@strsch nvarchar(max)
+
+	DECLARE @tblActivities TABLE (rowno int,ActivityID INT,ActivityTypeID int,ScheduleID int,CostCenterID int,NodeID int,
+	Status	int,Subject	nvarchar(MAX),Priority	int,PctComplete	float,Location	nvarchar(max),IsAllDayActivity	bit,
+	ActualCloseDate	float,ActualCloseTime varchar(30),CustomerID	nvarchar(max),Remarks	nvarchar(MAX),AssignUserID	INT,
+	AssignRoleID INT,AssignGroupID INT,ActStartDate float,ActEndDate float,ActStartTime DateTime,ActEndTime DateTime, 
+	Name nvarchar(200),StatusID	int,FreqType int,FreqInterval int,FreqSubdayType int,FreqSubdayInterval int,FreqRelativeInterval int,
+	FreqRecurrenceFactor int,StartDate nvarchar(30),EndDate	nvarchar(30),AttachmentXML nvarchar(max),StartTime	nvarchar(30),
+	EndTime	nvarchar(30),Message	nvarchar(MAX),isRecur bit,USERLIST NVARCHAR(MAX),USERID NVARCHAR(MAX),ROLELIST NVARCHAR(MAX),
+	GROUPLIST NVARCHAR(MAX),TEAMNODEID NVARCHAR(MAX),ISTEAM NVARCHAR(MAX),EXTRAFIELDSDATA NVARCHAR(MAX),isEdited int,SchID INT ,
+	ContactID INT)
+
+	set @LocalXml=@ActivityXml
+
+	insert into  @tblActivities(rowno ,ActivityID,ActivityTypeID,ScheduleID,CostCenterID,NodeID,
+	StatusID,[Subject],Priority,PctComplete,Location,IsAllDayActivity,
+	ActualCloseDate	,ActualCloseTime,CustomerID	,Remarks,AssignUserID,
+	AssignRoleID,AssignGroupID,ActStartDate,ActEndDate,ActStartTime,ActEndTime,Name,[Status],
+	FreqType,FreqInterval,FreqSubdayType,FreqSubdayInterval	,FreqRelativeInterval,FreqRecurrenceFactor,StartDate,EndDate,StartTime,
+	EndTime,[Message],isRecur,USERLIST ,USERID ,ROLELIST,GROUPLIST,TEAMNODEID,ISTEAM,EXTRAFIELDSDATA,isEdited,SchID,AttachmentXML,ContactID)
+	(select  ROW_NUMBER() over (order by (select 1)) ,
+				X.value(''@ActivityID'',''int''),
+				X.value(''@ActivityTypeID'',''int''),
+				X.value(''@ScheduleID'',''int''),
+				@CostCenterID,
+				@NodeID,
+				X.value(''@StatusID'',''int''),
+				X.value(''@Subject'',''nvarchar(max)''),
+				X.value(''@Priority'',''int''),
+				X.value(''@PctComplete'',''int''),
+				X.value(''@Location'',''nvarchar(max)''),
+				X.value(''@IsAllDayActivity'',''int''),
+				convert(float,X.value(''@ActualCloseDate'',''datetime'')),
+				X.value(''@ActualCloseTime'',''varchar(20)''),
+				X.value(''@CustomerID'',''nvarchar(100)''),
+				X.value(''@Remarks'',''nvarchar(max)''),
+				X.value(''@AssignUserID'',''nvarchar(100)''),
+				X.value(''@AssignRoleID'',''nvarchar(100)''),
+				X.value(''@AssignGroupID'',''nvarchar(100)''),
+				Convert (float,X.value(''@ActStartDate'',''DateTime'')),
+				Convert (float,X.value(''@ActEndDate'',''DateTime'')),
+				X.value(''@ActStartTime'',''DateTime''),
+				X.value(''@ActEndTime'',''DateTime''),
+				''Document'',
+				1,
+				X.value(''@FreqType'',''int''),
+				X.value(''@FreqInterval'',''int''),
+				X.value(''@FreqSubdayType'',''int''),
+				X.value(''@FreqSubdayInterval'',''int''),
+				X.value(''@FreqRelativeInterval'',''int''),
+				X.value(''@FreqRecurrenceFactor'',''int''),
+				X.value(''@CStartDate'',''nvarchar(100)''),
+				X.value(''@CEndDate'',''nvarchar(100)''),
+				X.value(''@StartTime'',''nvarchar(100)''),
+				X.value(''@EndTime'',''nvarchar(100)''),
+				X.value(''@Message'',''nvarchar(100)'') ,
+				X.value(''@isRecu'',''bit'') ,
+				X.value(''@UsersXML'',''nvarchar(MAX)'') ,
+				X.value(''@UserID'',''nvarchar(MAX)'') ,
+				X.value(''@RolesXML'',''nvarchar(MAX)'') ,
+				X.value(''@GroupXML'',''nvarchar(MAX)'') ,
+				X.value(''@TeamNodeID'',''nvarchar(MAX)'') ,
+				X.value(''@isTeam'',''nvarchar(MAX)'') ,	X.value(''@ExtraUserDefinedFields'',''nvarchar(MAX)'') ,
+				X.value(''@isEdited'',''int'') ,X.value(''@SchID'',''int'') ,X.value(''@AttachmentXML'',''nvarchar(MAX)''),X.value(''@ContactID'',''INT'')
+				FROM @LocalXml.nodes(''/ScheduleActivityXml/Row'') as Data(X) 
+				where  X.value(''@rowno'',''int'')=0) 
+	
+	if(@NodeID <> 0)
+	BEGIN
+	select  @stract =coalesce(@stract , ''  '' , '' '')+ Convert(varchar(50), ActivityID)+'',''  ,@strsch=coalesce(@strsch,'''','''')+convert(varchar(50), ScheduleID)+'', ''  
+	from CRM_Activities where CostCenterID =@CostCenterID and NodeID =@NodeID AND CREATEDBY=@UserName and   ActivityID not in 
+	(select X.value(''@ActivityID'',''int'')  FROM @LocalXml.nodes(''/ScheduleActivityXml/Row'') as Data(X)  where  X.value(''@rowno'',''int'')=0  )
+
+	set @stract=SUBSTRING(@stract,1,LEN(@stract)-1) 
+	set @strsch=SUBSTRING(@strsch,1,LEN(@strsch)-1) 
+
+	DECLARE @TList TABLE (Data varchar(max))   
+	insert into @TList( Data) 
+	exec [SPSplitString] @stract,'','' 
+
+	delete from CRM_Activities where  ActivityID in (select Convert(int,Data)from  @TList )
+	delete from @TList
+
+	delete from CRM_Activities where  ActivityID in (select X.value(''@ActivityID'',''int'')  FROM @LocalXml.nodes(''/ScheduleActivityXml/DeleteRow'') as Data(X) )
+
+	insert into @TList( Data) 
+	exec [SPSplitString] @strsch,'','' 
+	delete from COM_Schedules where  ScheduleID in (select Convert(int,Data)from  @TList )
+	delete from COM_CCSchedules  where  ScheduleID in (select Convert(int,Data)from  @TList )
+	END
+					
+	
+
+	select @Count=1,@MaxCount=Count(*) from @tblActivities 
+	while(@Count<=@MaxCount)
+	begin
+		select @AttacthList=AttachmentXML, @ActivityID=ActivityID,@TeamNodeID=TeamNodeID,@USERID=USERID,@IsTeam=IsTeam,  
+		@UsersList=USERLIST,@RolesList=ROLELIST,@EXTRAFIELDSDATA=EXTRAFIELDSDATA,
+		@GroupsList=GROUPLIST,@IsEdited=isEdited, @isRecur=isRecur,@ScheduleID = ScheduleID
+		from  @tblActivities  where rowno=@Count
+
+		IF @IsEdited=0
+		begin
+			set @Count=@Count+1
+			DELETE FROM [CRM_Assignment] WHERE IsFromActivity=@ActivityID
+
+			EXEC [spCRM_SetActivityAssignment] @CostCenterID,@NodeID,@TeamNodeID,@USERID,@IsTeam,@UsersList,@RolesList,@GroupsList,@CompanyGUID,@UserName,@LangID,@ActivityID
+			continue
+		end
+					
+		update CRM_Activities set ActivityTypeID=A.ActivityTypeID, ScheduleID=@ScheduleID, CostCenterID=A.CostCenterID, NodeID=A.NodeID, 
+		StatusID=A.StatusID, [Subject]=A.[Subject], Priority=A.Priority,PctComplete=A.PctComplete, 
+		Location=A.Location, IsAllDayActivity=A.IsAllDayActivity, ActualCloseDate=(case when Convert(float,A.ActualCloseDate)=0 then null else Convert(float,A.ActualCloseDate) end ), 
+		ActualCloseTime=A.ActualCloseTime,  CustomerID=A.CustomerID, Remarks=A.Remarks,AssignUserID=A.AssignUserID, 
+		AssignRoleID=A.AssignRoleID, AssignGroupID=A.AssignGroupID,StartDate=A.ActStartDate,EndDate=A.ActEndDate,StartTime=A.ActStartTime,
+		EndTime=A.ActEndTime,CompanyGUID=@CompanyGUID, [GUID]=@GUID,ModifiedBy=@UserName,ModifiedDate=@Dt,ContactID=A.ContactID
+		from  CRM_Activities C WITH(NOLOCK),@tblActivities A
+		where C.ActivityID=A.ActivityID and A.ActivityID<>0 and C.ActivityID=@ActivityID
+		 
+		IF @IsEdited=1
+		BEGIN
+			--Insert Notifications 
+			IF EXISTS(SELECT * FROM CRM_Activities WITH(NOLOCK) WHERE StatusID=413 AND ActivityID=@ActivityID)
+			   EXEC spCOM_SetNotifEvent -1004,@CostCenterID,@NodeID,@CompanyGUID,@UserName,@UserID,-1,144,@ActivityID
+			ELSE
+				EXEC spCOM_SetNotifEvent -1003,@CostCenterID,@NodeID,@CompanyGUID,@UserName,@UserID,-1,144,@ActivityID
+	    END
+	    
+		if(@EXTRAFIELDSDATA is not null and @EXTRAFIELDSDATA <> '''')		
+		begin				
+			set @UpdateSQL='' UPDATE CRM_Activities SET ''+@EXTRAFIELDSDATA+'' WHERE ActivityID=''+CONVERT(NVARCHAR(50),@ActivityID)
+			EXEC (@UpdateSQL)
+		end
+		
+		DELETE FROM [CRM_Assignment] WHERE IsFromActivity=@ActivityID
+
+		EXEC [spCRM_SetActivityAssignment] @CostCenterID,@NodeID,@TeamNodeID,@USERID,@IsTeam,@UsersList,@RolesList,@GroupsList,@CompanyGUID,@UserName,@LangID,@ActivityID
+						
+		--Inserts Multiple Attachments  
+		IF (@AttacthList IS NOT NULL AND @AttacthList <> '''')  
+		BEGIN  
+			set @AttachXml=@AttacthList 
+			
+			INSERT INTO COM_Files(FilePath,ActualFileName,RelativeFileName,
+			FileExtension,FileDescription,IsProductImage,FeatureID,CostCenterID,FeaturePK,[GUID],CreatedBy,CreatedDate,IsSign)  
+			SELECT X.value(''@FilePath'',''NVARCHAR(500)''),X.value(''@ActualFileName'',''NVARCHAR(50)''),X.value(''@RelativeFileName'',''NVARCHAR(50)''),  
+			X.value(''@FileExtension'',''NVARCHAR(50)''),X.value(''@FileDescription'',''NVARCHAR(500)''),X.value(''@IsProductImage'',''bit''),144,144,@ActivityID,  
+			X.value(''@GUID'',''NVARCHAR(50)''),@UserName,@Dt,X.value(''@IsSign'',''BIT'')
+			FROM @AttachXml.nodes(''/AttachmentsXML/Row'') as Data(X)    
+			WHERE X.value(''@Action'',''NVARCHAR(10)'')=''NEW''  
+
+			--If Action is MODIFY then update Attachments  
+			UPDATE COM_Files SET FilePath=X.value(''@FilePath'',''NVARCHAR(500)''),  
+			ActualFileName=X.value(''@ActualFileName'',''NVARCHAR(50)''),  
+			RelativeFileName=X.value(''@RelativeFileName'',''NVARCHAR(50)''),  
+			FileExtension=X.value(''@FileExtension'',''NVARCHAR(50)''),  
+			FileDescription=X.value(''@FileDescription'',''NVARCHAR(500)''),  
+			IsProductImage=X.value(''@IsProductImage'',''bit''),        
+			[GUID]=X.value(''@GUID'',''NVARCHAR(50)''),  
+			ModifiedBy=@UserName,  
+			ModifiedDate=@Dt  
+			,IsSign=X.value(''@IsSign'',''BIT'')
+			FROM COM_Files C WITH(NOLOCK)  
+			INNER JOIN @AttachXml.nodes(''/AttachmentsXML/Row'') as Data(X) ON convert(INT,X.value(''@AttachmentID'',''INT''))=C.FileID  
+			WHERE X.value(''@Action'',''NVARCHAR(500)'')=''MODIFY''  
+
+			--If Action is DELETE then delete Attachments  
+			DELETE FROM COM_Files  
+			WHERE FileID IN(SELECT X.value(''@AttachmentID'',''INT'')  
+			FROM @AttachXml.nodes(''/AttachmentsXML/Row'') as Data(X)  
+			WHERE X.value(''@Action'',''NVARCHAR(10)'')=''DELETE'')  
+		END  
+						 	
+		set @Count=@Count+1
+	end	  
+ 
+	update CRM_Activities set ActivityTypeID=A.ActivityTypeID, ScheduleID=@ScheduleID, CostCenterID=A.CostCenterID, NodeID=A.NodeID, 
+	StatusID=A.StatusID, [Subject]=A.[Subject], Priority=A.Priority, PctComplete=A.PctComplete, 
+	Location=A.Location, IsAllDayActivity=A.IsAllDayActivity, ActualCloseDate=(case when Convert(float,A.ActualCloseDate)=0 then null else Convert(float,A.ActualCloseDate) end ), 
+	ActualCloseTime=A.ActualCloseTime,  CustomerID=A.CustomerID, Remarks=A.Remarks,  AssignUserID=A.AssignUserID, 
+	AssignRoleID=A.AssignRoleID, AssignGroupID=A.AssignGroupID,StartDate=A.ActStartDate,EndDate=A.ActEndDate,StartTime=A.ActStartTime,
+	EndTime=A.ActEndTime, CompanyGUID=@CompanyGUID, [GUID]=@GUID ,  ModifiedBy=@UserName ,CONTACTID=A.ContactID, ModifiedDate=@Dt 
+	from  CRM_Activities C WITH(NOLOCK),@tblActivities A
+	where C.ActivityID=A.ActivityID and A.ActivityID<>0 and A.rowno=0
+
+	delete from @tblActivities
+
+	insert into  @tblActivities(rowno,ActivityID,ActivityTypeID,ScheduleID,CostCenterID,NodeID,
+	StatusID ,[Subject],Priority,PctComplete,Location,IsAllDayActivity,
+	ActualCloseDate,ActualCloseTime,CustomerID,Remarks,AssignUserID,
+	AssignRoleID,AssignGroupID,ActStartDate,ActEndDate,ActStartTime,ActEndTime,Name,[Status],
+	FreqType,FreqInterval,FreqSubdayType,FreqSubdayInterval,FreqRelativeInterval,FreqRecurrenceFactor,StartDate,EndDate,StartTime,
+	EndTime,[Message],isRecur,USERLIST,USERID ,ROLELIST,GROUPLIST,TEAMNODEID,ISTEAM,EXTRAFIELDSDATA,SchID,AttachmentXML,ContactID)
+	select X.value(''@rowno'',''int''),
+	X.value(''@ActivityID'',''int''),
+	X.value(''@ActivityTypeID'',''int''),
+	X.value(''@ScheduleID'',''int''),
+	@CostCenterID,
+	@NodeID,
+	X.value(''@StatusID'',''int''),
+	X.value(''@Subject'',''nvarchar(max)''),
+	X.value(''@Priority'',''int''),
+	X.value(''@PctComplete'',''int''),
+	X.value(''@Location'',''nvarchar(max)''),
+	X.value(''@IsAllDayActivity'',''int''),
+	Convert (float,X.value(''@ActualCloseDate'',''datetime'')),
+	X.value(''@ActualCloseTime'',''nvarchar(100)''),
+	X.value(''@CustomerID'',''nvarchar(100)''),
+	X.value(''@Remarks'',''nvarchar(max)''),
+	Convert(INT,  X.value(''@AssignUserID'',''INT'')),
+	Convert(INT,  X.value(''@AssignRoleID'',''INT'')),
+	Convert(INT,  X.value(''@AssignGroupID'',''INT'')),
+	Convert (float,X.value(''@ActStartDate'',''DateTime'')),
+	Convert (float,X.value(''@ActEndDate'',''DateTime'')),
+	X.value(''@ActStartTime'',''DateTime''),
+	X.value(''@ActEndTime'',''DateTime''),
+	''Document'',
+	1,
+	X.value(''@FreqType'',''int''),
+	X.value(''@FreqInterval'',''int''),
+	X.value(''@FreqSubdayType'',''int''),
+	X.value(''@FreqSubdayInterval'',''int''),
+	X.value(''@FreqRelativeInterval'',''int''),
+	X.value(''@FreqRecurrenceFactor'',''int''),
+	X.value(''@CStartDate'',''nvarchar(100)''),
+	X.value(''@CEndDate'',''nvarchar(100)''),
+	X.value(''@StartTime'',''nvarchar(100)''),
+	X.value(''@EndTime'',''nvarchar(100)''),
+	X.value(''@Message'',''nvarchar(100)'') ,
+	X.value(''@isRecu'',''bit''),
+	X.value(''@UsersXML'',''nvarchar(MAX)'') ,
+	X.value(''@UserID'',''nvarchar(MAX)'') ,
+	X.value(''@RolesXML'',''nvarchar(MAX)'') ,
+	X.value(''@GroupXML'',''nvarchar(MAX)'') ,
+	X.value(''@TeamNodeID'',''nvarchar(MAX)'') ,
+	X.value(''@isTeam'',''nvarchar(MAX)'') ,	X.value(''@ExtraUserDefinedFields'',''nvarchar(MAX)'') ,
+	X.value(''@SchID'',''Int'') ,X.value(''@AttachmentXML'',''nvarchar(MAX)''),X.value(''@ContactID'',''INT'')
+	FROM @LocalXml.nodes(''/ScheduleActivityXml/Row'') as Data(X)  where  X.value(''@rowno'',''int'')>0
+				 
+	--ADDED ON AUG 21 2013
+	DECLARE @TBLSCH TABLE(ID INT IDENTITY(1,1),SCHID INT)
+	DECLARE @SCHID INT
+	
+	INSERT INTO @TBLSCH
+	SELECT DISTINCT X.value(''@SchID'',''Int'')  FROM @LocalXml.nodes(''/ScheduleActivityXml/Row'') as Data(X)  
+	where  X.value(''@rowno'',''int'')>0 AND X.value(''@SchID'',''int'')<0
+
+	SELECT @Count=1,@MaxCount=COUNT(*) FROM  @TBLSCH
+	WHILE (@Count<=@MaxCount)
+	BEGIN
+		SELECT @SCHID=SchID FROM @TBLSCH WHERE ID=@Count
+		
+		INSERT INTO COM_Schedules(Name,StatusID,FreqType,FreqInterval,FreqSubdayType,FreqSubdayInterval,FreqRelativeInterval,
+		FreqRecurrenceFactor,StartDate,EndDate,StartTime,EndTime,[Message],CompanyGUID,[GUID],CreatedBy,CreatedDate)
+		select Name,[Status],FreqType,FreqInterval,FreqSubdayType,FreqSubdayInterval,FreqRelativeInterval,
+		FreqRecurrenceFactor,StartDate,EndDate,StartTime,EndTime,[Message],@CompanyGUID,@GUID,@UserName,convert(float,getdate())
+		from @tblActivities
+		where SCHID=@SCHID
+		
+		set @ScheduleID=SCOPE_IDENTITY();
+					
+		INSERT INTO COM_CCSchedules(CostCenterID,NodeID,ScheduleID,CreatedBy,CreatedDate)
+		VALUES(@CostCenterID,@NodeID,@ScheduleID,@UserName,@Dt) 
+		 
+		UPDATE @tblActivities SET SCHID=@ScheduleID 
+		WHERE SCHID=@SCHID
+				 
+		set @Count=@Count+1
+	END 
+					
+	select @Count=1,@MaxCount=Count(*) from @tblActivities
+	while(@Count<=@MaxCount)
+	begin	 
+		select @AttacthList=AttachmentXML,@ActivityID=ActivityID,@ScheduleID=SCHID,@TeamNodeID =TeamNodeID,@USERID=USERID,@IsTeam =IsTeam,  
+		@UsersList=USERLIST, @RolesList=ROLELIST,@GroupsList=GROUPLIST, @EXTRAFIELDSDATA=EXTRAFIELDSDATA,@isRecur=isRecur
+		from  @tblActivities where rowno=@Count
+					  
+		INSERT INTO CRM_Activities (ActivityTypeID,ScheduleID,CostCenterID,NodeID,StatusID,[Subject],Priority,PctComplete, 
+		Location,IsAllDayActivity,ActualCloseDate,ActualCloseTime, CustomerID, Remarks,AssignUserID,AssignRoleID, 
+		AssignGroupID,StartDate,EndDate,StartTime,EndTime,CompanyGUID,[GUID],[Description],CreatedBy,CreatedDate,ContactID)
+		select ActivityTypeID,@ScheduleID,@CostCenterID,@NodeID,StatusID,[Subject],Priority,PctComplete, 
+		Location,IsAllDayActivity,Convert(float,ActualCloseDate),ActualCloseTime,CustomerID,Remarks,AssignUserID,AssignRoleID,
+		AssignGroupID,ActStartDate,ActEndDate,ActStartTime,ActEndTime,@CompanyGUID,@GUID,null,@UserName,convert(float,getdate()),ContactID
+		from @tblActivities where rowno=@Count
+		SET @ActivityID=SCOPE_IDENTITY()
+			
+		--Insert Notifications
+		EXEC spCOM_SetNotifEvent -1002,@CostCenterID,@NodeID,@CompanyGUID,@UserName,@UserID,-1,144,@ActivityID
+		if(@EXTRAFIELDSDATA is not null and @EXTRAFIELDSDATA <> '''')		
+		begin						
+			set @UpdateSQL='' UPDATE CRM_Activities SET ''+@EXTRAFIELDSDATA+'' WHERE ActivityID=''+CONVERT(NVARCHAR(50),@ActivityID)
+			EXEC (@UpdateSQL)
+		end
+	 	EXEC [spCRM_SetActivityAssignment] @CostCenterID,@NodeID,@TeamNodeID,@USERID,@IsTeam,@UsersList,@RolesList,@GroupsList,@CompanyGUID,@UserName,@LangID,@ActivityID
+						 
+		 --Inserts Multiple Attachments  
+		IF (@AttacthList IS NOT NULL AND @AttacthList <> '''')  
+		BEGIN  
+			set @AttachXml=@AttacthList
+		
+			INSERT INTO COM_Files(FilePath,ActualFileName,RelativeFileName,
+			FileExtension,FileDescription,IsProductImage,FeatureID,CostCenterID,FeaturePK,[GUID],CreatedBy,CreatedDate)  
+			SELECT X.value(''@FilePath'',''NVARCHAR(500)''),X.value(''@ActualFileName'',''NVARCHAR(50)''),X.value(''@RelativeFileName'',''NVARCHAR(50)''),  
+			X.value(''@FileExtension'',''NVARCHAR(50)''),X.value(''@FileDescription'',''NVARCHAR(500)''),X.value(''@IsProductImage'',''bit''),144,144,@ActivityID,  
+			X.value(''@GUID'',''NVARCHAR(50)''),@UserName,@Dt  
+			FROM @AttachXml.nodes(''/AttachmentsXML/Row'') as Data(X)    
+			WHERE X.value(''@Action'',''NVARCHAR(10)'')=''NEW''  
+
+			--If Action is MODIFY then update Attachments  
+			UPDATE COM_Files SET FilePath=X.value(''@FilePath'',''NVARCHAR(500)''),  
+			ActualFileName=X.value(''@ActualFileName'',''NVARCHAR(50)''),  
+			RelativeFileName=X.value(''@RelativeFileName'',''NVARCHAR(50)''),  
+			FileExtension=X.value(''@FileExtension'',''NVARCHAR(50)''),  
+			FileDescription=X.value(''@FileDescription'',''NVARCHAR(500)''),  
+			IsProductImage=X.value(''@IsProductImage'',''bit''),        
+			[GUID]=X.value(''@GUID'',''NVARCHAR(50)''),  
+			ModifiedBy=@UserName,  
+			ModifiedDate=@Dt  
+			FROM COM_Files C with(nolock)   
+			INNER JOIN @AttachXml.nodes(''/AttachmentsXML/Row'') as Data(X) ON convert(INT,X.value(''@AttachmentID'',''INT''))=C.FileID  
+			WHERE X.value(''@Action'',''NVARCHAR(500)'')=''MODIFY''  
+
+			--If Action is DELETE then delete Attachments  
+			DELETE FROM COM_Files  
+			WHERE FileID IN(SELECT X.value(''@AttachmentID'',''INT'')  
+			FROM @AttachXml.nodes(''/AttachmentsXML/Row'') as Data(X)  
+			WHERE X.value(''@Action'',''NVARCHAR(10)'')=''DELETE'')  
+		END  
+					
+		set @Count=@Count+1
+	end	 
+			 
+	IF @CostCenterID=128 --if activities are creating from events tab(CAMPAIGN) then change costcenter to its parent 
+	BEGIN	
+		--EXEC spCOM_SetActivityLinkingData  88 ,@NodeID
+		SELECT @UpdateSQL=REFNO FROM CRM_Activities with(nolock) WHERE CostCenterID=88 AND NodeID=@NodeID
+		IF(LEN(@UpdateSQL)=0)
+			SELECT @UpdateSQL=Code FROM CRM_Campaigns with(nolock) WHERE CampaignID=@NodeID
+		UPDATE CRM_Activities SET RefNo=@UpdateSQL WHERE CostCenterID=128 AND NodeID=@NodeID
+	END
+	ELSE
+		EXEC spCOM_SetActivityLinkingData  @CostCenterID ,@NodeID					  
+	
+	
+	DECLARE @tempCode NVARCHAR(200)
+	set @tempCode=''''
+	select @tempCode=SpName from ADM_DocFunctions a WITH(NOLOCK) where CostCenterID=144 and Mode=9
+	if(@tempCode<>'''')
+	begin
+		SELECT @CostCenterID,@NodeID,1,@LangID,1111
+		exec @tempCode @CostCenterID,@NodeID,@UserID,@LangID
+	end
+					
+COMMIT TRANSACTION
+--select * from CRM_Activities where CostCenterID=86 and NodeID=@NodeID
+--rollback TRANSACTION
+SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock)   
+WHERE ErrorNumber=100 AND LanguageID=@LangID  
+SET NOCOUNT OFF;    
+RETURN @ActivityID
+END TRY    
+BEGIN CATCH    
+ --Return exception info [Message,Number,ProcedureName,LineNumber]    
+ IF ERROR_NUMBER()=50000  
+ BEGIN  
+ SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock)   
+  WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID  
+ END  
+ ELSE IF ERROR_NUMBER()=547  
+ BEGIN  
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine FROM COM_ErrorMessages WITH(nolock)  
+  WHERE ErrorNumber=-110 AND LanguageID=@LangID  
+ END  
+ ELSE IF ERROR_NUMBER()=2627  
+ BEGIN  
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine FROM COM_ErrorMessages WITH(nolock)  
+  WHERE ErrorNumber=-116 AND LanguageID=@LangID  
+ END  
+ ELSE  
+ BEGIN  
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine  
+  FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=-999 AND LanguageID=@LangID  
+ END  
+ ROLLBACK TRANSACTION  
+ SET NOCOUNT OFF    
+ RETURN -999     
+END CATCH
+' 
+END
+GO
+/****** Object:  StoredProcedure [dbo].[spDOC_GetSerialNumberScreenDetails]    Script Date: 09-03-2026 11:10:02 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spDOC_GetSerialNumberScreenDetails]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'  
+CREATE procedure [dbo].[spDOC_GetSerialNumberScreenDetails]  
+		@ProductID INT,  
+		@DocDetID INT,
+		@DocID INT,
+		@DivisionID INT,
+		@LocationID INT, 
+		@Dimwhere nvarchar(Max),
+		@Srnos BIT,
+		@UserID INT,
+		@LangID INT=1  
+AS  
+BEGIN TRY  
+SET NOCOUNT ON;
+	   
+		Declare @SQL nvarchar(Max)
+		--Getting  Status.  
+		SELECT S.StatusID,R.ResourceData AS Status,Status as ActualStatus
+		FROM COM_Status S WITH(NOLOCK)
+		LEFT JOIN COM_LanguageResources R WITH(NOLOCK) ON S.ResourceID=R.ResourceID AND R.LanguageID=@LangID
+		WHERE CostCenterID = 42  
+
+		--GETTING SerialStock
+		set @SQL=''SELECT a.[SerialProductID]
+      ,a.[InvDocDetailsID]
+      ,a.[ProductID]
+      ,a.[SerialNumber]
+      ,a.[StockCode]
+      ,a.[Quantity]
+      ,case when b.InvDocDetailsID is null then 157 else a.[StatusID] END as StatusID
+      ,a.[SerialGUID]
+      ,case when b.InvDocDetailsID is null then 1 else a.[IsAvailable] END as [IsAvailable]
+      ,a.[IsIssue]     
+      ,a.[RefInvDocDetailsID]
+      ,a.[Narration]
+      ,a.[CompanyGUID]
+      ,a.[GUID]
+      ,a.[Description]
+      ,a.[CreatedBy]
+      ,a.[CreatedDate]
+      ,a.[ModifiedBy]
+      ,a.[ModifiedDate]
+      ,a.[BinID]
+	  ,case a.RefInvDocDetailsID when 0 then i.[VoucherNo]  else inv.[VoucherNo] end as RefDocNo,Convert(datetime,i.[DocDate]) as DocDate
+		FROM INV_SerialStockProduct a WITH(NOLOCK)
+		join Inv_docdetails i WITH(NOLOCK) on a.InvDocDetailsID=i.InvDocDetailsID
+		left join INV_SerialStockProduct b WITH(NOLOCK) on a.SerialNumber=b.SerialNumber and a.InvDocDetailsID=b.RefInvDocDetailsID
+		left join Inv_docdetails inv WITH(NOLOCK) on   a.RefInvDocDetailsID=inv.InvDocDetailsID 
+	   join COM_DocCCData D WITH(NOLOCK) on a.InvDocDetailsID=D.InvDocDetailsID
+		WHERE a.ProductID=''+convert(nvarchar,@ProductID) +'' and i.IsQtyIgnored=0  and (b.InvDocDetailsID is null and
+		(a.RefInvDocDetailsID is null or a.RefInvDocDetailsID =0))''
+		
+		if(@LocationID is not null and @LocationID>0)
+			set @SQL=@SQL+'' and D.dcccnid2=''+CONVERT(nvarchar,@LocationID)
+		if(@DivisionID is not null and @DivisionID>0)
+			set @SQL=@SQL+'' and D.dcccnid1=''+CONVERT(nvarchar,@DivisionID)
+		if exists(select Value from COM_CostCenterPreferences WITH(NOLOCK) where CostCenterID=3 and Name =''NotAllowFutureDatedSerialNumbers'' and Value =''True'')
+		 SET @SQL=@SQL+'' and convert(datetime, i.DocDate) <=''''''''+ convert(datetime, GETDATE()) +''''''''''
+		
+		 set @SQL=@SQL+@Dimwhere
+		 set @SQL=@SQL+'' or a.InvDocDetailsID = ''+convert(nvarchar,@DocDetID) +'' order by a.IsAvailable''
+		 
+		 print (@SQL)
+		 exec(@SQL)
+		
+		if(@Srnos=1)
+		BEGIN
+			set @SQL='' select a.InvDocDetailsID,SerialNumber,a.ProductID from INV_SerialStockProduct a WITH(NOLOCK)
+			join COM_DocCCData D WITH(NOLOCK) on a.InvDocDetailsID=D.InvDocDetailsID 
+			join Inv_docdetails e WITH(NOLOCK) on a.InvDocDetailsID=e.InvDocDetailsID
+			 where (a.[RefInvDocDetailsID] is null or a.[RefInvDocDetailsID]=0) and a.ProductID=''+CONVERT(nvarchar,@ProductID)
+			if(@LocationID is not null and @LocationID>0)
+				set @SQL=@SQL+'' and D.dcccnid2=''+CONVERT(nvarchar,@LocationID)
+			if(@DivisionID is not null and @DivisionID>0)
+				set @SQL=@SQL+'' and D.dcccnid1=''+CONVERT(nvarchar,@DivisionID)
+			set @SQL=@SQL+@Dimwhere	
+			set @SQL=@SQL+'' and e.docid<>''+CONVERT(nvarchar,@DocID)
+			print @SQL
+			exec(@SQL)	
+		END
+		ELSE
+			SELECT 1 WHERE 1<>1
+			
+		DECLARE @SerialNumber NVARCHAR(50)
+		SELECT @SerialNumber=SerialNumber FROM INV_Product WITH(NOLOCK) WHERE [ProductID]=@ProductID
+		IF(@SerialNumber IS NOT NULL AND @SerialNumber<>'''')
+		BEGIN
+			DECLARE @DSerialNumber NVARCHAR(50),@I INT=0,@NUM INT=0
+			SELECT @DSerialNumber=a.[SerialNumber]
+			FROM INV_SerialStockProduct a WITH(NOLOCK)
+			WHERE a.[SerialProductID]= (SELECT MAX([SerialProductID])
+			FROM INV_SerialStockProduct WITH(NOLOCK) WHERE [ProductID]=@ProductID) 
+			
+			WHILE LEN(@DSerialNumber)>@I
+			BEGIN
+				IF ISNUMERIC(SUBSTRING(@DSerialNumber,LEN(@DSerialNumber)-@I,@I+1))=1
+				BEGIN
+					SET @NUM=CONVERT(INT,SUBSTRING(@DSerialNumber,LEN(@DSerialNumber)-@I,@I+1))
+					SET @I=@I+1
+				END
+				ELSE
+					SET @I=LEN(@DSerialNumber)
+			END
+
+			SELECT CASE WHEN (@NUM=0 OR @DSerialNumber='''')  THEN @SerialNumber ELSE REPLACE(@DSerialNumber,@NUM,'''')+CONVERT(NVARCHAR(50),@NUM+1) END SerialNumber
+		END
+		ELSE
+			SELECT 1 WHERE 1<>1
+
+SET NOCOUNT OFF;
+RETURN 1
+END TRY
+BEGIN CATCH  
+		--Return exception info [Message,Number,ProcedureName,LineNumber]  
+		IF ERROR_NUMBER()=50000
+		BEGIN
+			SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(NOLOCK) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID
+		END
+		ELSE
+		BEGIN
+			SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine
+			FROM COM_ErrorMessages WITH(NOLOCK) WHERE ErrorNumber=-999 AND LanguageID=@LangID
+		END
+SET NOCOUNT OFF  
+RETURN -999   
+END CATCH
+
+' 
+END
+GO

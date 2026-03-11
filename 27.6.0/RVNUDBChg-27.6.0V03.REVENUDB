@@ -1,0 +1,5 @@
+--Sameer
+if(not exists(select 1 from sys.columns where name = 'EnableAccordian' and Object_ID=Object_ID('dbo.ADM_MobileGridView')))
+begin
+	ALTER TABLE ADM_MobileGridView ADD EnableAccordian varchar(10) default 'NO' with values;
+end

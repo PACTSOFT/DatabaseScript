@@ -1,0 +1,60 @@
+-- SHASHANK
+
+declare @RID bigint,@FeatureActionID bigint
+	 
+select @RID=MAX(ResourceID)+1 from COM_LanguageResources WITH(NOLOCK) 
+
+SELECT @FeatureActionID=MAX([FeatureActionID])+1 FROM [ADM_FeatureAction] WITH(NOLOCK)  
+
+INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@RID,'Allow Partial Loan Payment',1,'English','Allow Partial Loan Payment','Payroll',NULL,'1',4.000000000000000e+001,NULL,NULL,'Payroll')
+
+INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@RID,'Allow Partial Loan Payment',2,'Arabic','Allow Partial Loan Payment-Ar','Payroll',NULL,'1',4.000000000000000e+001,NULL,NULL,'Payroll')
+
+INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@RID+1,'Allow Excess Loan Payment',1,'English','Allow Excess Loan Payment','Payroll',NULL,'1',4.000000000000000e+001,NULL,NULL,'Payroll')
+
+INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@RID+1,'Allow Excess Loan Payment',2,'Arabic','Allow Excess Loan Payment-Ar','Payroll',NULL,'1',4.000000000000000e+001,NULL,NULL,'Payroll')
+
+INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@RID+2,'Allow Loan Postpone',1,'English','Allow Loan Postpone','Payroll',NULL,'1',4.000000000000000e+001,NULL,NULL,'Payroll')
+
+INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@RID+2,'Allow Loan Postpone',2,'Arabic','Allow Loan Postpone-Ar','Payroll',NULL,'1',4.000000000000000e+001,NULL,NULL,'Payroll')
+
+INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@RID+3,'Allow Loan Exempt',1,'English','Allow Loan Exempt','Payroll',NULL,'1',4.000000000000000e+001,NULL,NULL,'Payroll')
+
+INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@RID+3,'Allow Loan Exempt',2,'Arabic','Allow Loan Exempt-Ar','Payroll',NULL,'1',4.000000000000000e+001,NULL,NULL,'Payroll')
+
+---------------------------
+SET IDENTITY_INSERT [ADM_FeatureAction] ON
+
+INSERT [dbo].[ADM_FeatureAction] ([FeatureActionID], [Name], [ResourceID], [FeatureID], [FeatureActionTypeID], [ApplicationID], [GridShortCut], [Description], [Status], [CreatedDate], [CreatedBy]) 
+VALUES (@FeatureActionID, N'Allow Partial Loan Payment', @RID, 40054, 866, 1, NULL, N'Allow Partial Loan Payment', 1, 40726.7106491898, N'Admin')
+
+INSERT [dbo].[ADM_FeatureAction] ([FeatureActionID], [Name], [ResourceID], [FeatureID], [FeatureActionTypeID], [ApplicationID], [GridShortCut], [Description], [Status], [CreatedDate], [CreatedBy]) 
+VALUES (@FeatureActionID+1, N'Allow Excess Loan Payment', @RID+1, 40054, 867, 1, NULL, N'Allow Excess Loan Payment', 1, 40726.7106491898, N'Admin')
+
+INSERT [dbo].[ADM_FeatureAction] ([FeatureActionID], [Name], [ResourceID], [FeatureID], [FeatureActionTypeID], [ApplicationID], [GridShortCut], [Description], [Status], [CreatedDate], [CreatedBy]) 
+VALUES (@FeatureActionID+2, N'Allow Loan Postpone', @RID+2, 40054, 868, 1, NULL, N'Allow Loan Postpone', 1, 40726.7106491898, N'Admin')
+
+INSERT [dbo].[ADM_FeatureAction] ([FeatureActionID], [Name], [ResourceID], [FeatureID], [FeatureActionTypeID], [ApplicationID], [GridShortCut], [Description], [Status], [CreatedDate], [CreatedBy]) 
+VALUES (@FeatureActionID+3, N'Allow Loan Exempt', @RID+3, 40054, 869, 1, NULL, N'Allow Loan Exempt', 1, 40726.7106491898, N'Admin')
+
+SET IDENTITY_INSERT [ADM_FeatureAction] OFF
+
+INSERT INTO [ADM_FeatureActionRoleMap]([RoleID],[FeatureActionID],[Description],[Status],[CreatedBy],[CreatedDate])
+SELECT RoleID,@FeatureActionID,null,1,'Admin',45138.7091530864 FROM ADM_FeatureActionRoleMap WITH(NOLOCK) where  FeatureActionID in (select FeatureActionID from ADM_FeatureAction WITH(NOLOCK) where Name='Create' and FeatureID=40054)
+
+INSERT INTO [ADM_FeatureActionRoleMap]([RoleID],[FeatureActionID],[Description],[Status],[CreatedBy],[CreatedDate])
+SELECT RoleID,@FeatureActionID+1,null,1,'Admin',45138.7091530864 FROM ADM_FeatureActionRoleMap WITH(NOLOCK) where  FeatureActionID in (select FeatureActionID from ADM_FeatureAction WITH(NOLOCK) where Name='Create' and FeatureID=40054)
+
+INSERT INTO [ADM_FeatureActionRoleMap]([RoleID],[FeatureActionID],[Description],[Status],[CreatedBy],[CreatedDate])
+SELECT RoleID,@FeatureActionID+2,null,1,'Admin',45138.7091530864 FROM ADM_FeatureActionRoleMap WITH(NOLOCK) where  FeatureActionID in (select FeatureActionID from ADM_FeatureAction WITH(NOLOCK) where Name='Create' and FeatureID=40054)
+
+INSERT INTO [ADM_FeatureActionRoleMap]([RoleID],[FeatureActionID],[Description],[Status],[CreatedBy],[CreatedDate])
+SELECT RoleID,@FeatureActionID+3,null,1,'Admin',45138.7091530864 FROM ADM_FeatureActionRoleMap WITH(NOLOCK) where  FeatureActionID in (select FeatureActionID from ADM_FeatureAction WITH(NOLOCK) where Name='Create' and FeatureID=40054)

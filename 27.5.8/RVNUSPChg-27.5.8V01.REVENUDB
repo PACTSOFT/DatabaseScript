@@ -1,0 +1,849 @@
+-- Wajid
+
+/****** Object:  StoredProcedure [dbo].[spCOM_DeleteCostCenter]    Script Date: 26-02-2026 11:39:27 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spCOM_DeleteCostCenter]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spCOM_DeleteCostCenter]
+GO
+/****** Object:  StoredProcedure [dbo].[spCOM_ConvertCCToAccount]    Script Date: 26-02-2026 11:39:27 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spCOM_ConvertCCToAccount]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spCOM_ConvertCCToAccount]
+GO
+/****** Object:  StoredProcedure [dbo].[spCOM_ConvertCCToAccount]    Script Date: 26-02-2026 11:39:27 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spCOM_ConvertCCToAccount]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'-- =============================================  
+-- Author:  HAFEEZ  
+-- Create date: 28 FEB 2013  
+-- Description:  TO CONVERT FEATURE ACCOUNT/PRODUCT
+-- =============================================  
+CREATE procedure [dbo].[spCOM_ConvertCCToAccount]	
+	@CCNodeID INT=0, 	
+	@code NVARCHAR(max),
+	@Name NVARCHAR(max),
+	@iVendorMax int,
+	@ContactsXML nvarchar(max),  
+	@AddressXML nvarchar(max),
+	@AttachmentsXML nvarchar(max), 
+	@NotesXML nvarchar(max),
+	@CCCML nvarchar(max),
+	@URoleID NVARCHAR(max),  
+	@CompanyIndex int,
+	@CompanyGUID NVARCHAR(100),
+	@UserName NVARCHAR(100),
+	@UserID INT,
+	@roleID INT,
+	@LangID int=1
+AS
+BEGIN TRANSACTION
+BEGIN TRY 
+SET NOCOUNT ON		
+
+	DECLARE @Dt float,@XML xml,@SSQL NVARCHAR(MAX),@UID INT,@URID INT,@CMPYID INT,@UCMPYID INT,@Return INT
+	DECLARE @lft INT,@rgt INT,@Selectedlft INT,@Selectedrgt INT,@Depth int,@ParentID INT
+	DECLARE @SelectedIsGroup bit ,@SelectedNodeID INT,@IsGroup BIT,@PContactID int
+	DECLARE @CompanyName nvarchar(500),@AccountID INT,@ret int,@ind int
+	DECLARE @COUNT INT,@I INT,@pwd NVARCHAR(MAX),@UserEmail NVARCHAR(MAX),@SQL NVARCHAR(MAX),@companyDB nvarchar(20)
+	SET @Return = 1;
+	SET @companyDB=''PACT2C.dbo.''  
+
+	SET @Dt=CONVERT(float,getdate())
+				
+				IF EXISTS(Select column_name from information_schema.columns where table_name=''COM_CC50170'' and column_name=''Category'')
+				BEGIN
+				set @SSQL=''''
+				set @SSQL=''	IF ((SELECT count(*) from COM_CC50170 WITH(nolock) where  isnull(Category,'''''''')<>'''''''' AND NodeID=''+ convert(nvarchar,@CCNodeID) +'')>0)
+						SELECT @SelectedNodeID=Category FROM COM_CC50170 WITH(nolock) where NodeID=''+ convert(nvarchar,@CCNodeID) +''
+					ELSE
+						SELECT @SelectedNodeID=isnull(VALUE,1) FROM ADM_GlobalPreferences WITH(nolock) WHERE NAME=''''VPAccountGroup''''''
+				EXEC sp_executesql @SSQL,N''@SelectedNodeID INT output'',@SelectedNodeID output		
+				END
+				ELSE
+					SELECT @SelectedNodeID=isnull(VALUE,1) FROM ADM_GlobalPreferences WITH(nolock) WHERE NAME=''VPAccountGroup'' 
+					
+					
+				set @SSQL=''''	
+				--To Set Left,Right And Depth of Record
+				SELECT @SelectedIsGroup=IsGroup,@Selectedlft =lft,@Selectedrgt=rgt,@ParentID=isnull(ParentID,1),@Depth=isnull(Depth,1)
+				from ACC_ACCOUNTS with(NOLOCK) where ACCOUNTID=@SelectedNodeID
+				
+				--IF No Record Selected or Record Doesn''t Exist
+				if(@SelectedIsGroup is null) 
+					select @SelectedNodeID=ACCOUNTID,@SelectedIsGroup=IsGroup,@Selectedlft =lft,@Selectedrgt=rgt,@ParentID=ParentID,@Depth=Depth
+					from ACC_ACCOUNTS with(NOLOCK) where ParentID =0
+
+				if(@SelectedIsGroup = 1)--Adding Node Under the Group
+				BEGIN
+					UPDATE ACC_ACCOUNTS SET rgt = rgt + 2 WHERE rgt > @Selectedlft;
+					UPDATE ACC_ACCOUNTS SET lft = lft + 2 WHERE lft > @Selectedlft;
+					set @lft =  @Selectedlft + 1
+					set @rgt = @Selectedlft + 2
+					set @ParentID = @SelectedNodeID
+					set @Depth = @Depth + 1
+				END
+				else if(@SelectedIsGroup = 0)--Adding Node at Same level
+				BEGIN
+					UPDATE ACC_ACCOUNTS SET rgt = rgt + 2 WHERE rgt > @Selectedrgt;
+					UPDATE ACC_ACCOUNTS SET lft = lft + 2 WHERE lft > @Selectedrgt;
+					set @lft =  @Selectedrgt + 1
+					set @rgt = @Selectedrgt + 2 
+				END
+				else  --Adding Root
+				BEGIN
+					set @lft =  1
+					set @rgt = 2 
+					set @Depth = 0
+					set @ParentID =0
+					set @IsGroup=1
+				END
+				
+				SET @IsGroup=0
+
+				INSERT INTO ACC_ACCOUNTS (AccountCode,AccountName,AccountTypeID,StatusID,[IsBillwise],[CreditDays],[CreditLimit],  [DebitDays],  [DebitLimit], [Depth], [ParentID],  [lft],  [rgt],  [IsGroup],[CompanyGUID],  [GUID],  [CreatedBy],  [CreatedDate], [CCID], [CCNodeID])
+				values(@code,@Name,6,33,1,0,0,0,0,@Depth,@ParentID,@lft,@rgt,0,@CompanyGUID,newid(),@UserName,@Dt, 50170, @CCNodeID) 
+				
+
+				set @AccountID=@@identity
+			 
+				IF(@AccountID IS NOT NULL)
+				BEGIN					
+					insert into COM_DocBridge(AccDocID,InvDocID,CostCenterID,NodeID,[CompanyGUID],  [GUID],  [CreatedBy],  [CreatedDate],RefDimensionID,RefDimensionNodeID)
+					values(0,0,50170,@CCNodeID,@CompanyGUID,newid(),@UserName,@Dt,2,@AccountID)
+					--Handling of Extended Table  
+					INSERT INTO [ACC_AccountsExtended]([AccountID],[CreatedBy],[CreatedDate])  
+					VALUES(@AccountID, @UserName, @Dt)  					
+					
+					INSERT INTO COM_CCCCData(CostCenterID,NodeID,GUID,CreatedBy,CreatedDate)
+					values(2,@AccountID,newid(),@UserName, @Dt)
+					
+					Exec @ret=[spDOC_SetLinkDimension]
+							@InvDocDetailsID=@CCNodeID, 
+							@Costcenterid=50170,         
+							@DimCCID=2,
+							@DimNodeID=@AccountID,
+							@UserID=@UserID,    
+							@LangID=@LangID  
+						
+						set @SQL=''select @UserEmail=UserNameAlpha,@pwd=PasswordAlpha From COM_CC50170 WITH(NOLOCK) WHERE NodeID=''+convert(nvarchar(max),@CCNodeID)
+						exec sp_executesql @SQL,N''@UserEmail nvarchar(max) OUTPUT,@pwd nvarchar(max) OUTPUT'',@UserEmail OUTPUT,@pwd OUTPUT
+						
+					
+						INSERT  [COM_Contacts]([AddressTypeID],[FeatureID],[FeaturePK],[CompanyGUID],[GUID],[CreatedBy],[CreatedDate],Email1,FirstName,RoleLookUpID)  
+								VALUES(1,2,@AccountID,NEWID(),NEWID(),@UserName,@Dt,@UserEmail,@pwd,Convert(Int,@URoleID))  
+								
+								SET @PContactID=SCOPE_IDENTITY()
+								INSERT INTO COM_ContactsExtended(ContactID,[CreatedBy],[CreatedDate])
+ 								VALUES(@PContactID, @UserName, @Dt)
+ 						
+
+
+						DECLARE @Value NVARCHAR(50)
+						SELECT @Value=Value FROM COM_CostCenterPreferences WHERE Name=''CopyTabs'' AND CostCenterID=50170
+						DECLARE @Contact NVARCHAR(max),@Addr NVARCHAR(max),@Note NVARCHAR(max),@Attach NVARCHAR(max),@CC NVARCHAR(MAX)
+						SELECT @Contact = CASE WHEN @Value LIKE ''%1%'' THEN @ContactsXML ELSE '''' END
+						SELECT @Addr = CASE WHEN @Value LIKE ''%2%'' THEN @AddressXML ELSE '''' END
+						SELECT @Note = CASE WHEN @Value LIKE ''%3%'' THEN @NotesXML ELSE '''' END
+						SELECT @Attach = CASE WHEN @Value LIKE ''%4%'' THEN @AttachmentsXML ELSE '''' END
+						SELECT @CC = CASE WHEN @Value LIKE ''%5%'' THEN @CCCML ELSE '''' END
+ 						 --
+ 						 --Insert Multiple Contacts  
+						  IF (@Contact IS NOT NULL AND @Contact <> '''')  
+						  BEGIN  
+								--CHANGES MADE IN PRIMARY CONTACT QUERY BY HAFEEZ ON DEC 20 2013,BECOZ CONTACT QUICK ADD SCREEN IS CUSTOMIZABLE  
+								 declare @rValue int
+								EXEC @rValue =  spCOM_SetFeatureWiseContacts 2,@AccountID,2,@ContactsXML,@UserName,@Dt,@LangID  
+								 IF @rValue=-1000  
+								  BEGIN  
+									RAISERROR(''-500'',16,1)  
+								  END   
+						  END  
+						  	
+						  --Insert Multiple Addresses  
+						  EXEC spCOM_SetAddress 2,@AccountID,@Addr,@UserName  
+						  
+						  --Insert Multiple Notes  
+						  IF (@Note IS NOT NULL AND @Note <> '''')  
+						  BEGIN  
+						   SET @XML=@NotesXML  
+						  
+						   --If Action is NEW then insert new Notes  
+						   INSERT INTO COM_Notes(FeatureID,CostCenterID,FeaturePK,Note,     
+						   GUID,CreatedBy,CreatedDate)  
+						   SELECT 2,2,@AccountID,Replace(X.value(''@Note'',''NVARCHAR(MAX)''),''@~'',''''),  
+						   newid(),@UserName,@Dt  
+						   FROM @XML.nodes(''/NotesXML/Row'') as Data(X)  
+						   WHERE X.value(''@Action'',''NVARCHAR(10)'')=''NEW''  
+						  
+						   --If Action is MODIFY then update Notes  
+						   UPDATE COM_Notes  
+						   SET Note=Replace(X.value(''@Note'',''NVARCHAR(MAX)''),''@~'',''''),     
+							GUID=newid(),  
+							ModifiedBy=@UserName,  
+							ModifiedDate=@Dt  
+						   FROM COM_Notes C   
+						   INNER JOIN @XML.nodes(''/NotesXML/Row'') as Data(X)    
+						   ON convert(INT,X.value(''@NoteID'',''INT''))=C.NoteID  
+						   WHERE X.value(''@Action'',''NVARCHAR(10)'')=''MODIFY''  
+						  
+						   --If Action is DELETE then delete Notes  
+						   DELETE FROM COM_Notes  
+						   WHERE NoteID IN(SELECT X.value(''@NoteID'',''INT'')  
+							FROM @XML.nodes(''/NotesXML/Row'') as Data(X)  
+							WHERE X.value(''@Action'',''NVARCHAR(10)'')=''DELETE'')  
+						  
+						  END  
+						  
+						  --Insert Attachments 
+						   IF (@Attach IS NOT NULL AND @Attach <> '''')  
+							exec [spCOM_SetAttachments] @AccountID,2,@AttachmentsXML,@UserName,@Dt
+ 						  --
+
+						  --Insert CC Mapping 
+						  	IF(@CC <> '''' AND @CC IS NOT NULL)  
+							BEGIN  
+								 EXEC [spCOM_SetCCCCMap] 2,@AccountID,@CCCML,@UserName,@LangID  
+							END 
+						  --
+						
+						select @ParentID=StatusID from COM_Status WITH(NOLOCK) where Status=''Converted''
+						set @SQL=''update COM_CC50170 set StatusID=''+convert(nvarchar(max),@ParentID)+'' where NodeID=''+convert(nvarchar(max),@CCNodeID)
+						exec(@SQL)
+						PRINT''P''
+						PRINT @PContactID
+
+						if(@CCCML <> '''' AND @CCCML IS NOT NULL And not exists (select Value from COM_CostCenterPreferences with(nolock) where FeatureID=2 and Name=''CopyAssignDataToUser'' and Value=''True''))
+						begin
+						   set @CCCML = ''''
+						end
+
+						----- 194141 issue  start
+						DECLARE @ACOUNT INT,@SOURCEDATA NVARCHAR(MAX)
+						CREATE TABLE #TBLTEMP(ID  INT IDENTITY(1,1),BASECOLUMN NVARCHAR(300),LINKCOLUMN NVARCHAR(300))
+
+						truncate table   #TBLTEMP   
+						alter table #TBLTEMP add bSysTableName nvarchar(100)  
+						alter table #TBLTEMP add lSysTableName nvarchar(100)   
+						INSERT INTO #TBLTEMP (BASECOLUMN, LINKCOLUMN, bSysTableName, lSysTableName)  
+						select l.SysColumnName, b.SysColumnName, l.SysTableName , b.SysTableName    
+						from COM_DocumentBatchLinkDetails dl WITH(nolock)  
+						join ADM_CostCenterDef b WITH(nolock) on dl.CostCenterColIDBase=b.CostCenterColID  -- base column -- account
+						join ADM_CostCenterDef l WITH(nolock) on dl.BatchColID=l.CostCenterColID  -- link column -- temp-vendor
+						
+						where dl.CostCenterID=50170  AND dl.LinkDimCCID=2  
+
+						SELECT @I=1,@ACOUNT=COUNT(*) FROM #TBLTEMP WITH(nolock)  
+
+						set @I=1  
+					 
+
+						WHILE @I<=@ACOUNT  
+						begin  
+							--IF( exists (SELECT * FROM #TBLTEMP  WITH(nolock) WHERE ID=@I and  (LSYSTABLENAME=''COM_CC50170'' AND BASECOLUMN likE ''%Alpha%'') ))  
+							--begin   
+							--	SET @SOURCEDATA= ''UPDATE [ACC_AccountsExtended] SET ''+(SELECT BASECOLUMN FROM #TBLTEMP WITH(nolock) WHERE ID=@I)+''=(  
+							--	SELECT ''+(SELECT LINKCOLUMN FROM #TBLTEMP WITH(nolock) WHERE ID=@I)+'' FROM COM_CC50170 WITH(nolock) WHERE    
+							--	NodeID=''+CONVERT(NVARCHAR,@CCNodeID) +'')     
+							--	WHERE  [ACCOUNTID]=''+CONVERT(NVARCHAR,@AccountID) + ''''  
+							--	print @SOURCEDATA  
+							--	EXEC sp_executesql @SOURCEDATA   
+							--	SET @SOURCEDATA=''''   
+							--end 
+							--else IF( exists (SELECT * FROM #TBLTEMP  WITH(nolock) WHERE ID=@I and  (LSYSTABLENAME=''COM_CC50170'' AND BASECOLUMN likE ''%CCNID%'') ))  
+							--begin   
+							--	SET @SOURCEDATA= ''UPDATE [COM_CCCCData] SET ''+(SELECT BASECOLUMN FROM #TBLTEMP WITH(nolock) WHERE ID=@I)+''=(  
+							--	SELECT ''+(SELECT LINKCOLUMN FROM #TBLTEMP WITH(nolock) WHERE ID=@I)+'' FROM COM_CC50170 WITH(nolock) WHERE    
+							--	NodeID=''+CONVERT(NVARCHAR,@CCNodeID) +'')     
+							--	WHERE  [ACCOUNTID]=''+CONVERT(NVARCHAR,@AccountID) + ''''  
+							--	print @SOURCEDATA  
+							--	EXEC sp_executesql @SOURCEDATA   
+							--	SET @SOURCEDATA=''''   
+							--end    
+							IF( exists (SELECT * FROM #TBLTEMP  WITH(nolock) WHERE ID=@I and  (BSYSTABLENAME=''COM_CC50170'' AND BASECOLUMN likE ''%Alpha%'') ))  
+							begin
+								SET @SOURCEDATA= ''UPDATE [ACC_AccountsExtended] SET ''+(SELECT LINKCOLUMN FROM #TBLTEMP WITH(nolock) WHERE ID=@I)+''=(  
+								SELECT ''+(SELECT BASECOLUMN FROM #TBLTEMP WITH(nolock) WHERE ID=@I)+'' FROM COM_CC50170 WITH(nolock) WHERE    
+								NodeID=''+CONVERT(NVARCHAR,@CCNodeID) +'')     
+								WHERE  [ACCOUNTID]=''+CONVERT(NVARCHAR,@AccountID) + ''''  
+								PRINT @SOURCEDATA  
+								EXEC sp_executesql @SOURCEDATA   
+								SET @SOURCEDATA=''''   
+							end 
+							else IF( exists (SELECT * FROM #TBLTEMP  WITH(nolock) WHERE ID=@I and  (BSYSTABLENAME=''COM_CCCCData'' AND BASECOLUMN likE ''%CCNID%'') ))  
+							begin   
+								SET @SOURCEDATA= ''UPDATE [COM_CCCCData] SET ''+(SELECT BASECOLUMN FROM #TBLTEMP WITH(nolock) WHERE ID=@I)+''=(  
+								SELECT ''+(SELECT LINKCOLUMN FROM #TBLTEMP WITH(nolock) WHERE ID=@I)+'' FROM COM_CC50170 C170 WITH(nolock) 
+								JOIN COM_CCCCData CCD WITH(NOLOCK) ON C170.NodeID=CCD.NodeID AND CCD.CostCenterID=50170 WHERE      
+								C170.NodeID=''+CONVERT(NVARCHAR,@CCNodeID) +'')     
+								WHERE  [ACCOUNTID]=''+CONVERT(NVARCHAR,@AccountID) + ''''  
+								PRINT @SOURCEDATA  
+								EXEC sp_executesql @SOURCEDATA   
+								SET @SOURCEDATA=''''   
+							end    
+							set @I=@I+1  
+						end   
+
+						----- 194141 issue  end
+
+					if (select count(*) from (
+							select U.UserID from adm_Proles R with(nolock)
+							join ADM_UserRoleMap UR WITH(NOLOCK) on UR.RoleID=R.RoleID
+							join ADM_Users U with(nolock) on U.UserID=UR.UserID
+							where R.StatusID=434 and R.RoleType=2 and U.StatusID!=2
+							group by U.UserID) AS T)>@iVendorMax-1
+							begin
+							Select ''Max Vendors License(''+convert(nvarchar,@iVendorMax)+'') Exceeds.''
+								SET @Return = 2
+							end
+							else 
+							begin
+								select @ind=replace(DB_NAME(),''PACT2C'','''')
+								exec 	@ret=spADM_SetUserFromContact 
+													 @PContactID
+													 ,@iVendorMax
+													 ,0
+													 ,@CompanyGUID
+													 ,''guid''
+													 ,@CCCML
+													 ,@UserName
+													 ,@roleID
+													 ,@UserID 
+													 ,@LangID
+													 select @ret
+								if(@ret=-999)
+									return @ret			 
+						 
+								EXEC spCOM_SetNotifEvent -1001,50170,@CCNodeID,@CompanyGUID,@UserName,@UserID,@RoleID,@ind
+								SELECT @UID=USERID FROM ADM_USERS WITH(NOLOCK)  WHERE USERNAME=@UserEmail
+								IF(@UID>1)
+								BEGIN
+									SET @sSQL=''EXEC ''+@companyDB+''[spADM_AssignUsersToCompany] 2,''+convert(varchar,@CompanyIndex)+'',''''True'''',''''''+convert(varchar,@UID)+'''''' ,''+convert(varchar,@roleID) +'',1''
+									--print (@sSQL)
+									EXEC(@sSQL)
+									Declare @tabCompanyMap table(ID INT IDENTITY(1,1),UserCompanyMapID INT,CompanyID int)
+									Declare @r int,@rc int
+									set @r=1
+									SET @UID=0
+						  			SELECT @UID=USERID FROM PACT2C.dbo.ADM_USERS WITH(NOLOCK)  WHERE USERNAME=@UserEmail
+									IF(@UID<>1)
+									BEGIN
+										SELECT @CMPYID=COMPANYID FROM PACT2C.dbo.ADM_COMPANY WITH(NOLOCK) WHERE DBINDEX =@CompanyIndex
+										IF(@CMPYID>0)
+										BEGIN
+											INSERT INTO @tabCompanyMap SELECT UserCompanyMapID,CompanyID FROM PACT2C.dbo.ADM_UserCompanyMap WITH(NOLOCK) WHERE USERID=@UID
+											Delete from @tabCompanyMap where CompanyID=@CMPYID
+											select @rc=count(*) from @tabCompanyMap
+											while(@r<@rc)
+											begin
+												SELECT  @UCMPYID=UserCompanyMapID from @tabCompanyMap where id=@r
+												DELETE FROM PACT2C.dbo.ADM_UserCompanyMap WHERE UserCompanyMapID=@UCMPYID  AND USERID=@UID
+											--SELECT @UCMPYID=UserCompanyMapID FROM PACT2C.dbo.ADM_UserCompanyMap WITH(NOLOCK) WHERE companyID=1 AND USERID=@UID
+											--DELETE FROM PACT2C.dbo.ADM_UserCompanyMap WHERE UserCompanyMapID=@UCMPYID
+											set @r=@r+1
+											end
+										END
+									END
+								END
+						END	
+				END
+COMMIT TRANSACTION  
+SET NOCOUNT OFF;   
+SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) 
+WHERE ErrorNumber=103 AND LanguageID=@LangID 
+RETURN @Return
+END TRY  
+BEGIN CATCH  
+	if(@ret=-999)
+		return @ret		
+ IF ERROR_NUMBER()=50000
+ BEGIN
+  SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) 
+  WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID
+ END
+ ELSE IF ERROR_NUMBER()=547
+ BEGIN
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine FROM COM_ErrorMessages WITH(nolock)
+  WHERE ErrorNumber=-110 AND LanguageID=@LangID
+ END
+ ELSE IF ERROR_NUMBER()=2627
+ BEGIN
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine FROM COM_ErrorMessages WITH(nolock)
+  WHERE ErrorNumber=-116 AND LanguageID=@LangID
+ END
+ ELSE
+ BEGIN
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine
+  FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=-999 AND LanguageID=@LangID
+ END
+ ROLLBACK TRANSACTION
+ SET NOCOUNT OFF  
+ RETURN -999   
+END CATCH
+' 
+END
+GO
+/****** Object:  StoredProcedure [dbo].[spCOM_DeleteCostCenter]    Script Date: 26-02-2026 11:39:27 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spCOM_DeleteCostCenter]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'-- =============================================  
+-- Author:  Adil  
+-- Create date: 21 Jun 2011  
+-- Description: deletes a Cost Center or group
+-- Example :  
+-- [spCOM_DeleteCostCenter] 50014,1,1,1    
+-- =============================================  
+CREATE procedure [dbo].[spCOM_DeleteCostCenter]   
+	@CostCenterID int,  
+	@NodeID INT  ,
+	@RoleID INT,
+	@UserID INT,
+	@LangID INT=1,		
+	@CheckLink bit = 1
+AS  
+BEGIN TRANSACTION  
+BEGIN TRY
+SET NOCOUNT ON;  
+		--Declaration Section
+		DECLARE @ErrorMsg NVARCHAR(MAX),@NIDS NVARCHAR(MAX),@ExtendedColsXML NVARCHAR(MAX)
+		DECLARE @HasAccess BIT,@Width int,@Table nvarchar(50),@SQL nvarchar(max),@ParentNode INT
+		DECLARE @TEMPSQL NVARCHAR(300),@CCID int,@HasRecord INT,@return_value int,@projDim int
+		declare @LinkDimCC nvarchar(max),@iLinkDimCC int,@Tempcc int
+		DECLARE @Cd NVARCHAR(MAX)
+		
+		--SP Required Parameters Check
+		IF @CostCenterID=0 OR @NodeID=0
+		BEGIN
+			RAISERROR(''-100'',16,1)
+		END
+
+		--User access check 
+		SET @HasAccess=dbo.fnCOM_HasAccess(@RoleID,@CostCenterID,4)
+
+		IF @HasAccess=0
+		BEGIN
+			RAISERROR(''-105'',16,1)
+		END
+		
+		IF(@CostCenterId=50052) -- PAYROLL COMPONENTS
+		BEGIN
+			IF(@NodeID IN(1,2,3,4,5,6))
+			BEGIN
+				SET @ErrorMsg=''You can not delete Static Groups''
+				RAISERROR(@ErrorMsg,16,1)
+			END
+			
+		END
+
+		IF(@CostCenterId=50004) --Department
+		BEGIN
+			SELECT @Cd=STUFF( (SELECT '',''+ProductCode FROM INV_Product WITH(NOLOCK) 
+			WHERE DepartmentID=@NodeID FOR XML PATH('''') ),1,1,'''') 
+			
+			IF(@Cd IS NOT NULL AND @Cd<>'''')
+			BEGIN
+				SET @ErrorMsg=''Dimension used in Product Codes : ''+@Cd
+				RAISERROR(@ErrorMsg,16,1)
+			END
+		END
+
+		IF(@CostCenterId=50006) --Category
+		BEGIN
+			SELECT @Cd=STUFF( (SELECT '',''+ProductCode FROM INV_Product WITH(NOLOCK) 
+			WHERE CategoryID=@NodeID FOR XML PATH('''') ),1,1,'''') 
+			
+			IF(@Cd IS NOT NULL AND @Cd<>'''')
+			BEGIN
+				SET @ErrorMsg=''Dimension used in Product Codes : ''+@Cd
+				RAISERROR(@ErrorMsg,16,1)
+			END
+		END
+		
+		SET @Table=(SELECT Top 1 SysTableName FROM ADM_CostCenterDef WITH(NOLOCK) WHERE CostCenterID=@CostCenterId)  	
+
+		create table #temptbl(id int identity(1,1),NodeID INT)
+		 
+		if @NodeID>0
+		begin
+			SET @SQL='' 
+			if exists(SELECT * FROM ''+@Table+'' WITH(NOLOCK) WHERE NodeID=''+convert(nvarchar,@NodeID)+'' and IsGroup=1)
+			BEGIN
+				DECLARE @lft INT,@rgt INT,@Width INT
+				SELECT @lft = lft, @rgt = rgt, @Width = rgt - lft + 1  
+				FROM ''+@Table+'' WITH(NOLOCK) WHERE NodeID=''+convert(nvarchar,@NodeID)+''		
+				insert into #temptbl
+				select NodeID from ''+@Table+'' WITH(NOLOCK) WHERE lft >= @lft AND rgt <= @rgt
+			END
+			else
+				insert into #temptbl(NodeID)values(''+convert(nvarchar,@NodeID)+'')''
+			
+			EXEC(@SQL)
+		end
+		else
+		begin
+			insert into #temptbl
+			values(@NodeID)
+			
+			delete from ADM_OfflineOnlineIDMap where CostCenterID=@CostCenterId and OfflineID=@NodeID
+		end
+		
+		set @NIDS=''''
+		select @NIDS=@NIDS+convert(nvarchar,NodeID)+'','' from #temptbl WITH(NOLOCK)
+		if exists(select NodeID from #temptbl WITH(NOLOCK))
+			set @NIDS=substring(@NIDS,0,len(@NIDS))
+		
+		
+		set @CCID=0		
+		if @NodeID>0
+		begin
+			select @CCID=VALUE from COM_CostCenterPreferences with(nolock) where [Name]=''StageDimension'' and CostCenterID=76 and ISNUMERIC(VALUE)=1
+			if(@CCID>50000 and @CCID=@CostCenterID)
+			begin
+				set @sql=''if exists(select StageNodeID from PRD_BOMStages with(nolock) where StageNodeID in (select NodeID from #temptbl WITH(NOLOCK)))
+				begin
+					declare @ErrorMsg nvarchar(max)
+					select top 1 @ErrorMsg=''''Dimenson used as a BOMStage in "''''+B.BOMName+''''"'''' from PRD_BOMStages BS with(nolock) 
+					inner join PRD_BillOfMaterial B with(nolock) on BS.BOMID=B.BOMID
+					where BS.StageNodeID in (select NodeID from #temptbl WITH(NOLOCK))
+					RAISERROR(@ErrorMsg,16,1)
+				end''
+			end
+		end
+		
+		IF exists(select * from COM_CostCenterPreferences with(nolock)
+		where [Name]=''BinsDimension'' and costcenterid=3 and isnumeric(value)=1 and value=@CostCenterID)
+		BEGIN
+			IF exists(select * from inv_bindetails a with(nolock)
+			join #temptbl t WITH(NOLOCK) on a.binid=t.NodeID)			
+			BEGIN
+				set @ErrorMsg=''Can not delete used bins''
+				RAISERROR(@ErrorMsg,16,1)
+			END
+		END
+		
+		set @projDim=0
+		SELECT @projDim=isnull([Value],0) FROM Adm_globalpreferences with(nolock) 
+		WHERE [Name]=''ProjPlanDim'' and ISNUMERIC(value)=1
+		if(@projDim=@CostCenterID)
+		BEGIN
+			SELECT @Tempcc=RefDimensionID,@ParentNode=RefDimensionNodeID from COM_DocBridge WITH(NOLOCK) where CostCenterID=@CostCenterID and NodeID=@NodeID
+			set @SQL=''update COM_CCCCDATA  
+				SET CCNID''+convert(nvarchar,(@CostCenterID-50000))+''=1  
+				WHERE CostCenterID=''+convert(nvarchar,@Tempcc) +'' and NODEID=''+convert(NVARCHAR,@ParentNode)  
+				EXEC (@SQL)
+		END
+	
+		--ondelete External function
+		IF (@NodeID>0)
+		BEGIN
+			DECLARE @tablename NVARCHAR(200)
+			set @tablename=''''
+			select @tablename=SpName from ADM_DocFunctions a WITH(NOLOCK) where CostCenterID=@CostCenterID and Mode=8
+			if(@tablename<>'''')
+				exec @tablename @CostCenterID,@NodeID,'''',@UserID,@LangID	
+		END	
+		--Check for deleting of Reference Records
+		if(@CheckLink = 1)
+		begin
+			if @NodeID>0 AND LEN(@NIDS)>0
+			begin
+				SET @HasRecord = 0
+				SELECT @HasRecord=count(RefDimensionID) from COM_DocBridge with(nolock) WHERE RefDimensionID=@CostCenterID and RefDimensionNodeID in (select NodeID from #temptbl WITH(NOLOCK))
+				if (@HasRecord IS NOT NULL AND @HasRecord <>'''' AND @HasRecord > 0)
+					RAISERROR(''-379'',16,1)
+				
+				if exists(select * from sys.columns
+				where name=''dcCCNID''+convert(nvarchar,@CostCenterID-50000) and object_id=object_id(''COM_DocCCDATA'')	)
+				BEGIN
+					/*****Check Refrences here****/
+					--COM_DocCCDATA(Documents)
+					declare @AccDocDetailsID INT
+					set @AccDocDetailsID=0
+					set @SQL=''select top 1 @AccDocDetailsID=AccDocDetailsID,@HasRecord=InvDocDetailsID FROM COM_DocCCDATA with(nolock) WHERE dcCCNID''+convert(nvarchar,@CostCenterID-50000)+'' in (''+@NIDS+'')''
+					EXEC sp_executesql @SQL,N''@AccDocDetailsID int OUTPUT,@HasRecord INT OUTPUT'',@AccDocDetailsID OUTPUT,@HasRecord OUTPUT
+					if(@HasRecord>0 or @AccDocDetailsID>0)
+					begin
+						if @HasRecord>0
+							select Top 1 @ErrorMsg=''Dimension used in Document "''+VoucherNo+''"'' from inv_docdetails with(nolock) where InvDocDetailsID=@HasRecord
+						else if @AccDocDetailsID>0
+							select Top 1 @ErrorMsg=''Dimension used in Document "''+VoucherNo+''"'' from acc_docdetails with(nolock) where AccDocDetailsID=@AccDocDetailsID
+						RAISERROR(@ErrorMsg,16,1)
+					end
+					
+					IF(@CostCenterId=50052) -- PAYROLL COMPONENTS
+					BEGIN
+						--COM_CC50054 -- PAYROLL STRUCTURE
+						set @SQL=''SELECT top 1 @ErrorMsg=REPLACE(CONVERT(NVARCHAR(11), CONVERT(DATETIME,PAYROLLDATE),106),'''' '''',''''/''''),@HasRecord=NodeID FROM COM_CC50054 WITH(NOLOCK) WHERE ComponentID IN (''+@NIDS+'')''
+						EXEC sp_executesql @SQL,N''@ErrorMsg nvarchar(max) OUTPUT,@HasRecord INT OUTPUT'',@ErrorMsg OUTPUT,@HasRecord OUTPUT
+						if(@HasRecord>0)
+						begin
+							set @ErrorMsg=''Components used in Customize Payroll - "''+@ErrorMsg+''"''
+							RAISERROR(@ErrorMsg,16,1)
+						end
+					END
+				END
+				IF(@CostCenterId=50056 AND (@NodeID=3 OR @NodeID=4)) -- Activity Type
+				BEGIN
+					set @ErrorMsg=''Static Dimension Cannot be Delete''
+					RAISERROR(@ErrorMsg,16,1)
+				END
+				
+				IF(@CostCenterId=50057 AND (@NodeID=3 OR @NodeID=4 OR @NodeID=5 OR @NodeID=6)) -- Activity Type
+				BEGIN
+					set @ErrorMsg=''Static Dimension Cannot be Delete''
+					RAISERROR(@ErrorMsg,16,1)
+				END
+				
+				IF(@CostCenterId=50068) -- Bank
+				BEGIN
+					set @SQL=''SELECT top 1 @ErrorMsg=Code,@HasRecord=NodeID FROM COM_CC50051 WITH(NOLOCK) WHERE iBank IN (''+@NIDS+'')''
+					EXEC sp_executesql @SQL,N''@ErrorMsg nvarchar(max) OUTPUT,@HasRecord INT OUTPUT'',@ErrorMsg OUTPUT,@HasRecord OUTPUT
+					if(@HasRecord>0)
+					begin
+						set @ErrorMsg=''Cannot Delete Bank Assigned In Employee - "''+@ErrorMsg+''"''
+						RAISERROR(@ErrorMsg,16,1)
+					end
+				END
+
+				IF(@CostCenterID=50170) -- Temp-Vendor
+				BEGIN
+					set @SQL=''SELECT top 1 @ErrorMsg=AccountCode,@HasRecord=AccountID FROM ACC_Accounts WITH(NOLOCK) WHERE CCID = 50170 and CCNodeID IN (''+@NIDS+'')''
+					print @SQL
+					EXEC sp_executesql @SQL,N''@ErrorMsg nvarchar(max) OUTPUT,@HasRecord INT OUTPUT'',@ErrorMsg OUTPUT,@HasRecord OUTPUT
+					if(@HasRecord>0)
+					begin
+						set @ErrorMsg=''Cannot delete vendor which is converted to account - "''+@ErrorMsg+''"''
+						RAISERROR(@ErrorMsg,16,1)
+					end
+				END	
+				
+				--COM_CCCCDATA
+				set @SQL=''select top 1 @CCID=CostCenterID,@HasRecord=NodeID FROM COM_CCCCDATA with(nolock) WHERE CCNID''+convert(nvarchar,@CostCenterID-50000)+'' in (''+@NIDS+'')''
+				EXEC sp_executesql @SQL,N''@CCID int OUTPUT,@HasRecord INT OUTPUT'',@CCID OUTPUT,@HasRecord OUTPUT
+				if(@HasRecord>0)
+				begin
+					EXEC [spCOM_GetErrorMsg] @CCID,@HasRecord,''Dimension used in '',@ErrorMsg output
+					RAISERROR(@ErrorMsg,16,1)
+				end
+
+				--COM_CostCenterCostCenterMap
+				set @SQL=''select top 1 @CCID=ParentCostCenterID,@HasRecord=ParentNodeID FROM COM_CostCenterCostCenterMap with(nolock) WHERE CostCenterID=''+convert(nvarchar,@CostCenterID)+'' and NodeID in (''+@NIDS+'')''
+				EXEC sp_executesql @SQL,N''@CCID int OUTPUT,@HasRecord INT OUTPUT'',@CCID OUTPUT,@HasRecord OUTPUT
+				if(@HasRecord>0)
+				begin
+					--select @CCID,@HasRecord,''Dimension assigned in '',@ErrorMsg output
+					EXEC [spCOM_GetErrorMsg] @CCID,@HasRecord,''Dimension assigned in '',@ErrorMsg output
+					RAISERROR(@ErrorMsg,16,1)
+				end
+
+				--PriceChart, TaxChart, Schemes & Discounts
+				set @SQL=''select top 1 @ErrorMsg=ProfileName,@HasRecord=PriceCCID FROM COM_CCPrices with(nolock) WHERE CCNID''+convert(nvarchar,@CostCenterID-50000)+'' in (''+@NIDS+'')''
+				EXEC sp_executesql @SQL,N''@ErrorMsg nvarchar(max) OUTPUT,@HasRecord INT OUTPUT'',@ErrorMsg OUTPUT,@HasRecord OUTPUT
+				if(@HasRecord>0)
+				begin
+					set @ErrorMsg=''Dimension used in Price chart "''+@ErrorMsg+''"''
+					RAISERROR(@ErrorMsg,16,1)
+				end
+				IF(@CostCenterId<>50052 AND @CostCenterId<>50053)
+				BEGIN
+					set @SQL=''select top 1 @ErrorMsg=ProfileName,@HasRecord=CCTaxID FROM COM_CCTaxes with(nolock) WHERE CCNID''+convert(nvarchar,@CostCenterID-50000)+'' in (''+@NIDS+'')''
+					EXEC sp_executesql @SQL,N''@ErrorMsg nvarchar(max) OUTPUT,@HasRecord INT OUTPUT'',@ErrorMsg OUTPUT,@HasRecord OUTPUT
+					if(@HasRecord>0)
+					begin
+						set @ErrorMsg=''Dimension used in Tax chart "''+@ErrorMsg+''"''
+						RAISERROR(@ErrorMsg,16,1)
+					end
+				END
+				set @SQL=''select top 1 @ErrorMsg=ProfileName,@HasRecord=SchemeID FROM ADM_SchemesDiscounts with(nolock) WHERE CCNID''+convert(nvarchar,@CostCenterID-50000)+'' in (''+@NIDS+'')''
+				EXEC sp_executesql @SQL,N''@ErrorMsg nvarchar(max) OUTPUT,@HasRecord INT OUTPUT'',@ErrorMsg OUTPUT,@HasRecord OUTPUT
+				if(@HasRecord>0)
+				begin
+					set @ErrorMsg=''Dimension used in Scheme & Discounts "''+@ErrorMsg+''"''
+					RAISERROR(@ErrorMsg,16,1)
+				end
+			end
+			else
+			begin
+				delete from COM_DocBridge where RefDimensionID=@CostCenterID and RefDimensionNodeID in (select NodeID from #temptbl WITH(NOLOCK))
+			end
+		end 
+
+		IF(@CostCenterId=50053) -- GRADE
+		BEGIN
+			SET @SQL=''DELETE FROM COM_CC50054 WHERE GRADEID=''+CONVERT(VARCHAR,@NodeID)
+			EXEC sp_executesql @SQL
+		END
+		
+		if exists (select * from sys.tables with(nolock) where name=''PRD_JobOuputProducts'')
+		begin
+			set @SQL=''if exists (select CostCenterID from PRD_JobOuputProducts WITH(NOLOCK) where CostCenterID=''+convert(nvarchar,@CostCenterID)+'' and NodeID=''+convert(nvarchar,@NodeID)+'')
+							BEGIN
+								delete from PRD_JobOuputProducts where CostCenterID=''+convert(nvarchar,@CostCenterID)+'' and NodeID=''+convert(nvarchar,@NodeID)+''
+								delete from INV_DocExtraDetails where [Type]=15 and LabID=''+convert(nvarchar,@NodeID)+''
+							END	''
+								
+			exec(@SQL)
+		end
+
+		SET @SQL ='' SELECT @ParentNode=PARENTID FROM ''+ @Table +'' WHERE NODEID=''+CONVERT(VARCHAR,@NodeID)
+		SET @TEMPSQL='' @ParentNode INT OUTPUT'' 
+		EXEC sp_executesql @SQL, @TEMPSQL,@ParentNode OUTPUT  
+		
+		IF @ParentNode=0 or @NodeID=1
+		BEGIN
+			RAISERROR(''-117'',16,1)
+		END		
+		
+		declare @rptid INT 
+		select @rptid=CONVERT(INT,value) from ADM_GlobalPreferences with(nolock) where Name=''Report Template Dimension''
+		if(@rptid=@CostCenterID)
+		begin 
+			delete from ACC_ReportTemplate where drnodeid =@NodeID or crnodeid=@NodeID or templatenodeid =@NodeID
+		end
+	
+	
+		DELETE FROM COM_CCCCDATA WHERE CostCenterID=@CostCenterID and NodeID in (select NodeID from #temptbl WITH(NOLOCK))
+		
+		SET @SQL='' DECLARE @lft INT,@rgt INT,@Width INT
+		''  
+		 
+		--Fetch left, right extent of Node along with width.  
+		SET @SQL=@SQL+'' SELECT @lft = lft, @rgt = rgt, @Width = rgt - lft + 1  
+		FROM ''+@Table+'' WITH(NOLOCK) WHERE NodeID=''+convert(nvarchar,@NodeID)  
+
+		--Delete from main table  
+		IF ( LEN(@NIDS)>0 )
+		SET @SQL=@SQL+'' DELETE FROM ''+@Table+'' WHERE NodeID IN (''+@NIDS+'')''  
+		
+		--Audit Data(Masood)
+		set @ExtendedColsXML=''''
+		if exists(SELECT Value FROM COM_CostCenterPreferences WITH(NOLOCK) WHERE CostCenterID=@CostCenterId and Name=''AuditTrial'' and Value=''True'')
+		begin
+			exec @return_value=spADM_AuditData 1,@CostCenterID,@NodeID,''Delete'','''',1,1
+		end	
+
+		--Update left and right extent to set the tree  
+		SET @SQL=@SQL+'' UPDATE ''+@Table+'' SET rgt = rgt - @Width WHERE rgt > @rgt;   
+		  UPDATE ''+@Table+'' SET lft = lft - @Width WHERE lft > @rgt;''  
+		EXEC(@SQL)  		
+		
+		if exists(select Value from ADM_GlobalPreferences WITH(NOLOCK) WHERE Name=''PosCoupons'' and Value=@CostCenterID)
+			and exists(select VoucherNodeID from COM_PosPayModes WITH(NOLOCK) WHERE VoucherNodeID in(select NodeID from #temptbl WITH(NOLOCK)))
+		BEGIN
+			RAISERROR(''-526'',16,1)
+		END
+			
+		DELETE FROM  COM_ContactsExtended
+		WHERE ContactID IN (SELECT CONTACTID FROM COM_CONTACTS WITH(NOLOCK) WHERE FeatureID=@CostCenterID and  FeaturePK in (select NodeID from #temptbl WITH(NOLOCK)))
+		
+		DELETE FROM  COM_Contacts 
+		WHERE FeatureID=@CostCenterID and  FeaturePK in (select NodeID from #temptbl WITH(NOLOCK))
+		
+		--Delete from Notes
+		DELETE FROM  COM_Notes 
+		WHERE FeatureID=@CostCenterID and  FeaturePK in (select NodeID from #temptbl WITH(NOLOCK))
+
+		--Delete from Files
+		DELETE FROM  COM_Files  
+		WHERE FeatureID=@CostCenterID and  FeaturePK in (select NodeID from #temptbl WITH(NOLOCK))
+		
+		DELETE FROM COM_HistoryDetails where CostCenterID=@CostCenterID and NodeID IN (select NodeID from #temptbl WITH(NOLOCK))
+		DELETE FROM [COM_CostCenterStatusMap] where CostCenterID=@CostCenterID and NodeID IN (select NodeID from #temptbl WITH(NOLOCK))
+
+		DELETE FROM COM_CostCenterCostCenterMap WHERE CostCenterID=@CostCenterID and NodeID in (select NodeID from #temptbl WITH(NOLOCK))
+		DELETE FROM COM_CostCenterCostCenterMap WHERE ParentCostCenterID=@CostCenterID and ParentNodeID in (select NodeID from #temptbl WITH(NOLOCK))
+		
+		--DELETE LINKED DIMENSIONS
+		if(@projDim=@CostCenterID)		
+		BEGIN
+			set @iLinkDimCC=0
+			SELECT @iLinkDimCC=isnull([Value],0) FROM Adm_globalpreferences with(nolock) 
+			WHERE [Name]=''ProjectManagementDimension'' and ISNUMERIC(value)=1			
+		END
+		ELSE
+		BEGIN	
+			SELECT @LinkDimCC=[Value] FROM com_costcenterpreferences with(nolock) WHERE CostCenterID=@CostCenterID and [Name]=''LinkDimension''
+			if(ISNUMERIC(@LinkDimCC)=1)
+				set @iLinkDimCC=CONVERT(int,@LinkDimCC)
+			else
+				set @iLinkDimCC=0
+		END
+		
+		declare @LinkDimNodeID INT
+
+		declare @i int, @cnt int,@tempnodeid INT
+		select @i=1,@cnt=count(*) from #temptbl WITH(NOLOCK)
+		while @i<=@cnt
+		begin
+			select @tempnodeid=nodeid from #temptbl WITH(NOLOCK) where id=@i
+		
+			select @LinkDimNodeID=RefDimensionNodeID from com_docbridge WHERE CostCenterID=@CostCenterID AND NodeID=@tempnodeid AND RefDimensionID=@iLinkDimCC
+			--set @SQL=''select @LinkDimNodeID=CCNID''+convert(nvarchar,(@LinkDimCC-50000))+'' from COM_CCCCData WHERE CostCenterID=''+convert(nvarchar,@CostCenterID) +'' and NODEID=''+convert(NVARCHAR,@NodeID)  
+			--EXEC sp_executesql @SQL,N''@LinkDimNodeID INT OUTPUT'',@LinkDimNodeID OUTPUT  
+			--declare @return_value int
+			if (@LinkDimNodeID>1 and @iLinkDimCC>50000 and @iLinkDimCC!=@CostCenterID)
+			begin
+				if not (@tempnodeid<0 and @LinkDimNodeID>0)--condition added for syn offline data
+					EXEC [dbo].[spCOM_DeleteCostCenter]
+					@CostCenterID = @iLinkDimCC,
+					@NodeID = @LinkDimNodeID,
+					@RoleID=1,
+					@UserID=1,
+					@LangID = @LangID,
+					@CheckLink = 0
+			end
+		
+			--Deleting from Mapping Table
+			delete from com_docbridge WHERE CostCenterID=@CostCenterID AND NodeID=@tempnodeid AND RefDimensionID=@iLinkDimCC
+			
+			set @i=@i+1
+		end
+		
+		drop table #temptbl
+COMMIT TRANSACTION 
+--ROLLBACK TRANSACTION
+SET NOCOUNT OFF; 
+SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) 
+WHERE ErrorNumber=102 AND LanguageID=@LangID  
+RETURN 1
+END TRY
+BEGIN CATCH  
+		--Return exception info [Message,Number,ProcedureName,LineNumber]  
+
+		IF ERROR_NUMBER()=50000
+		BEGIN
+			if isnumeric(ERROR_MESSAGE())=1
+				SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID
+			else
+				SELECT ERROR_MESSAGE() ErrorMessage,-1 ErrorNumber
+		END
+		ELSE IF ERROR_NUMBER()=547
+		BEGIN
+			SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine FROM COM_ErrorMessages WITH(nolock)
+			WHERE ErrorNumber=-110 AND LanguageID=@LangID
+		END
+		ELSE 
+		BEGIN
+			SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine
+			FROM COM_ErrorMessages WITH(NOLOCK) WHERE ErrorNumber=-999 AND LanguageID=@LangID
+		END
+ROLLBACK TRANSACTION
+SET NOCOUNT OFF  
+RETURN -999   
+END CATCH
+
+--GO
+--spCOM_DeleteCostCenter
+-- 50006
+-- ,1878
+-- ,1
+-- ,1
+-- ,1
+' 
+END
+GO

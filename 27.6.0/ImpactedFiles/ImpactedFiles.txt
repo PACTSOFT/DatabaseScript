@@ -1,0 +1,42 @@
+
+
+
+
+
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/CommonController.cs
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/DocumentController.cs
+M	RevenUWeb/src/app/admin/mobile-preferences/mobile-preferences-customize/MobilePreferencesCustomize.component.ts
+M	RevenUWeb/src/app/common/common-field-popup/common-field-popup.component.html
+M	RevenUWeb/src/app/document/payment-terms/PaymentTermsViewModel.ts
+M	RevenUWeb/src/app/facility-management/Tickets/ActivityHistoryLogs.component.ts
+M	RevenUWeb/src/app/facility-management/Tickets/NewServiceRequest.component.ts
+M	RevenUWeb/src/app/facility-management/Tickets/ServiceRequestDetails.component.ts
+M	RevenUWeb/src/app/facility-management/Tickets/ServiceRequests.component.ts
+M	RevenUWeb/src/app/facility-management/supervisor/SupervisorDashboard.component.ts
+M	RevenUWeb/src/app/facility-management/technician/TechnicianDashboard.component.ts
+M	RevenUWeb/src/app/pages/login-screen/LoginScreenViewModel.ts
+M	RevenUWeb/src/app/property/contract/AddEditRenContractViewModel.ts
+M	RevenUWeb/src/app/services/api/document.service.ts
+M	RevenUWeb/src/app/services/base.service.ts
+M	RevenUWeb/src/app/services/session-manager.service.ts
+M	RevenUWeb/src/app/shared/controls/data-widget/data-widget.component.html
+M	RevenUWeb/src/app/shared/controls/data-widget/data-widget.component.ts
+M	RevenUWebWhiteTheme/src/app/CostCenters/add-edit-costcenter/AddCostCenterViewModel.ts
+M	RevenUWebWhiteTheme/src/app/admin/mobile-preferences/mobile-preferences-customize/MobilePreferencesCustomize.component.ts
+M	RevenUWebWhiteTheme/src/app/common/common-field-popup/common-field-popup.component.html
+M	RevenUWebWhiteTheme/src/app/common/tree-view-page/landingpage.component.html
+M	RevenUWebWhiteTheme/src/app/common/tree-view-page/tree-view-page.component.ts
+M	RevenUWebWhiteTheme/src/app/document/payment-terms/PaymentTermsViewModel.ts
+M	RevenUWebWhiteTheme/src/app/ess/Models/CommonMonthlyPayroll.ts
+M	RevenUWebWhiteTheme/src/app/facility-management/Tickets/NewServiceRequest.component.ts
+M	RevenUWebWhiteTheme/src/app/pages/login-screen/LoginScreenViewModel.ts
+M	RevenUWebWhiteTheme/src/app/property/contract/AddEditRenContractViewModel.ts
+M	RevenUWebWhiteTheme/src/app/reports/add-edit-filter/filter.component.html
+M	RevenUWebWhiteTheme/src/app/reports/report-view/IPrefetchFilter.ts
+M	RevenUWebWhiteTheme/src/app/reports/report-view/report.component.html
+M	RevenUWebWhiteTheme/src/app/reports/static-report-filter/static-filter.component.html
+M	RevenUWebWhiteTheme/src/app/services/api/common.service.ts
+M	RevenUWebWhiteTheme/src/app/services/api/document.service.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/data-widget/data-widget.component.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/tree/pact-tree/pact-tree.component.ts
+M	RevenUWebWhiteTheme/src/scss/PACTUI/@theme/_page.scss

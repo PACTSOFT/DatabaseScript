@@ -1,0 +1,45 @@
+--waseem	
+       DECLARE @I INT,@CNT INT
+	DECLARE @Tab Table(ID INT IDENTITY(1,1),CCID BigINT)	
+	INSERT INTO @Tab select FeatureID from ADM_Features WITH(NOLOCK) where FeatureID in (null,86,89,88,73)
+	SET @I=1
+	declare @CCID BigINT
+	select * from @Tab
+	SELECT @CNT=COUNT(*) FROM @Tab
+	WHILE(@I<=@CNT)
+	BEGIN
+		SELECT @CCID=isnull(CCID,null) from @Tab where ID=@I 
+		 DECLARE @CostCenterID INT,@ResID INT
+
+		SELECT @ResID=MAX([ResourceID])+1 from [com_languageresources] with(nolock)
+		SET @CostCenterID=144
+		print 'ccid'
+		print @CCID
+		print 'ccid end'
+		INSERT INTO COM_LanguageResources (ResourceID, ResourceName, LanguageID, LanguageName, ResourceData,FEATURE)
+		VALUES (@ResID, 'ActStartDate',1,'English','Actual Start Date' ,'CRM_Activities')
+		INSERT INTO COM_LanguageResources (ResourceID, ResourceName, LanguageID, LanguageName, ResourceData,FEATURE)
+		VALUES (@ResID, 'ActStartDate',2,'Arabic','Actual Start Date' ,'CRM_Activities')
+
+		INSERT INTO ADM_CostCenterDef (CostCenterID,ResourceID,CostCenterName,SysTableName,UserColumnName,SysColumnName,ColumnTypeSeqNumber,UserColumnType,ColumnDataType,UserDefaultValue,UserProbableValues,ColumnOrder,IsMandatory,IsEditable,IsVisible,IsCostCenterUserDefined,IsColumnUserDefined,IsCCDeleted,IsColumnDeleted,ColumnCostCenterID,ColumnCCListViewTypeID,FetchMaxRows,IsColumnGroup,ColumnGroupNumber,SectionSeqNumber,SectionID,SectionName,RowNo,ColumnNo,ColumnSpan,IsColumnInUse,UIWidth,CompanyGUID,GUID,Description,CreatedBy,CreatedDate,ModifiedBy,ModifiedDate,
+									   [IsForeignKey],[ParentCostCenterID],[ParentCostCenterColID],[IsValidReportBuilderCol],[ParentCostCenterSysName],[ParentCostCenterColSysName],[ParentCCDefaultColID],LocalReference)
+		SELECT @CostCenterID,@ResID,'Activities','CRM_Activities','Actual Start Date','ActStartDate',NULL,'Date','Date','','',0,0,1,1,0,0,0,0,0,0,NULL,0,NULL,0,NULL,NULL,NULL,NULL,NULL,1,NULL,'COMPANYGUID','GUID',NULL,'ADMIN',convert(float,getdate()),NULL,NULL,1,0,0,1,'','',0,@CCID
+
+
+		SET @ResID=@ResID+1 
+
+		INSERT INTO COM_LanguageResources (ResourceID, ResourceName, LanguageID, LanguageName, ResourceData,FEATURE)
+		VALUES (@ResID, 'ActEndDate',1,'English','Actual End Date' ,'CRM_Activities')
+		INSERT INTO COM_LanguageResources (ResourceID, ResourceName, LanguageID, LanguageName, ResourceData,FEATURE)
+		VALUES (@ResID, 'ActEndDate',2,'Arabic','Actual End Date' ,'CRM_Activities')
+
+		INSERT INTO ADM_CostCenterDef (CostCenterID,ResourceID,CostCenterName,SysTableName,UserColumnName,SysColumnName,ColumnTypeSeqNumber,UserColumnType,ColumnDataType,UserDefaultValue,UserProbableValues,ColumnOrder,IsMandatory,IsEditable,IsVisible,IsCostCenterUserDefined,IsColumnUserDefined,IsCCDeleted,IsColumnDeleted,ColumnCostCenterID,ColumnCCListViewTypeID,FetchMaxRows,IsColumnGroup,ColumnGroupNumber,SectionSeqNumber,SectionID,SectionName,RowNo,ColumnNo,ColumnSpan,IsColumnInUse,UIWidth,CompanyGUID,GUID,Description,CreatedBy,CreatedDate,ModifiedBy,ModifiedDate,
+									   [IsForeignKey],[ParentCostCenterID],[ParentCostCenterColID],[IsValidReportBuilderCol],[ParentCostCenterSysName],[ParentCostCenterColSysName],[ParentCCDefaultColID],LocalReference)
+		SELECT @CostCenterID,@ResID,'Activities','CRM_Activities','Actual End Date','ActEndDate',NULL,'Date','Date','','',0,0,1,1,0,0,0,0,0,0,NULL,0,NULL,0,NULL,NULL,NULL,NULL,NULL,1,NULL,'COMPANYGUID','GUID',NULL,'ADMIN',convert(float,getdate()),NULL,NULL,1,0,0,1,'','',0,@CCID
+
+
+	SET @I=@I+1
+
+	END
+
+

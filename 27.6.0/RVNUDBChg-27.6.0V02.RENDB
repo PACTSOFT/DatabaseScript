@@ -1,0 +1,5 @@
+--Sajid
+IF EXISTS(SELECT Name FROM [COM_CostCenterPreferences] WITH(NOLOCK) WHERE CostCenterID=95 and Name='DoNotCopyPayTermsonReservation')
+BEGIN
+	Update [COM_CostCenterPreferences] set CostCenterID=129,FeatureID=129 where Name='DoNotCopyPayTermsonReservation' and CostCenterID=95
+END

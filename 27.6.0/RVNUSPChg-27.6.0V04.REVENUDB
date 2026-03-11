@@ -1,0 +1,120 @@
+--Waseem
+
+
+/****** Object:  StoredProcedure [dbo].[spCom_SetActivityStatusLog]    Script Date: 02-03-2026 14:19:58 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spCom_SetActivityStatusLog]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spCom_SetActivityStatusLog]
+GO
+/****** Object:  StoredProcedure [dbo].[spCom_SetActivityStatusLog]    Script Date: 02-03-2026 14:19:58 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spCom_SetActivityStatusLog]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'CREATE procedure [dbo].[spCom_SetActivityStatusLog]
+	 @ActivityID int,
+	 @NodeID int,
+	 @Date datetime,
+	 @status int,
+	 @Reason nvarchar(max),
+	 @Longitude nvarchar(200),
+	 @Latitude nvarchar(200),
+	 @Address1 nvarchar(256),
+	 @Address2 nvarchar(256),
+	 @City nvarchar(64),
+	 @State nvarchar(64),
+	 @Country nvarchar(64),
+	 @PinCode nvarchar(32),
+	 @ExtraFields NVARCHAR(max),
+	 @CompanyGUID nvarchar(max),	
+	 @CostCenterID int, 
+	 @UserID int,  
+	 @UserName nvarchar(300),	 
+	 @RoleID int, 
+	 @LangID int 
+ 
+AS
+SET NOCOUNT ON 
+BEGIN TRANSACTION
+BEGIN TRY
+		if(@Status=13)
+		Begin
+			update CRM_Activities set statusid=@status where ActivityID=@ActivityID
+		End
+		if(@Status in (14,9,12,15,413))
+		Begin
+			EXEC spCOM_SetNotifEvent @status,@CostCenterID,@NodeID,@CompanyGUID,@UserName,@UserID,@RoleID
+		End
+		declare @xml xml
+		set @xml=@ExtraFields
+
+		if(@ExtraFields = '''')
+		BEGIN
+		insert into CRM_ActivityStatusLog(ActivityID,CostCenterID,NodeID,Date,Remarks,Status,Longitude,Latitude,Address1
+		,Address2,City,State,Country,PinCode)
+		(select @ActivityID,@CostCenterID,@NodeID,convert(float,@Date),@Reason,@Status,@Longitude,@Latitude,@Address1,@Address2,@City,@State
+		,@Country,@PinCode)
+		END
+		ELSE
+		BEGIN
+		insert into CRM_ActivityStatusLog(ActivityID,CostCenterID,NodeID,Date,Remarks,Status,Longitude,Latitude,Address1
+		,Address2,City,State,Country,PinCode,dcAlpha1,dcAlpha2,dcAlpha3,dcAlpha4,dcAlpha5,dcAlpha6,dcAlpha7,dcAlpha8,dcAlpha9,dcAlpha10)
+		(select @ActivityID,@CostCenterID,@NodeID,convert(float,@Date),@Reason,@Status,@Longitude,@Latitude,@Address1,@Address2,@City,@State
+		,@Country,@PinCode,X.value(''@dcAlpha1'',''nvarchar(512)''),X.value(''@dcAlpha2'',''nvarchar(512)''),X.value(''@dcAlpha3'',''nvarchar(512)''),
+		X.value(''@dcAlpha4'',''nvarchar(512)''),X.value(''@dcAlpha5'',''nvarchar(512)''),X.value(''@dcAlpha6'',''nvarchar(512)''),
+		X.value(''@dcAlpha7'',''nvarchar(512)''),X.value(''@dcAlpha8'',''nvarchar(512)''),X.value(''@dcAlpha9'',''nvarchar(512)''),X.value(''@dcAlpha10'',''nvarchar(512)'')
+		 from  @xml.nodes(''/XML'') as Data(x))
+		END
+
+		insert into CRM_ActivityStatusLog(ActivityID,CostCenterID,NodeID,Date,Remarks,Status,Longitude,Latitude,Address1
+		,Address2,City,State,Country,PinCode,dcAlpha1,dcAlpha2,dcAlpha3,dcAlpha4,dcAlpha5,dcAlpha6,dcAlpha7,dcAlpha8,dcAlpha9,dcAlpha10)
+		(select @ActivityID,@CostCenterID,@NodeID,convert(float,@Date),@Reason,@Status,@Longitude,@Latitude,@Address1,@Address2,@City,@State
+		,@Country,@PinCode,X.value(''@dcAlpha1'',''nvarchar(512)''),X.value(''@dcAlpha2'',''nvarchar(512)''),X.value(''@dcAlpha3'',''nvarchar(512)''),
+		X.value(''@dcAlpha4'',''nvarchar(512)''),X.value(''@dcAlpha5'',''nvarchar(512)''),X.value(''@dcAlpha6'',''nvarchar(512)''),
+		X.value(''@dcAlpha7'',''nvarchar(512)''),X.value(''@dcAlpha8'',''nvarchar(512)''),X.value(''@dcAlpha9'',''nvarchar(512)''),X.value(''@dcAlpha10'',''nvarchar(512)'')
+		 from  @xml.nodes(''/XML'') as Data(x))
+
+		-- insert into CRM_ActivityStatusLog(ActivityID,CostCenterID,NodeID,Date,Remarks,Status,Longitude,Latitude,Address1
+		--,Address2,City,State,Country,PinCode,dcAlpha1,dcAlpha2,dcAlpha3,dcAlpha4,dcAlpha5,dcAlpha6,dcAlpha7,dcAlpha8,dcAlpha9,dcAlpha10)
+		--Values(@ActivityID,@CostCenterID,@NodeID,convert(float,@Date),@Reason,@Status,@Longitude,@Latitude,@Address1,@Address2,@City,@State
+		--,@Country,@PinCode,(select X.value(''@dcAlpha1'',''nvarchar(512)''),X.value(''@dcAlpha2'',''nvarchar(512)''),X.value(''@dcAlpha3'',''nvarchar(512)''),
+		--X.value(''@dcAlpha4'',''nvarchar(512)''),X.value(''@dcAlpha5'',''nvarchar(512)''),X.value(''@dcAlpha6'',''nvarchar(512)''),
+		--X.value(''@dcAlpha7'',''nvarchar(512)''),X.value(''@dcAlpha8'',''nvarchar(512)''),X.value(''@dcAlpha9'',''nvarchar(512)''),X.value(''@dcAlpha10'',''nvarchar(512)'')
+		-- from  @xml.nodes(''/XML/Rows'') as Data(x)))
+		
+COMMIT TRANSACTION
+SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock)   
+WHERE ErrorNumber=100 AND LanguageID=@LangID  
+SET NOCOUNT OFF;    
+RETURN @ActivityID
+END TRY    
+BEGIN CATCH    
+ --Return exception info [Message,Number,ProcedureName,LineNumber]    
+ IF ERROR_NUMBER()=50000  
+ BEGIN  
+ SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock)   
+  WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID  
+ END  
+ ELSE IF ERROR_NUMBER()=547  
+ BEGIN  
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine FROM COM_ErrorMessages WITH(nolock)  
+  WHERE ErrorNumber=-110 AND LanguageID=@LangID  
+ END  
+ ELSE IF ERROR_NUMBER()=2627  
+ BEGIN  
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine FROM COM_ErrorMessages WITH(nolock)  
+  WHERE ErrorNumber=-116 AND LanguageID=@LangID  
+ END  
+ ELSE  
+ BEGIN  
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine  
+  FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=-999 AND LanguageID=@LangID  
+ END  
+ ROLLBACK TRANSACTION  
+ SET NOCOUNT OFF    
+ RETURN -999     
+END CATCH
+' 
+END
+GO

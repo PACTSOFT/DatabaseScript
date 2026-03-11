@@ -1,0 +1,116 @@
+--CHARY
+
+/****** Object:  StoredProcedure [dbo].[spADM_GetDashBoard]    Script Date: 09-03-2026 10:21:52 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spADM_GetDashBoard]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spADM_GetDashBoard]
+GO
+/****** Object:  StoredProcedure [dbo].[spADM_GetDashBoard]    Script Date: 09-03-2026 10:21:52 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spADM_GetDashBoard]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'
+CREATE procedure [dbo].[spADM_GetDashBoard]
+@Type int,
+@DashBoardID INT,
+@IsMobile INT,
+@UserID int,
+@RoleID int,
+@LangID int=1
+AS
+
+BEGIN TRY	
+SET NOCOUNT ON
+
+if @Type=1
+begin
+	select R.ReportName as Report,DB.* from ADM_DashBoard DB with(nolock)
+	LEFT JOIN ADM_REVENUREPORTS R with(nolock) on DB.ReportID=R.ReportID where DashBoardID=@DashBoardID
+	order by DB.RowNo,DB.ColNo
+	
+	--select * from ADM_DashBoardUserRoleMap with(nolock) where DashBoardID=@DashBoardID
+end
+else if @Type=2
+begin	
+
+	CREATE TABLE #MDashboards(DashBoardID BIGINT,DashBoardName nvarchar(max),GroupName nvarchar(max),lft INT)
+
+	--Check Global Preference ''DashboardDimension'' assigned for user/role
+	IF(@RoleID<>1)
+	BEGIN		
+		Declare @strSql nvarchar(max),@strWhere nvarchar(max),@favDim int
+		set @strWhere=''''
+		if (exists(select value from ADM_GlobalPreferences with(nolock) where Name=''DashBoardDimension'' and isnull(value,'''')<>'''' and convert(int,value)>50000))
+		begin
+			select @favDim=value from ADM_GlobalPreferences with(nolock) where Name=''DashBoardDimension''
+			if (exists(select DAshBoardID from ADM_DashBoardUserRoleMap with(nolock) WHERE TypeCCID=@favDim and (UserID=@UserID or RoleID=@RoleID)))
+			begin
+				set @strWhere='' join COM_CostCenterCostCenterMap CCMAP WITH(NOLOCK) ON M.TypeCCID=CCMAP.CostCenterID and M.TypeNodeID=CCMAP.NODEID
+									and CCMAP.ParentCostCenterID=7 AND CCMAP.ParentNodeID=''+ convert(nvarchar,@UserID) +''''
+			end
+		end
+	END	
+
+	SET @strSql= ''INSERT INTO #MDashboards (DashBoardID,DashBoardName,GroupName,lft) select N.DashBoardID,N.DashBoardName,isnull(isnull(GP.DashBoardName,G.DashBoardName),(select DashBoardName from ADM_DashBoard with(nolock) where NodeID=1)) GroupName
+				,isnull(isnull(GP.lft,G.lft),1) lft
+				from ADM_DashBoard N with(nolock) 
+				left join ADM_DashBoard G with(nolock) on N.ParentID=G.DashBoardID
+				left join ADM_DashBoard GP with(nolock) on GP.IsGroup=1 AND N.ParentID=GP.NodeID
+				where N.DashBoardID IN (
+				select DashBoardID from ADM_DashBoard with(nolock) 
+				where IsGroup=0 and (ParentID=0 or  (''+ convert(nvarchar,@UserID) +''=1 or createdby=''+ convert(nvarchar,@UserID) +''  
+				or (DashBoardID IN  
+				(
+				(SELECT DashBoardID FROM ADM_DashBoardUserRoleMap M with(nolock) ''
+				SET @strSql=@strSql + isnull(@strWhere,'''')
+				SET @strSql=@strSql + '' WHERE M.UserID=''+ convert(nvarchar,@UserID) +''   OR M.RoleID=''+ convert(nvarchar,@RoleID) +''     
+				or M.GroupID IN (SELECT G.GID FROM COM_Groups G with(nolock) WHERE G.UserID=''+ convert(nvarchar,@UserID) +'' or G.RoleID=''+ convert(nvarchar,@RoleID) +''))
+				union
+				SELECT M.DashBoardID FROM ADM_DashBoardUserRoleMap M with(nolock) 
+				inner join ADM_DashBoard D with(nolock) on D.DashBoardID=M.DashBoardID and D.IsGroup=1
+				inner join ADM_DashBoard SR with(nolock) on SR.lft between D.lft and D.rgt and SR.DashBoardID>0
+				WHERE UserID=''+ convert(nvarchar,@UserID) +'' OR RoleID = ''+ convert(nvarchar,@RoleID) +'' OR GroupID IN (SELECT GID FROM COM_Groups with(nolock) WHERE UserID=''+ convert(nvarchar,@UserID) +'' or RoleID=''+ convert(nvarchar,@RoleID) +'')
+				)))))
+				group by N.DashBoardID,N.DashBoardName,G.DashBoardName,G.lft,N.lft,GP.lft,GP.DashBoardName
+				order by lft,N.lft;''
+		Print (@strSql)
+	exec (@strSql)
+
+	if @IsMobile=1
+	begin
+		select * from #MDashboards where DashBoardID not in (select FeatureActionID from ADM_RibbonView where GroupResourceID=39 and ShowInMobile<>1) order by lft;
+	end
+	else
+	begin 
+		select * from #MDashboards order by lft;
+	end
+	
+			DROP TABLE #MDashboards
+	
+end
+
+SET NOCOUNT OFF;
+RETURN 1
+END TRY
+BEGIN CATCH  
+	--Return exception info [Message,Number,ProcedureName,LineNumber]  
+	IF ERROR_NUMBER()=50000
+	BEGIN
+		SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID
+	END
+	ELSE
+	BEGIN
+		SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine
+		FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=-999 AND LanguageID=@LangID
+	END
+
+SET NOCOUNT OFF  
+RETURN -999   
+END CATCH
+' 
+END
+GO
+
+

@@ -1,0 +1,22 @@
+--Subhani
+
+IF EXISTS(SELECT * FROM com_languageresources WITH(NOLOCK) WHERE ResourceName='PostingDate' AND RESOURCEDATA='Posting Date in Payment Terms' AND LanguageID=1)
+BEGIN
+	update com_languageresources set ResourceData='Posting Date in Payment' where RESOURCEDATA='Posting Date in Payment Terms' and	resourcename='PostingDate' and languageid=1
+END
+
+IF EXISTS(SELECT * FROM com_languageresources WITH(NOLOCK) WHERE ResourceName='PostingDate' AND RESOURCEDATA='Posting Date in Payment Terms-AR' AND LanguageID=2)
+BEGIN
+	update com_languageresources set ResourceData='Posting Date in Payment-AR' where RESOURCEDATA='Posting Date in Payment Terms-AR' and resourcename='PostingDate' and languageid=2
+END 
+
+
+IF EXISTS(SELECT * FROM com_languageresources WITH(NOLOCK) WHERE ResourceName='DoNotCopyPayTermsonReservation' AND RESOURCEDATA='Do Not Copy PayTerms on Reservation' AND LanguageID=1)
+BEGIN
+	update com_languageresources set ResourceData='Do not Copy payments in reservation' where RESOURCEDATA='Do Not Copy PayTerms on Reservation' and ResourceName='DoNotCopyPayTermsonReservation' and languageid=1
+END
+
+IF EXISTS(SELECT * FROM com_languageresources WITH(NOLOCK) WHERE ResourceName='DoNotCopyPayTermsonReservation' AND RESOURCEDATA='Do Not Copy PayTerms on Reservation' AND LanguageID=2)
+BEGIN
+	update com_languageresources set ResourceData='Do not Copy payments in reservation-AR' where RESOURCEDATA='Do Not Copy PayTerms on Reservation' and ResourceName='DoNotCopyPayTermsonReservation' and languageid=2
+END
