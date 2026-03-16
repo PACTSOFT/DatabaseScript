@@ -1,0 +1,1594 @@
+--Subhani
+
+
+GO
+/****** Object:  StoredProcedure [dbo].[spRPT_StockValuation]    Script Date: 12-03-2026 18:40:34 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spRPT_StockValuation]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spRPT_StockValuation]
+GO
+/****** Object:  StoredProcedure [dbo].[spRPT_AvgRate]    Script Date: 12-03-2026 18:40:34 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spRPT_AvgRate]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spRPT_AvgRate]
+GO
+/****** Object:  StoredProcedure [dbo].[spCOM_SearchProductCatalog]    Script Date: 12-03-2026 18:40:34 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spCOM_SearchProductCatalog]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spCOM_SearchProductCatalog]
+GO
+/****** Object:  StoredProcedure [dbo].[spCOM_SearchProductCatalog]    Script Date: 12-03-2026 18:40:34 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spCOM_SearchProductCatalog]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'     
+CREATE procedure [dbo].[spCOM_SearchProductCatalog] 
+  @GridViewID INT,  
+  @WHere nvarchar(max),  
+  @QtyWhere nvarchar(max),  
+  @DocDate Datetime,  
+  @SearchType int,  
+  @fulltextWhere nvarchar(max),  
+  @Fultextjoin nvarchar(max),  
+  @OtherDimSelect nvarchar(max), 
+  @UomSelect nvarchar(max), 
+  @ExtraSelect nvarchar(max), 
+  @LocationWhere nvarchar(max)=NULL,      
+  @IsPrev BIT, 
+  @UserID INT,
+  @LangID INT=1
+AS          
+BEGIN TRY
+SET NOCOUNT ON;    
+	
+	
+
+	declare @sql nvarchar(max) ,@strColumns nvarchar(max),@STRJOIN nvarchar(max),@I int, @Cnt int,@CostCenterColID INT,@IsContDisplayed bit,@CostCenterTableName nvarchar(100)
+	declare @CCID INT,@ColumnCostCenterID INT,@SysColumnName nvarchar(100),@IsColumnUserDefined bit,@ColumnDataType nvarchar(50),@ColCostCenterPrimary nvarchar(100),@CC int
+	declare @tblList TABLE (ID int identity(1,1),CostCenterColID INT)    
+	declare @productNameExists bit,@productCodeExists bit,@PrefValue nvarchar(100),@featureid INT,@table Nvarchar(100),@STKDIM int,@chkCnT int
+
+	select @STKDIM=Value from ADM_GlobalPreferences WITH(NOLOCK) where Name=''POSItemCodeDimension''
+	and Value is not null and isnumeric(Value)=1
+
+	SELECT @featureid=a.FeatureID,@table=b.TableName,@chkCnT=ChunkCount FROM [ADM_GridView] a WITH(NOLOCK)
+	join ADM_Features b WITH(NOLOCK) on a.FeatureID=b.FeatureID
+	WHERE GRIDVIEWID=@GridViewID
+
+	--Read CostCenterColUMNS FROM  GridViewColumns into temporary table  
+	INSERT INTO @tblList  
+	select costcentercolid from ADM_GridViewColumns  WITH(NOLOCK) 
+	WHERE GRIDVIEWID =@GridViewID
+	and columntype=2 and costcentercolid>0
+
+	--SELECT * FROM @tblList
+
+	--SELECT * FROM ADM_COSTCENTERDEF WHERE COSTCENTERCOLID IN(261,262,582)
+
+	--Set loop initialization varaibles  
+	SELECT @I=1, @Cnt=count(*) FROM @tblList    
+	SET @CC=0   
+	set @IsContDisplayed=0
+	SET @strColumns=''''
+	SET @STRJOIN=''''
+	WHILE(@I<=@Cnt)    
+	BEGIN     
+
+		SELECT @CostCenterColID=CostCenterColID FROM @tblList  WHERE ID=@I    
+		SET @I=@I+1  
+		SET @ColumnCostCenterID=0  
+		SET @SysColumnName=''''    
+		SET @IsColumnUserDefined=0  
+
+		SELECT @SysColumnName=SysColumnName,@ColumnDataType=ColumnDataType,@IsColumnUserDefined=IsColumnUserDefined,
+		@ColumnCostCenterID=ColumnCostCenterID,@CCID=CostCenterID  
+		FROM ADM_CostCenterDef  WITH(nolock) WHERE CostCenterColID=@CostCenterColID  
+
+		if(@SysColumnName =''Avg Rate'' or @SysColumnName =''AvgRate'')
+			SET @strColumns=@strColumns
+		Else
+			SET @strColumns=@strColumns+'',''  
+		
+		IF(@ColumnCostCenterID IS NOT NULL AND @ColumnCostCenterID>0)--IF COSTCENTER COLUMN  
+		BEGIN  
+			--GETTING COLUMN COSTCENTER TABLE  
+			SET @CostCenterTableName=(SELECT Top 1 TableName FROM ADM_features with(nolock) WHERE Featureid=@ColumnCostCenterID)     
+
+			if(@ColumnCostCenterID=2)  
+			BEGIN       
+				set @ColCostCenterPrimary=''AccountID''  
+				SET @strColumns=@strColumns+''CC''+CONVERT(NVARCHAR(10),@CC)+''.AccountName as ''+@SysColumnName  
+			END
+			ELSE if(@ColumnCostCenterID=3)  
+			BEGIN      
+				set @ColCostCenterPrimary=''ProductID''  
+				IF @SysColumnName=''ProductGroup''
+					SET @SysColumnName=''ParentID''					
+				if(@STKDIM=@featureid)       
+				BEGIN	
+					SET @strColumns=@strColumns+''PE.ProductName ''
+					continue;		
+				END
+				ELSE
+					SET @strColumns=@strColumns+''CC''+CONVERT(NVARCHAR(10),@CC)+''.ProductName as ''+@SysColumnName   
+			END  
+			ELSE if(@ColumnCostCenterID=11)  
+			BEGIN  
+				--set @tempgroup=@tempgroup+''CC''+CONVERT(NVARCHAR(10),@CC)+''.UnitName  ''
+				set @ColCostCenterPrimary=''UOMID''  
+				if(@UomSelect<>'''')
+					SET @strColumns=@strColumns+@UomSelect+'' else CC''+CONVERT(NVARCHAR(10),@CC)+''.UnitName END as ''+@SysColumnName   
+				ELSE	
+					SET @strColumns=@strColumns+''CC''+CONVERT(NVARCHAR(10),@CC)+''.UnitName as ''+@SysColumnName   
+			END  
+			ELSE if(@ColumnCostCenterID=12)  
+			BEGIN  
+				--set @tempgroup=@tempgroup+''CC''+CONVERT(NVARCHAR(10),@CC)+''.Name  ''
+				set @ColCostCenterPrimary=''CurrencyID''  
+				SET @strColumns=@strColumns+''CC''+CONVERT(NVARCHAR(10),@CC)+''.NAME as ''+@SysColumnName 
+			END  
+			ELSE if(@ColumnCostCenterID=17)  
+			BEGIN  
+				--set @tempgroup=@tempgroup+''CC''+CONVERT(NVARCHAR(10),@CC)+''.BarcodeName  ''
+				set @ColCostCenterPrimary=''BarcodeID''  
+				SET @strColumns=@strColumns+''CC''+CONVERT(NVARCHAR(10),@CC)+''.BarcodeName as ''+@SysColumnName 
+			END  
+			ELSE if(@ColumnCostCenterID=16)  
+			BEGIN  
+				--set @tempgroup=@tempgroup+''CC''+CONVERT(NVARCHAR(10),@CC)+''.BatchNumber  ''
+				set @ColCostCenterPrimary=''BatchID''  
+				SET @strColumns=@strColumns+''CC''+CONVERT(NVARCHAR(10),@CC)+''.BatchNumber as ''+@SysColumnName 
+			END
+			ELSE  if(@ColumnCostCenterID=113)  
+			BEGIN    
+				set @ColCostCenterPrimary=''StatusID''  
+				SET @strColumns=@strColumns+''CC''+CONVERT(NVARCHAR(10),@CC)+''.Status as ''+@SysColumnName 
+			END   
+			ELSE   
+			BEGIN    
+				set @ColCostCenterPrimary=''NodeID''  
+				SET @strColumns=@strColumns+''CC''+CONVERT(NVARCHAR(10),@CC)+''.NAME as ''+@SysColumnName 
+			END  
+
+			IF(@IsColumnUserDefined=0)  
+			BEGIN  
+				SET @STRJOIN=@STRJOIN+'' left  JOIN ''+@CostCenterTableName +'' CC''+CONVERT(NVARCHAR(10),@CC)  
+				+'' WITH(NOLOCK) ON P.''+@SysColumnName+''= CC''+CONVERT(NVARCHAR(10),@CC)+''.''+@ColCostCenterPrimary  
+			END  
+			ELSE 
+			BEGIN  
+				IF @SysColumnName LIKE ''ptAlpha%''
+				BEGIN
+					SET @STRJOIN=@STRJOIN+'' left  JOIN ''+@CostCenterTableName +'' CC''+CONVERT(NVARCHAR(10),@CC)  
+					+'' WITH(NOLOCK) ON E.''+@SysColumnName+''= CONVERT(NVARCHAR,CC''+CONVERT(NVARCHAR(10),@CC)+''.''+@ColCostCenterPrimary+'')''
+				END
+				ELSE IF @ColumnCostCenterID>50000
+				BEGIN
+					SET @STRJOIN=@STRJOIN+'' left  JOIN ''+@CostCenterTableName +'' CC''+CONVERT(NVARCHAR(10),@CC)  
+					+'' WITH(NOLOCK) ON C.CCNID''+CONVERT(NVARCHAR,@ColumnCostCenterID-50000)+''= CC''+CONVERT(NVARCHAR(10),@CC)+''.''+@ColCostCenterPrimary
+				END
+			END  
+
+			--INCREMENT COSTCENTER COLUMNS COUNT  
+			SET @CC=@CC+1  
+
+		END 
+		ELSE IF(@ColumnCostCenterID IS NOT NULL AND @ColumnCostCenterID=0 AND @CCID=110)
+		BEGIN
+			SET @strColumns=@strColumns+''Addr.''+@SysColumnName
+		END
+		ELSE IF(@IsColumnUserDefined IS NOT NULL AND @IsColumnUserDefined = 1 AND @SysColumnName not like ''%alpha%'')   
+		BEGIN     
+			SET @strColumns=@strColumns+''Cont.''+@SysColumnName
+			if(@IsContDisplayed=0)
+			begin
+				SET @IsContDisplayed=1
+				if(@featureid=3)
+					SET @STRJOIN=@STRJOIN+'' left JOIN COM_Contacts Cont WITH(NOLOCK) ON p.productid=Cont.FeaturePK and Cont.FeatureID=3 and Cont.AddressTypeID=1''
+				else if(@featureid=2)
+					SET @STRJOIN=@STRJOIN+'' left JOIN COM_Contacts Cont WITH(NOLOCK) ON p.AccountID=Cont.FeaturePK and Cont.FeatureID=2 and Cont.AddressTypeID=1''
+				ELSE if(@featureid>50000)
+					SET @STRJOIN=@STRJOIN+'' left JOIN COM_Contacts Cont WITH(NOLOCK) ON p.NodeID=Cont.FeaturePK and Cont.FeatureID=''+CONVERT(nvarchar,@featureid)+'' and Cont.AddressTypeID=1''	
+			end
+		END   
+		ELSE IF(@IsColumnUserDefined IS NOT NULL AND @IsColumnUserDefined = 1 AND @SysColumnName like ''%alpha%'')   
+		BEGIN      
+			SET @strColumns=@strColumns+''E.''+@SysColumnName   
+		END  
+ 		ELSE IF(@SysColumnName=''QOH'' and @IsColumnUserDefined=0 )          
+		BEGIN          
+			SET @strColumns=@strColumns +''(SELECT isnull(sum(UOMConvertedQty*VoucherType),0) FROM INV_DocDetails i  WITH(NOLOCK)
+			join COM_DocCCData d on i.InvDocDetailsID=d.InvDocDetailsID
+			WHERE ProductID= P.ProductID AND IsQtyIgnored=0 AND (VoucherType=1 OR VoucherType=-1)
+			and DocDate<=''+CONVERT(nvarchar,CONVERT(float,@DocDate))
+			if(@QtyWhere <>'''')  
+				SET @strColumns=@strColumns +'' and ''+@QtyWhere  
+			SET @strColumns=@strColumns +'') as QOH''   
+			
+			
+		END  
+		ELSE IF(@SysColumnName=''HOLDQTY'' and @IsColumnUserDefined=0 )          
+		BEGIN   
+			set @PrefValue =''''
+			select @PrefValue=Value from Adm_globalPreferences WITH(NOLOCK) where Name=''HoldResCancelledDocs''    
+		
+			SET @strColumns=@strColumns +''( select isnull(sum(HoldQuantity-rel),0) from (select HoldQuantity,case when release>HoldQuantity then HoldQuantity else release end rel from 
+			(SELECT D.HoldQuantity,isnull(sum(case when (l.IsQtyIgnored=0''
+				 
+			 if(@PrefValue<>'''')
+				set @strColumns=@strColumns+'' or l.Costcenterid in(''+@PrefValue+'')''
+				
+			 set @strColumns=@strColumns+'') then l.Quantity else l.ReserveQuantity end),0) release
+			FROM INV_DocDetails D WITH(NOLOCK)    INNER JOIN COM_DocCCData DCC WITH(NOLOCK)  ON DCC.InvDocDetailsID=D.InvDocDetailsID 
+			left join INV_DocDetails l  WITH(NOLOCK) on d.InvDocDetailsID=l.LinkedInvDocDetailsID
+			WHERE D.ProductID=P.ProductID AND D.IsQtyIgnored=1 and D.DocumentType in (7,9,11,12,24) and D.VoucherType=-1 AND convert(datetime,D.DocDate)<=''+CONVERT(nvarchar,CONVERT(float,@DocDate))
+	       
+			if(@QtyWhere <>'''')  
+				SET @strColumns=@strColumns +'' and ''+@QtyWhere  
+			SET @strColumns=@strColumns +'' group by D.InvDocDetailsID,D.HoldQuantity) as t)as temp) as HOLDQTY''                      
+	     
+		END 
+		ELSE IF(@SysColumnName=''RESERVEQTY'' and @IsColumnUserDefined=0 )
+		BEGIN   
+			set @PrefValue =''''
+			select @PrefValue=Value from Adm_globalPreferences WITH(NOLOCK) where Name=''HoldResCancelledDocs''    
+
+			SET @strColumns=@strColumns +''( select isnull(sum(HoldQuantity-rel),0) from (select HoldQuantity,case when release>HoldQuantity then HoldQuantity else release end rel from 
+			(SELECT D.ReserveQuantity HoldQuantity,isnull(sum(case when (l.IsQtyIgnored=0''
+				 
+			 if(@PrefValue<>'''')
+				set @strColumns=@strColumns+'' or l.Costcenterid in(''+@PrefValue+'')''
+				
+			 set @strColumns=@strColumns+'') then l.Quantity else l.ReserveQuantity end),0) release
+			FROM INV_DocDetails D WITH(NOLOCK) INNER JOIN COM_DocCCData DCC WITH(NOLOCK)  ON DCC.InvDocDetailsID=D.InvDocDetailsID 
+			left join INV_DocDetails l  WITH(NOLOCK) on d.InvDocDetailsID=l.LinkedInvDocDetailsID
+			WHERE D.ProductID=P.ProductID AND D.IsQtyIgnored=1 AND D.StatusID<>376 and D.DocumentType in (7,9,11,12,24) and D.VoucherType=-1 AND convert(datetime,D.DocDate)<=''+CONVERT(nvarchar,CONVERT(float,@DocDate))
+	            
+			if(@QtyWhere <>'''')  
+				SET @strColumns=@strColumns +'' and ''+@QtyWhere  
+			SET @strColumns=@strColumns +'' group by D.InvDocDetailsID,D.ReserveQuantity) as t)as temp) as RESERVEQTY''            
+	    
+		END 	
+		ELSE IF(@SysColumnName=''ActualQuantity'' and @IsColumnUserDefined=0 ) --Formula - QOH-RESERVEQTY
+		BEGIN			
+			SET @strColumns=@strColumns +''ABS((SELECT isnull(sum(UOMConvertedQty*VoucherType),0) FROM INV_DocDetails i  WITH(NOLOCK)
+			join COM_DocCCData d on i.InvDocDetailsID=d.InvDocDetailsID
+			WHERE ProductID= P.ProductID AND IsQtyIgnored=0 AND (VoucherType=1 OR VoucherType=-1)
+			and DocDate<=''+CONVERT(nvarchar,CONVERT(float,@DocDate))
+			if(@QtyWhere <>'''')  
+				SET @strColumns=@strColumns +'' and ''+@QtyWhere  
+			SET @strColumns=@strColumns +'')) - '' 
+			
+			
+			set @PrefValue =''''
+			select @PrefValue=Value from Adm_globalPreferences WITH(NOLOCK) where Name=''HoldResCancelledDocs''    
+
+			SET @strColumns=@strColumns +''ABS(( select isnull(sum(HoldQuantity-rel),0) from (select HoldQuantity,case when release>HoldQuantity then HoldQuantity else release end rel from 
+			(SELECT D.ReserveQuantity HoldQuantity,isnull(sum(case when (l.IsQtyIgnored=0''
+				 
+			 if(@PrefValue<>'''')
+				set @strColumns=@strColumns+'' or l.Costcenterid in(''+@PrefValue+'')''
+				
+			 set @strColumns=@strColumns+'') then l.Quantity else l.ReserveQuantity end),0) release
+			FROM INV_DocDetails D WITH(NOLOCK) INNER JOIN COM_DocCCData DCC WITH(NOLOCK)  ON DCC.InvDocDetailsID=D.InvDocDetailsID 
+			left join INV_DocDetails l  WITH(NOLOCK) on d.InvDocDetailsID=l.LinkedInvDocDetailsID
+			WHERE D.ProductID=P.ProductID AND D.IsQtyIgnored=1 AND D.StatusID<>376 and D.DocumentType in (7,9,11,12,24) and D.VoucherType=-1 AND convert(datetime,D.DocDate)<=''+CONVERT(nvarchar,CONVERT(float,@DocDate))
+	            
+			if(@QtyWhere <>'''')  
+				SET @strColumns=@strColumns +'' and ''+@QtyWhere  
+			SET @strColumns=@strColumns +'' group by D.InvDocDetailsID,D.ReserveQuantity) as t)as temp)) as ActualQuantity''    
+		END
+		ELSE IF(@SysColumnName=''EXPECTEDQTY'' and @IsColumnUserDefined=0 )          
+		BEGIN   
+
+			SET @strColumns=@strColumns +''( SELECT ISNULL(SUM(QUANTITY)-SUM(Executed),0) PendingOrders FROM  (select QUANTITY,case when Executed>QUANTITY then QUANTITY else Executed end Executed from
+				                    (SELECT DX.QUANTITY*DX.UOMConversion QUANTITY,(case when DX.LinkStatusID=445 then DX.Quantity else 
+				                    (SELECT ISNULL(SUM(Qty),0) FROM 
+                                    --(SELECT 0 Qty)
+                                    (select (select sum(case when DCCXL.InvDocDetailsID is not null and l.IsQtyIgnored=0 then l.UOMConvertedQty when DCCXL.InvDocDetailsID is not null THEN 0 else 0 end) from INV_DocDetails l WITH(NOLOCK)  
+									left JOIN COM_DocCCData DCCXL WITH(NOLOCK)  ON DCCXL.InvDocDetailsID=l.InvDocDetailsID where DX.InvDocDetailsID=l.LinkedInvDocDetailsID  AND l.StatusID=369  )  Qty)
+                                    AS T) END)*DX.UOMConversion Executed FROM INV_DocDetails DX with(nolock) 
+                                     INNER JOIN COM_DocCCData DCCX WITH(NOLOCK) ON DCCX.InvDocDetailsID=DX.InvDocDetailsID AND DX.StatusID<>376
+								INNER JOIN COM_DocumentPreferences DP WITH(NOLOCK) ON DP.CostCenterID=DX.CostCenterID AND DP.PrefName=''''Enable Hold'''' AND DP.PrefValue=''''True''''
+			WHERE DX.ProductID=P.ProductID AND DX.IsQtyIgnored=1 and DX.DocumentType in (2) and DX.VoucherType=1 AND convert(datetime,DX.DocDate)<=''+CONVERT(nvarchar,CONVERT(float,@DocDate))
+	            
+			if(@QtyWhere <>'''')  
+				SET @strColumns=@strColumns +'' and ''+@QtyWhere  
+			SET @strColumns=@strColumns +'' ) as t)as temp) as EXPECTEDQTY''            
+	    
+		END
+		  
+		ELSE IF(@SysColumnName=''StatusID'')  
+		BEGIN     
+			SET @strColumns=@strColumns+''S.ResourceData as StatusID''  
+			SET @STRJOIN=@STRJOIN+'' JOIN COM_Status SS WITH(NOLOCK) ON P.StatusID=SS.StatusID  
+			JOIN COM_LanguageResources S WITH(NOLOCK) ON S.ResourceID=SS.ResourceID AND S.LanguageID=''+convert(NVARCHAR(10),@LangID)  
+		END  
+		 
+		ELSE IF(@SysColumnName=''ProductTypeID'')  
+		BEGIN  
+			--if @CostCenterID=2
+			--set @tempgroup=@tempgroup+''PT.ResourceData , ''
+			SET @strColumns=@strColumns+''PT.ResourceData as ProductTypeID''  
+			SET @STRJOIN=@STRJOIN+'' JOIN INV_ProductTypes PP WITH(NOLOCK) ON P.ProductTypeID=PP.ProductTypeID  
+			JOIN COM_LanguageResources PT WITH(NOLOCK) ON PT.ResourceID=PP.ResourceID AND PT.LanguageID=''+ convert(NVARCHAR(10),@LangID)  
+		END  
+		ELSE IF(@SysColumnName=''ValuationID'')  
+		BEGIN  
+			SET @strColumns=@strColumns+''VT.ResourceData as ValuationID''  
+			SET @STRJOIN=@STRJOIN+'' JOIN INV_ValuationMethods VV WITH(NOLOCK) ON P.ValuationID=VV.ValuationID  
+			JOIN COM_LanguageResources VT WITH(NOLOCK) ON VT.ResourceID=VV.ResourceID AND VT.LanguageID=''+ convert(NVARCHAR(10),@LangID)  
+		END  
+		
+		ELSE IF(@SysColumnName=''SerialNumber'')  
+		BEGIN  
+			SET @strColumns=@strColumns+''ISP.SerialNumber as SerialNumber''  
+			SET @STRJOIN=@STRJOIN+''left join  inv_serialstockproduct isp with(nolock) on isp.ProductID=p.ProductID'' 
+		END 
+		     
+		ELSE IF(@SysColumnName <> '''')  
+		BEGIN  
+			if(@ColumnDataType is not null and @ColumnDataType=''DATE'')  
+			begin 
+				SET @strColumns=@strColumns+''convert(nvarchar(12),Convert(datetime,P.''+@SysColumnName+''),106) as ''+@SysColumnName  
+			end 
+			else  
+			begin  
+				if(@SysColumnName=''ProductName'' or @SysColumnName=''AccountName'' or @SysColumnName=''Name'')
+					set @productNameExists=1 
+				if(@SysColumnName=''ProductCode'' or @SysColumnName=''AccountCode'' or @SysColumnName=''Code'')
+					set @productCodeExists=1
+				if(@SysColumnName =''Avg Rate'' or @SysColumnName =''AvgRate'')
+					SET @strColumns=@strColumns
+				Else
+					SET @strColumns=@strColumns+''P.''+@SysColumnName    
+			end
+		END
+	END
+    if(@Fultextjoin is not null and @Fultextjoin<>'''')
+		set @STRJOIN= @STRJOIN+@Fultextjoin
+    
+    if(@fulltextWhere is not null and @fulltextWhere<>'''')
+    begin
+		if(@WHere <>'''')
+			set @WHere= @WHere+'' and (''+@fulltextWhere+'')''
+		else
+			set @WHere= @fulltextWhere
+    end
+    
+    select @PrefValue=Value from ADM_GlobalPreferences  with(nolock) where name=''HideBlockedAccountsandProducts''  
+	if(@PrefValue is not null and @PrefValue=''True'')  
+	begin 
+		if(@WHere <>'''')
+			set @WHere= @WHere+'' and p.StatusID<>32 ''
+		else	
+			set @Where='' p.StatusID<>32 ''		
+	end 
+
+	if(@featureid=3)		
+		set @sql=''select distinct top ''+convert(nvarchar,@chkCnT)+'' p.productid''+@strColumns+@OtherDimSelect+@ExtraSelect+'',P.ParentID, isnull((SELECT isnull(sum(UOMConvertedQty*VoucherType),0) FROM INV_DocDetails i WITH(NOLOCK)
+				 join COM_DocCCData d with(nolock) on i.InvDocDetailsID=d.InvDocDetailsID
+				 WHERE ProductID= P.ProductID AND IsQtyIgnored=0 AND (VoucherType=1 OR VoucherType=-1)),0) as onHand  
+				 from INV_Product p with(nolock)  
+				 join INV_ProductExtended E with(nolock) on E.ProductID=p.ProductID  
+				 join COM_CCCCData C with(nolock) on C.NodeID=p.ProductID  AND C.CostCenterID=3 ''
+	else if(@featureid=2)
+		set @sql=''select top ''+convert(nvarchar,@chkCnT)+'' p.AccountID as productid''+@strColumns+'' from Acc_accounts p with(nolock)  
+				 join Acc_accountsExtended E with(nolock) on E.AccountID=p.AccountID  
+				 join COM_CCCCData C with(nolock) on C.NodeID=p.AccountID  AND C.CostCenterID=2 
+				 LEFT JOIN COM_Address Addr WITH(NOLOCK) ON P.AccountID=Addr.FeaturePK and Addr.FeatureID=2 and Addr.AddressTypeID=1 ''
+	else if(@featureid>50000)
+	BEGIN
+		set @sql=''select top ''+convert(nvarchar,@chkCnT)+'' p.NodeID as productid''+@strColumns+'' from ''+@table+'' p with(nolock) ''
+		
+		if(@STKDIM is null or @STKDIM='''' or @STKDIM!=@featureid)	 
+			set @sql= @sql+'' join COM_CCCCData C with(nolock) on C.NodeID=p.NodeID  AND C.CostCenterID=''+convert(nvarchar,@featureid)
+		else
+			set @sql= @sql+'' join INV_Product PE with(nolock) on PE.ProductID=p.ProductID ''
+	END			 
+  
+	if(@LocationWhere is not null and @LocationWhere<>'''')
+	BEGIN
+		set @STRJOIN=@STRJOIN+'' JOIN  COM_CostCenterCostCenterMap CCMl with(nolock) on (p.ProductID =CCMl.ParentNodeID and CCMl.ParentCostCenterID = 3)''
+		if(@WHere <>'''')
+			set @WHere= @WHere+'' and  ''
+		set @WHere=@WHere+''  ((CCMl.CostCenterID=50002 and CCMl.NodeID in(''+@LocationWhere+''))  OR p.ParentID =0) ''
+	END
+	
+	set @sql=@sql+@STRJOIN 
+	
+	
+
+	if(@WHere <>'''')
+	begin
+		IF CHARINDEX(''SerialNumber'',@WHere)>0
+		BEGIN
+			set @WHere =REPLACE(@WHere,''SerialNumber'',''ISP.SerialNumber'')
+		END
+		set @sql=@sql+'' where (''+@WHere+'')''
+		
+		
+
+		if (@SearchType=1 or @SearchType=3)
+		begin
+			declare @subdimQuery nvarchar(max),@subGroupQuery nvarchar(max)
+			declare @SameParentAsSubstitue nvarchar(20),@SameDimensionAsSubstitute nvarchar(200)
+			select @SameParentAsSubstitue=Value from com_costcenterpreferences with(nolock) where CostCenterID=3 and Name=''ProductsOfSameParentAsSubstitue''
+			select @SameDimensionAsSubstitute=Value from com_costcenterpreferences with(nolock) where CostCenterID=3 and Name=''SameDimensionAsSubstitute''
+		
+			--Include Products Of Same Parent As Substitue
+			if @SameParentAsSubstitue=''True'' AND (@SameDimensionAsSubstitute is null or @SameDimensionAsSubstitute='''')
+			begin
+				set @subGroupQuery=''P.ParentID IN (
+				select distinct p.ParentID from INV_Product p with(nolock)  
+				join INV_ProductExtended E with(nolock) on E.ProductID=p.ProductID  
+				join COM_CCCCData C with(nolock) on C.NodeID=p.ProductID AND C.CostCenterID=3 '' +@STRJOIN 
+				set @subGroupQuery=@subGroupQuery+'' where (''+@WHere+'')''		
+				set @subGroupQuery=@subGroupQuery+'')''
+			end
+			
+			--Include Products Of Same Dimension As Substitute		
+			if @SameDimensionAsSubstitute is not null and @SameDimensionAsSubstitute<>''''
+			begin
+				declare @subdimwhere nvarchar(max),@selectCCID nvarchar(max)
+				declare @TblDimSub as table(DIM int)
+				insert into @TblDimSub
+				exec SPSplitString  @SameDimensionAsSubstitute,'';''
+				set @subdimwhere=''''
+				set @selectCCID=''''
+				select @selectCCID=@selectCCID+'',c.CCNID''+CONVERT(nvarchar,DIM-50000),@subdimwhere=@subdimwhere+'' and c.CCNID''+CONVERT(nvarchar,DIM-50000)+''=t.CCNID''+CONVERT(nvarchar,DIM-50000) from @TblDimSub
+				select @selectCCID=SUBSTRING(@selectCCID,2,len(@subdimwhere)-1)
+				if @SameParentAsSubstitue=''True''
+				begin
+					set @selectCCID=@selectCCID+'',P.ParentID''
+					set @subdimwhere=@subdimwhere+'' and t.ParentID=P.ParentID''
+				end
+				
+				set @subdimQuery=''
+				inner join (select distinct ''+@selectCCID+'' from INV_Product p with(nolock)
+				join INV_ProductExtended E with(nolock) on E.ProductID=p.ProductID
+				join COM_CCCCData C with(nolock) on C.NodeID=p.ProductID AND C.CostCenterID=3 '' +@STRJOIN 
+				set @subdimQuery=@subdimQuery+'' where (''+@WHere+'')) as t on C.CostCenterID=3''+@subdimwhere
+				
+			end
+			
+			if(@subdimQuery is not null)
+			begin
+				--set @sql=@sql+'' OR ''+@subdimQuery
+				set @sql=@sql+'' 
+				UNION
+				select p.productid''+@strColumns+@OtherDimSelect+'',P.ParentID, isnull((SELECT isnull(sum(UOMConvertedQty*VoucherType),0) FROM INV_DocDetails i WITH(NOLOCK)
+				join COM_DocCCData d with(nolock) on i.InvDocDetailsID=d.InvDocDetailsID
+				WHERE ProductID= P.ProductID AND IsQtyIgnored=0 AND (VoucherType=1 OR VoucherType=-1)),0) as onHand  from INV_Product p with(nolock)
+				join INV_ProductExtended E with(nolock) on E.ProductID=p.ProductID  
+				join COM_CCCCData C with(nolock) on C.NodeID=p.ProductID AND C.CostCenterID=3 '' +@STRJOIN  
+				+@subdimQuery+'' and P.Isgroup=0 and p.StatusID<>32''			
+			end
+			else if(@subGroupQuery is not null)
+			begin			
+				set @sql=@sql+'' OR ''+@subGroupQuery
+			end
+		end
+	end
+
+	if(@SearchType=1 or @SearchType=3)  
+	begin  
+	   
+		set @sql=@sql+'' 
+		UNION
+		select p.productid''+@strColumns+@OtherDimSelect+@ExtraSelect+'',P.ParentID, isnull((SELECT isnull(sum(UOMConvertedQty*VoucherType),0) FROM INV_DocDetails i WITH(NOLOCK)
+		join COM_DocCCData d with(nolock) on i.InvDocDetailsID=d.InvDocDetailsID
+		WHERE ProductID= P.ProductID AND IsQtyIgnored=0 AND (VoucherType=1 OR VoucherType=-1)),0) as onHand  from INV_Product p with(nolock)
+		join INV_ProductExtended E with(nolock) on E.ProductID=p.ProductID  
+		join COM_CCCCData C with(nolock) on C.NodeID=p.ProductID AND C.CostCenterID=3 '' +@STRJOIN  
+	    
+		set @sql=@sql+'' where p.productid in(select s.ProductID from INV_ProductSubstitutes s with(nolock)
+		WHERE S.SubstituteGroupID IN 
+		(SELECT SubstituteGroupID FROM INV_ProductSubstitutes with(nolock) WHERE PRODUCTID in ((select sp.productid from INV_Product sp with(nolock)
+		join INV_ProductExtended sE with(nolock) on sE.ProductID=sp.ProductID
+		join COM_CCCCData sC with(nolock) on sC.NodeID=sp.ProductID AND sC.CostCenterID=3''  
+		
+		if(@WHere <>'''')  
+		  set @sql=@sql+'' where ''+@WHere  
+		
+		set @sql=@sql+''))))''  
+	end
+	  
+	if(@SearchType=2 or @SearchType=3)  
+	begin  
+		declare @prefval nvarchar(50),@linkcc INT  
+		select @prefval=value from COM_CostCenterPreferences  with(nolock) where CostCenterID=3 and name=''LinkedProductDimension''  
+		if(@prefval is not null and @prefval<>'''')  
+			set @linkcc =convert(INT,@prefval)  
+
+		if(@linkcc>0)  
+		begin  
+			set @sql=@sql+'' 
+			UNION
+			select p.productid''+@strColumns+@OtherDimSelect+'',P.ParentID, isnull((SELECT isnull(sum(UOMConvertedQty*VoucherType),0) FROM INV_DocDetails i  WITH(NOLOCK)
+			join COM_DocCCData d with(nolock) on i.InvDocDetailsID=d.InvDocDetailsID
+			WHERE ProductID= P.ProductID AND IsQtyIgnored=0 AND (VoucherType=1 OR VoucherType=-1)),0) as onHand  from INV_Product p with(nolock)  
+			join INV_ProductExtended E with(nolock) on E.ProductID=p.ProductID  
+			join COM_CCCCData C with(nolock) on C.NodeID=p.ProductID  AND C.CostCenterID = 3 '' +@STRJOIN  
+		      
+			set @sql=@sql+'' where p.productid in(select l.ProductID from  INV_LinkedProducts l with(nolock) where CostCenterID=''+convert(nvarchar,@linkcc)+'' and NodeID in (select CCNID''+convert(nvarchar,(@linkcc-50000))+'' from INV_Product lp with(nolock)  
+			join INV_ProductExtended lE with(nolock) on lE.ProductID=lp.ProductID  
+			join COM_CCCCData lC with(nolock) on lC.NodeID=lp.ProductID  AND C.CostCenterID = 3''  
+			if(@WHere <>'''')  
+			set @sql=@sql+'' where ''+@WHere  
+			set @sql=@sql+''))''  
+		end   
+	end  
+ 
+	if(@productCodeExists is not null and @productCodeExists=1)
+	BEGIN	
+		if(@featureid=3)		
+			set @sql=@sql+'' Order by p.productCode''
+		ELSE if(@featureid=2)
+			set @sql=@sql+'' Order by p.AccountCode''
+		ELSE if(@featureid>50000)
+			set @sql=@sql+'' Order by p.Code''
+
+		if(@IsPrev=1)	
+			set @sql=@sql+'' desc''
+	END		
+	else if(@productNameExists is not null and @productNameExists=1)
+	BEGIN	
+		if(@featureid=3)		
+			set @sql=@sql+'' Order by p.productName''
+		ELSE if(@featureid=2)
+			set @sql=@sql+'' Order by p.AccountName''
+		ELSE if(@featureid>50000)
+			set @sql=@sql+'' Order by p.Name''
+			
+		if(@IsPrev=1)	
+			set @sql=@sql+'' desc''
+	END
+
+	print (@sql)
+	exec(@sql)   
+
+	if(@featureid=3)		
+	BEGIN      
+		declare @IsGroup bit
+		select @IsGroup=CONVERT(bit,value) from com_costcenterpreferences with(nolock) where CostCenterID=3 and Name=''ShowgroupsatProductCatalog''      
+		if(@IsGroup=1)
+			select ProductID, ProductCode, ProductName from INV_Product with(nolock) where IsGroup=1
+	END
+   
+SET NOCOUNT OFF;        
+RETURN 1        
+END TRY        
+BEGIN CATCH          
+	--Return exception info [Message,Number,ProcedureName,LineNumber]          
+	IF ERROR_NUMBER()=50000        
+	BEGIN        
+		SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(NOLOCK) 
+		WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID        
+	END        
+	ELSE        
+	BEGIN        
+		SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine        
+		FROM COM_ErrorMessages WITH(NOLOCK) WHERE ErrorNumber=-999 AND LanguageID=@LangID        
+	END        
+SET NOCOUNT OFF          
+RETURN -999           
+END CATCH
+
+' 
+END
+GO
+/****** Object:  StoredProcedure [dbo].[spRPT_AvgRate]    Script Date: 12-03-2026 18:40:34 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spRPT_AvgRate]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'
+CREATE procedure [dbo].[spRPT_AvgRate]
+@IsOpening BIT,
+@ProductID INT,
+@TagSQL NVARCHAR(MAX)=NULL,
+@WHERE nvarchar(max),
+@FromDate DATETIME,
+@ToDate DATETIME,
+@IncludeUpPostedDocs BIT,
+@Valuation INT=0,
+@CurrencyType INT,
+@CurrencyID INT=0,
+@SortTransactionsBy nvarchar(50)='''',
+@FCWithExchRate FLOAT=0,
+@IsMnWise bit=0,
+@OpBalanceQty FLOAT OUTPUT,
+@dblAvgRate FLOAT OUTPUT,
+@OpBalanceValue FLOAT OUTPUT,
+@COGS FLOAT OUTPUT
+AS
+SET NOCOUNT ON;  
+	DECLARE @SQL NVARCHAR(MAX),@TotalSaleSQL NVARCHAR(MAX),@RecQty FLOAT,@RecRate FLOAT,@RecValue FLOAT,@VoucherType INT,@DimWhere NVARCHAR(MAX),
+			@I INT,@COUNT INT,@TotalSaleQty FLOAT,@ID INT,@UnAppSQL NVARCHAR(50),@DocumentType INT,@Order NVARCHAR(200),@CloseDt nvarchar(20),
+			@CurrWHERE nvarchar(30),@ValColumn nvarchar(20),@GrossColumn nvarchar(20),@Date float,@IFromDate FLOAT,@ShowNegativeStock bit
+	DECLARE @Tbl AS TABLE(ID INT IDENTITY(1,1) NOT NULL PRIMARY KEY,Date FLOAT,Qty FLOAT,RecRate FLOAT,RecValue FLOAT,VoucherType INT,DocumentType INT)
+	DECLARE @TransactionsFound BIT,@SALESQTY FLOAT,@RecRateColumn nvarchar(100),@TransactionsByOp nvarchar(100),@TransactionsByOpHardClose nvarchar(50),
+			@DateFilterCol nvarchar(60),@DateFilterOp1 nvarchar(120),@DateFilterOp2 nvarchar(80),@STWHERE NVARCHAR(MAX)
+	DECLARE @isMfgDate bit=0
+
+	set @STWHERE=''''
+	select @STWHERE=@STWHERE+convert(nvarchar(max),CostCenterID) from [com_documentpreferences] WITH(NOLOCK)
+	where PrefName=''AvgRateEval'' and PrefValue=''true''
+
+	if(select Value from adm_globalpreferences with(nolock) where Name=''ShowNegativeStockInReports'')=''True''
+		set @ShowNegativeStock=1
+	else
+		set @ShowNegativeStock=0
+
+	SELECT @dblAvgRate=0, @OpBalanceQty=0,@OpBalanceValue=0
+	
+	SET @IFromDate=convert(int,@FromDate)
+	
+	IF @Valuation=0
+		SELECT @Valuation=ValuationID FROM INV_Product WITH(NOLOCK) WHERE ProductID=@ProductID
+	
+	IF @IncludeUpPostedDocs=0
+		SET @UnAppSQL='' AND D.StatusID=369''
+	ELSE
+		SET @UnAppSQL='' AND D.StatusID<>376''
+	
+	IF @CurrencyID>0
+	BEGIN
+		SET @ValColumn=''StockValueFC''
+		SET @GrossColumn=''GrossFC''
+		SET @CurrWHERE='' AND D.CurrencyID=''+CONVERT(NVARCHAR,@CurrencyID)
+	END
+	ELSE
+	BEGIN
+		IF @CurrencyType=1
+		BEGIN
+			SET @ValColumn=''StockValueBC''
+			SET @GrossColumn=''(Gross/ExhgRtBC)''
+		END
+		ELSE
+		BEGIN
+			SET @ValColumn=''StockValue''
+			SET @GrossColumn=''Gross''
+		END
+		SET @CurrWHERE=''''
+
+		IF(@FCWithExchRate>0)
+		BEGIN
+			SET @ValColumn=''StockValue/''+CONVERT(NVARCHAR,@FCWithExchRate)
+			SET @GrossColumn=''(Gross/''+CONVERT(NVARCHAR,@FCWithExchRate)+'')''
+		END
+	END
+	
+	SELECT @CloseDt=convert(nvarchar(20), max(ToDate)+1) FROM ADM_FinancialYears with(nolock) where InvClose=1 and ToDate<convert(int,@FromDate)
+	
+	
+	--select convert(datetime,@CloseDt),@FromDate
+	IF @TagSQL like ''%[INV_Batches]%''
+		set @isMfgDate=1
+
+	if @SortTransactionsBy=''''
+	begin
+		set @SortTransactionsBy=''OP,DocDate''
+		if @isMfgDate=1
+			set @TransactionsByOp=''ISNULL(BAT.MfgDate,D.DocDate) DocDate''
+		else
+			set @TransactionsByOp=''D.DocDate DocDate''
+		set @TransactionsByOpHardClose=''''
+		set @DateFilterCol='' AND D.DocDate<=@ToDate''
+		set @DateFilterOp1='' AND (D.DocDate<@FromDate OR (D.DocumentType=3 AND D.DocDate<=@ToDate))''
+		set @DateFilterOp2='' AND D.DocDate<@FromDate''
+		if(@CloseDt is not null)
+		begin
+			set @DateFilterCol='' and D.DocDate>=''+@CloseDt+@DateFilterCol
+			set @DateFilterOp1='' and D.DocDate>=''+@CloseDt+@DateFilterOp1
+			set @DateFilterOp2='' and D.DocDate>=''+@CloseDt+@DateFilterOp2
+		end
+	end
+	else if @SortTransactionsBy=''CreatedDate''
+	begin
+		set @SortTransactionsBy=''OP,DocDate,CreateTime''
+		if @isMfgDate=1
+			set @TransactionsByOp=''ISNULL(BAT.MfgDate,D.CreatedDate) DocDate,D.CreatedDate CreateTime''
+		else
+			set @TransactionsByOp=''D.CreatedDate DocDate,D.CreatedDate CreateTime''
+		set @TransactionsByOpHardClose='',null CreateTime''
+		set @DateFilterCol='' AND D.CreatedDate<@ToDate+1''
+		set @DateFilterOp1='' AND (D.CreatedDate<@FromDate OR (D.DocumentType=3 AND D.CreatedDate<@ToDate+1))''
+		set @DateFilterOp2='' AND D.CreatedDate<@FromDate''
+		if(@CloseDt is not null)
+		begin
+			set @DateFilterCol='' and D.CreatedDate>=''+@CloseDt+@DateFilterCol
+			set @DateFilterOp1='' and D.CreatedDate>=''+@CloseDt+@DateFilterOp1
+			set @DateFilterOp2='' and D.CreatedDate>=''+@CloseDt+@DateFilterOp2
+		end	
+	end
+	else if @SortTransactionsBy=''DocDate,CreatedDate''
+	begin
+		set @SortTransactionsBy=''OP,DocDate,CTime''
+		if @isMfgDate=1
+			set @TransactionsByOp=''ISNULL(BAT.MfgDate,D.DocDate) DocDate,D.CreatedDate CTime''
+		else
+			set @TransactionsByOp=''D.DocDate DocDate,D.CreatedDate CTime''
+		set @TransactionsByOpHardClose='',null CTime''
+		set @DateFilterCol='' AND D.DocDate<=@ToDate''
+		set @DateFilterOp1='' AND (D.DocDate<@FromDate OR (D.DocumentType=3 AND D.DocDate<=@ToDate))''
+		set @DateFilterOp2='' AND D.DocDate<@FromDate''
+		if(@CloseDt is not null)
+		begin
+			set @DateFilterCol='' and D.DocDate>=''+@CloseDt+@DateFilterCol
+			set @DateFilterOp1='' and D.DocDate>=''+@CloseDt+@DateFilterOp1
+			set @DateFilterOp2='' and D.DocDate>=''+@CloseDt+@DateFilterOp2
+		end
+	end
+	else if @SortTransactionsBy=''ModifiedDate''
+	begin
+		set @SortTransactionsBy=''OP,DocDate,ModTime''
+		if @isMfgDate=1
+			set @TransactionsByOp=''ISNULL(BAT.MfgDate,D.ModifiedDate) DocDate,D.ModifiedDate ModTime''
+		else
+			set @TransactionsByOp=''D.ModifiedDate DocDate,D.ModifiedDate ModTime''
+		set @TransactionsByOpHardClose='',null ModTime''
+		set @DateFilterCol='' AND D.ModifiedDate<@ToDate+1''
+		set @DateFilterOp1='' AND (D.ModifiedDate<@FromDate OR (D.DocumentType=3 AND D.ModifiedDate<@ToDate+1))''
+		set @DateFilterOp2='' AND D.ModifiedDate<@FromDate''
+		if(@CloseDt is not null)
+		begin
+			set @DateFilterCol='' and D.ModifiedDate>=''+@CloseDt+@DateFilterCol
+			set @DateFilterOp1='' and D.ModifiedDate>=''+@CloseDt+@DateFilterOp1
+			set @DateFilterOp2='' and D.ModifiedDate>=''+@CloseDt+@DateFilterOp2
+		end
+	end
+	else if @SortTransactionsBy=''DocDate,ModifiedDate''
+	begin
+		set @SortTransactionsBy=''OP,DocDate,ModTime''
+		if @isMfgDate=1
+			set @TransactionsByOp=''ISNULL(BAT.MfgDate,D.DocDate),D.ModifiedDate ModTime''
+		else
+			set @TransactionsByOp=''D.DocDate,D.ModifiedDate ModTime''
+		set @TransactionsByOpHardClose='',null ModTime''
+		set @DateFilterCol='' AND D.DocDate<=@ToDate''
+		set @DateFilterOp1='' AND (D.DocDate<@FromDate OR (D.DocumentType=3 AND D.DocDate<=@ToDate))''
+		set @DateFilterOp2='' AND D.DocDate<@FromDate''
+		if(@CloseDt is not null)
+		begin
+			set @DateFilterCol='' and D.DocDate>=''+@CloseDt+@DateFilterCol
+			set @DateFilterOp1='' and D.DocDate>=''+@CloseDt+@DateFilterOp1
+			set @DateFilterOp2='' and D.DocDate>=''+@CloseDt+@DateFilterOp2
+		end
+	end
+	
+	set @DimWhere=@TagSQL
+	IF @TagSQL like ''%DCCCNID%''
+		set @TagSQL='' INNER JOIN COM_DocCCData DCC WITH(NOLOCK) ON DCC.InvDocDetailsID=D.InvDocDetailsID''+@TagSQL
+	
+
+		
+	set @Order=@SortTransactionsBy+'',ST DESC,CASE WHEN ST=1 THEN VoucherNo ELSE '''''''' END,VoucherType DESC,VoucherNo,Qty DESC''
+		
+	SET @SQL=''DECLARE @FromDate FLOAT,@ToDate FLOAT,@ProductID INT
+	SET @FromDate=''+CONVERT(NVARCHAR,CONVERT(FLOAT,@FromDate))+''
+	SET @ToDate=''+CONVERT(NVARCHAR,CONVERT(FLOAT,@ToDate))+''
+	SET @ProductID=''+CONVERT(NVARCHAR,@ProductID)+'' ''
+	
+	if @Valuation=4
+		set @RecRateColumn='',''+@GrossColumn+''/UOMConvertedQty RecRate,''+@GrossColumn+'' RecValue''
+	else
+		set @RecRateColumn='',(''+@ValColumn+'')/UOMConvertedQty RecRate,(''+@ValColumn+'') RecValue''
+	
+	SET @SQL=@SQL+''SELECT DocDate,Qty,RecRate,RecValue,VoucherType,DocumentType FROM ( ''
+	
+	IF @IsOpening=1
+	BEGIN
+		SET @SQL=@SQL+''SELECT ''+@SortTransactionsBy+'',Qty,RecRate,RecValue,VoucherType,DocumentType,ST,VoucherNo FROM (''
+		if(@CloseDt is not null)
+		begin
+			SET @SQL=@SQL+''
+		SELECT CloseDate DocDate''+@TransactionsByOpHardClose+'',''''HardClose'''' VoucherNo,Qty,Rate RecRate,BalValue RecValue,1 VoucherType,0 DocumentType,1 OP,2 ST
+		FROM INV_ProductClose DCC WITH(NOLOCK)
+		WHERE ProductID=@ProductID AND CloseDate=''+convert(nvarchar,(@CloseDt-1))+@DimWhere
+			SET @SQL=@SQL+'' UNION ALL ''
+		end
+		SET @SQL=@SQL+''
+		SELECT ''+@TransactionsByOp+'',D.VoucherNo,D.UOMConvertedQty Qty''+@RecRateColumn+'',D.VoucherType,D.DocumentType,case when D.DocumentType=3 then 1 else 2 end OP,case when D.DocumentType=5 then 1 else 2 end ST
+		FROM INV_DocDetails D WITH(NOLOCK) ''+@TagSQL+''
+		WHERE D.ProductID=@ProductID AND D.IsQtyIgnored=0 AND D.UOMConvertedQty!=0 AND D.VoucherType=1''+@DateFilterOp1+@UnAppSQL+@CurrWHERE+@WHERE
+			
+		SET @SQL=@SQL+'' UNION ALL
+		SELECT ''+@TransactionsByOp+'',D.VoucherNo,D.UOMConvertedQty,0 RecRate''
+		if @Valuation=7
+			SET @SQL=@SQL+'',(D.''+@ValColumn+'') RecValue''
+		else if @Valuation=8
+				SET @SQL=@SQL+'',CASE WHEN P.ProductTypeID=5 THEN ISNULL((SELECT TOP 1 (BD.''+@ValColumn+'')/BD.Quantity FROM INV_DocDetails BD WITH(NOLOCK) WHERE BD.InvDocDetailsID=D.RefInvDocDetailsID AND BD.BatchID=D.BatchID),0)*D.Quantity ELSE (D.''+@ValColumn+'') END RecValue''
+		else
+			SET @SQL=@SQL+'',0 RecValue''
+		SET @SQL=@SQL+'',-1 VoucherType,D.DocumentType,2 OP,case when D.DocumentType=5 then 1 else 0 end ST
+		FROM INV_DocDetails D WITH(NOLOCK) ''
+		if @Valuation=8
+				SET @SQL=@SQL+''INNER JOIN INV_Product P WITH(NOLOCK) ON P.ProductID=D.ProductID ''
+		SET @SQL=@SQL+@TagSQL+''
+		WHERE D.ProductID=@ProductID AND D.IsQtyIgnored=0 AND D.VoucherType=-1''+@DateFilterOp2+@UnAppSQL+@CurrWHERE+@WHERE
+
+		if(@Valuation=3 and @STWHERE<>'''')
+		BEGIN
+			SET @SQL=@SQL+'' UNION ALL 
+			SELECT ''+@TransactionsByOp+'',D.VoucherNo,D.UOMConvertedQty''+@RecRateColumn+'',0 VoucherType,D.DocumentType,2 OP,0 ST 
+			FROM INV_DocDetails D WITH(NOLOCK) ''
+			SET @SQL=@SQL+@TagSQL+''      
+			WHERE D.ProductID=@ProductID ''+@DateFilterOp2+@UnAppSQL+@CurrWHERE+@WHERE     
+			SET @SQL=@SQL+'' and D.CostCenterID in (''+@STWHERE+'') ''
+		END
+		
+	END
+	ELSE
+	BEGIN
+		SET @SQL=@SQL+''SELECT ''+@SortTransactionsBy+'',Qty,RecRate,RecValue,VoucherType,DocumentType,ST,VoucherNo FROM (''
+		if(@CloseDt is not null)
+		begin
+			SET @SQL=@SQL+''
+		SELECT CloseDate DocDate''+@TransactionsByOpHardClose+'',''''HardClose'''' VoucherNo,Qty,Rate RecRate,BalValue RecValue,1 VoucherType,0 DocumentType,1 OP,2 ST
+		FROM INV_ProductClose DCC WITH(NOLOCK)
+		WHERE ProductID=@ProductID AND CloseDate=''+convert(nvarchar,(@CloseDt-1))+@DimWhere
+			SET @SQL=@SQL+'' UNION ALL ''
+		end
+
+		SET @SQL=@SQL+''
+		SELECT ''+@TransactionsByOp+'',D.VoucherNo,D.UOMConvertedQty Qty''+@RecRateColumn+'',D.VoucherType,D.DocumentType,case when D.DocumentType=3 then 1 else 2 end OP,case when D.DocumentType=5 then 1 else 2 end ST
+		FROM INV_DocDetails D WITH(NOLOCK) ''+@TagSQL+''
+		WHERE D.ProductID=@ProductID AND D.IsQtyIgnored=0 AND D.UOMConvertedQty!=0 AND D.VoucherType=1''+@DateFilterCol+@UnAppSQL+@CurrWHERE+@WHERE
+		SET @SQL=@SQL+'' UNION ALL
+		SELECT ''+@TransactionsByOp+'',D.VoucherNo,D.UOMConvertedQty,0 RecRate''
+		if @Valuation=7
+			SET @SQL=@SQL+'',(D.''+@ValColumn+'') RecValue''
+		else if @Valuation=8
+					SET @SQL=@SQL+'',CASE WHEN P.ProductTypeID=5 THEN ISNULL((SELECT TOP 1 (BD.''+@ValColumn+'')/BD.Quantity FROM INV_DocDetails BD WITH(NOLOCK) WHERE BD.InvDocDetailsID=D.RefInvDocDetailsID AND BD.BatchID=D.BatchID),0)*D.Quantity ELSE (D.''+@ValColumn+'') END RecValue''
+		else
+			SET @SQL=@SQL+'',0 RecValue''
+		SET @SQL=@SQL+'',-1 VoucherType,D.DocumentType,2 OP,case when D.DocumentType=5 then 1 else 0 end ST
+		FROM INV_DocDetails D WITH(NOLOCK) ''
+		if @Valuation=8
+			SET @SQL=@SQL+''INNER JOIN INV_Product P WITH(NOLOCK) ON P.ProductID=D.ProductID ''
+		SET @SQL=@SQL+@TagSQL+''
+		WHERE D.ProductID=@ProductID AND D.IsQtyIgnored=0 AND D.VoucherType=-1''+@DateFilterCol+@UnAppSQL+@CurrWHERE+@WHERE
+
+		if(@Valuation=3 and @STWHERE<>'''')
+		BEGIN
+			SET @SQL=@SQL+'' UNION ALL 
+			SELECT ''+@TransactionsByOp+'',D.VoucherNo,D.UOMConvertedQty''+@RecRateColumn+'',0 VoucherType,D.DocumentType,2 OP,0 ST 
+			FROM INV_DocDetails D WITH(NOLOCK) ''
+			SET @SQL=@SQL+@TagSQL+''      
+			WHERE D.ProductID=@ProductID ''+@DateFilterCol+@UnAppSQL+@CurrWHERE+@WHERE     
+			SET @SQL=@SQL+'' and D.CostCenterID in (''+@STWHERE+'') ''
+		END
+	END
+
+	SET @SQL=@SQL+'') AS T ) AS T1''
+
+	--BELOW CODE COMMENTED TO ADD ST ORDER BY 
+	SET @SQL=@SQL+'' ORDER BY ''+@Order--DocDate,ST DESC,VoucherNo,VoucherType DESC''
+	/*IF @Valuation=1
+		--SET @SQL=@SQL+'' ORDER BY DocDate,D.InvDocDetailsID''      
+		SET @SQL=@SQL+'' ORDER BY DocDate,VoucherType DESC,VoucherNo''   
+	ELSE IF @Valuation=2
+		--SET @SQL=@SQL+'' ORDER BY DocDate DESC,D.InvDocDetailsID DESC''      
+		SET @SQL=@SQL+'' ORDER BY DocDate,VoucherType DESC,VoucherNo''   
+	ELSE IF @Valuation=3
+		SET @SQL=@SQL+'' ORDER BY DocDate,VoucherType DESC,VoucherNo''   */
+	--print(@SQL)
+	INSERT INTO @Tbl(Date,Qty,RecRate,RecValue,VoucherType,DocumentType)
+	
+	EXEC(@SQL)
+	
+	--select @Valuation,* from @Tbl
+
+	--Set Last Purchase Rate
+	if (@Valuation=4 or @Valuation=5)
+	begin
+		declare @LPRateI int
+		select @LPRateI=count(*) from @Tbl		
+		while(@LPRateI>0)
+		begin
+			SELECT @dblAvgRate=RecRate FROM @Tbl where ID=@LPRateI and VoucherType=1
+			if @@rowcount=1
+				break
+			set @LPRateI=@LPRateI-1
+		end
+	end
+
+	DECLARE @SPInvoice cursor, @nStatusOuter int
+	DECLARE @dblValue FLOAT,@dblUOMRate FLOAT,@dblCOGS FLOAT
+	set @COGS=0
+	
+	IF @Valuation=6
+	BEGIN
+		DECLARE @dtDate datetime,@Mn int,@Yr int,@PrMn int,@PrYr int,@dblQty float,@dblMnOpValue float,@dblIssueQty float,@dblSelectedIssueQty float,@dblPrevAvgRate float
+	
+		SET @SPInvoice = cursor for 
+		SELECT Date,VoucherType,Qty,RecValue,ID,DocumentType FROM @Tbl
+		
+		OPEN @SPInvoice 
+		SET @nStatusOuter = @@FETCH_STATUS
+		
+		--SELECT * FROM @Tbl
+		--SELECT getdate() Loop_Start
+			
+		SELECT @I=1, @COUNT=COUNT(*) FROM @Tbl
+		
+		FETCH NEXT FROM @SPInvoice Into @Date,@VoucherType,@RecQty,@RecValue,@ID,@DocumentType
+		SET @nStatusOuter = @@FETCH_STATUS
+		
+		set @dblQty=0
+		set @dblValue=0
+		set @OpBalanceQty=0
+		set @dblMnOpValue=0
+		set @dblPrevAvgRate=0
+		set @dblIssueQty=0
+		set @dblSelectedIssueQty=0
+		
+		WHILE(@nStatusOuter <> -1)
+		BEGIN
+			set @dtDate=convert(datetime,@Date)
+			set @Mn=month(@dtDate)
+			set @Yr=year(@dtDate)
+
+			if (@PrMn is null or @PrMn!=@Mn or @PrYr!=@Yr)
+            begin
+				if(@PrMn is not null)
+                begin
+					if(@dblQty>0)
+						set @dblPrevAvgRate=(@dblMnOpValue+@dblValue)/@dblQty
+					set @dblAvgRate=@dblPrevAvgRate
+                    set @dblQty=(@dblQty-@dblIssueQty);
+                    set @dblMnOpValue=@dblQty*@dblAvgRate;
+                    set @COGS=@COGS+@dblSelectedIssueQty*@dblAvgRate
+                 end
+                 set @PrMn=@Mn
+                 set @PrYr=@Yr
+                 set @dblIssueQty=0
+                 set @dblSelectedIssueQty=0
+                 set @dblValue=0
+            end
+            if @VoucherType=1
+            begin
+			    if (@DocumentType!=6 and @DocumentType!=39)
+                begin
+                    set @dblQty=@dblQty+@RecQty
+                    set @dblValue=@dblValue+@RecValue
+                end
+            end
+            else
+            begin
+                set @dblIssueQty=@dblIssueQty+@RecQty
+                if(@Date>=@IFromDate)
+					set @dblSelectedIssueQty=@dblSelectedIssueQty+@RecQty
+            end
+			
+			if @IsMnWise=1
+			begin
+				set @OpBalanceQty=@dblQty-@dblIssueQty
+				set @dblAvgRate=@dblPrevAvgRate
+				if(@PrMn is not null)
+				begin				
+					if @dblQty>0
+						set @dblAvgRate=(@dblMnOpValue+@dblValue)/@dblQty
+				end
+				set @OpBalanceValue=@OpBalanceQty*@dblAvgRate
+				update #TblAvgMn
+				set  BalQty=@OpBalanceQty,AvgRate=@dblAvgRate
+					,BalValue=case when @OpBalanceQty!=0 then @OpBalanceValue else 0 end
+					,IsDone=1
+				where @Date between FromDate and ToDate
+			end
+			
+			FETCH NEXT FROM @SPInvoice Into @Date,@VoucherType,@RecQty,@RecValue,@ID,@DocumentType
+			SET @nStatusOuter = @@FETCH_STATUS
+		END
+		
+		set @OpBalanceQty=@dblQty-@dblIssueQty
+		set @dblAvgRate=@dblPrevAvgRate
+		if(@PrMn is not null)
+        begin				
+            if @dblQty>0
+                set @dblAvgRate=(@dblMnOpValue+@dblValue)/@dblQty
+        end
+        set @OpBalanceValue=@OpBalanceQty*@dblAvgRate
+        set @COGS=@COGS+@dblSelectedIssueQty*@dblAvgRate
+	END
+	ELSE
+	BEGIN
+		SET @SPInvoice = cursor for 
+		SELECT Date,VoucherType,Qty,RecValue,ID,DocumentType FROM @Tbl 
+				
+		OPEN @SPInvoice 
+		SET @nStatusOuter = @@FETCH_STATUS
+				
+		--SELECT * FROM @Tbl
+		--SELECT getdate() Loop_Start
+			
+		--SELECT @I=1, @COUNT=COUNT(*) FROM @Tbl
+		
+		FETCH NEXT FROM @SPInvoice Into @Date,@VoucherType,@RecQty,@RecValue,@ID,@DocumentType
+		SET @nStatusOuter = @@FETCH_STATUS
+		
+		DECLARE @lstI INT,@lstCNT INT,@lstQty FLOAT,@lstRate FLOAT,@lstDocumentType INT
+		SELECT @OpBalanceValue=0,@OpBalanceQty=0,@lstI=1,@lstCNT=0,@I=0
+		
+		DECLARE @lstRecTbl AS TABLE(ID INT IDENTITY(1,1) PRIMARY KEY,Qty FLOAT,Rate FLOAT,DocumentType INT)
+		WHILE(@nStatusOuter <> -1)
+		BEGIN
+			set @I=@I+1
+			if(@RecQty<0)
+			begin
+				set @RecQty=-@RecQty
+				set @VoucherType=-@VoucherType
+			end	
+			if @VoucherType=1
+			begin
+				--if(@OpBalanceValue<0)
+				--	set @OpBalanceValue=0
+
+				set @dblValue = @RecValue
+				set @dblUOMRate = @dblValue / @RecQty;
+				if (@OpBalanceQty < 0)
+				begin
+					set @OpBalanceQty = @RecQty + @OpBalanceQty;
+					if (Abs(@OpBalanceQty) < 0.00000001)
+						set @OpBalanceQty = 0;
+					if @ShowNegativeStock=0--NegStkChange
+					begin
+						if (@OpBalanceQty > 0)
+							set @RecQty = @OpBalanceQty;
+						else
+							set @RecQty = 0;
+					end
+				end
+				else
+				begin
+					SET @OpBalanceQty = @OpBalanceQty+@RecQty;
+				end
+				
+				if (@Valuation=4 or @Valuation=5)--Last Purchase Rate/Landing Rate
+					set @dblUOMRate=@dblAvgRate
+	                     
+				if ((@RecQty>0 and @ShowNegativeStock=0) or (@RecQty!=0 and @ShowNegativeStock=1))--NegStkChange (@RecQty>0)
+				begin
+					--For Sales Return Voucher Avg Rate will be current Avg Rate
+					if (@DocumentType=6 or @DocumentType=39)
+					BEGIN
+						if @dblAvgRate IS NULL
+							set @dblAvgRate=0
+						if (@Valuation=7 or @Valuation=8 OR (@I=1 AND @dblAvgRate=0))
+							set @dblAvgRate=@dblUOMRate
+                        else
+							set @dblUOMRate=@dblAvgRate
+					end
+					if @ShowNegativeStock=0
+					begin
+						if (@OpBalanceValue < 0)
+							set @OpBalanceValue=0
+					end
+					set @OpBalanceValue += @RecQty*@dblUOMRate
+				end
+				
+				if (@Valuation!=4 and @Valuation!=5)
+				begin
+					if @ShowNegativeStock=0--NegStkChange
+					begin
+						if @OpBalanceQty>0
+							set @dblAvgRate=@OpBalanceValue/@OpBalanceQty;
+						else
+						begin
+							set @dblAvgRate = 0;
+							set @OpBalanceValue = 0;
+						end
+					end
+					else
+					begin
+						if @OpBalanceQty!=0
+							set @dblAvgRate=@OpBalanceValue/@OpBalanceQty;
+						--if @dblAvgRate<0
+						--begin
+						--	set @dblAvgRate = 0;
+						--	set @OpBalanceValue = 0;
+						--end
+					end
+				end
+				
+				if (@RecQty>0)
+				begin
+					if (@Valuation=1)--FIFO
+					begin
+						INSERT INTO @lstRecTbl(Qty,Rate,DocumentType)
+						VALUES(@RecQty,@dblUOMRate,@DocumentType);
+					    						
+						SELECT @lstCNT=@lstCNT+1
+
+					end
+					else if (@Valuation=2)--LIFO
+					begin
+						INSERT INTO @lstRecTbl(Qty,Rate,DocumentType)
+						VALUES(@RecQty,@dblUOMRate,@DocumentType);
+					    						
+						SELECT @lstCNT=@lstCNT+1
+					end
+				end
+				
+			end
+			ELSE IF @VoucherType=0
+			BEGIN  
+				if (@Valuation=3) 
+				begin    
+					SET @OpBalanceValue=@OpBalanceValue+@RecValue
+					IF @OpBalanceQty>0        
+						SET @dblAvgRate = @OpBalanceValue / @OpBalanceQty;  	
+				end				
+			END
+			else
+			begin
+				set @OpBalanceQty=@OpBalanceQty-@RecQty
+
+				if (@Valuation=3 or @Valuation=4 or @Valuation=5)--WEIGHTED AVGG
+				begin
+					set @OpBalanceValue = @dblAvgRate * @OpBalanceQty;
+					if(@Date>=@IFromDate)
+						set @COGS=@COGS+@dblAvgRate*@RecQty
+				end
+				else if (@Valuation=7 OR @Valuation=8)--Invoice Rate
+				begin
+					set @OpBalanceValue=@OpBalanceValue-@RecValue
+					if(@OpBalanceValue<0)
+						set @OpBalanceValue=0
+					if(@OpBalanceQty<=0)
+					begin
+						set @dblAvgRate=0
+						set @OpBalanceValue=0
+					end
+					else	
+						set @dblAvgRate=@OpBalanceValue/@OpBalanceQty
+				end
+				else if (@Valuation = 1 OR @Valuation = 2)--FIFO & LIFO
+				begin
+					set @dblCOGS = 0;
+					
+					if (@Valuation=1)
+					begin
+						while(@lstI<=@lstCNT)
+						begin
+							SELECT @lstQty=Qty,@lstRate=Rate FROM @lstRecTbl WHERE ID=@lstI
+							set @RecQty=@RecQty-@lstQty
+							if(@RecQty<0)
+							begin
+								set @dblCOGS=@dblCOGS+(@lstQty+@RecQty)*@lstRate
+								if(@Date>=@IFromDate)
+									set @COGS=@COGS+(@lstQty+@RecQty)*@lstRate
+								UPDATE @lstRecTbl SET Qty=-@RecQty WHERE ID=@lstI								
+								break;
+							end
+							else
+							begin
+								set @dblCOGS=@dblCOGS+(@lstQty*@lstRate);
+								if(@Date>=@IFromDate)
+									set @COGS=@COGS+(@lstQty*@lstRate)
+								set @lstI=@lstI+1								
+								if (@RecQty=0)
+									break;
+							end
+						end
+					end
+					else if (@Valuation=2)
+					begin
+						set @lstI=@lstCNT
+						while(@lstI>=1)
+						begin
+							SELECT @lstQty=Qty,@lstRate=Rate FROM @lstRecTbl WHERE ID=@lstI
+							if @lstQty IS NULL
+								continue;
+							
+							set @RecQty=@RecQty-@lstQty
+							if(@RecQty<0)
+							begin
+								set @dblCOGS=@dblCOGS+(@lstQty+@RecQty)*@lstRate
+								if(@Date>=@IFromDate)
+									set @COGS=@COGS+(@lstQty+@RecQty)*@lstRate								
+								UPDATE @lstRecTbl SET Qty=-@RecQty WHERE ID=@lstI
+								break;
+							end
+							else
+							begin
+								set @dblCOGS=@dblCOGS+(@lstQty*@lstRate);
+								if(@Date>=@IFromDate)
+									set @COGS=@COGS+(@lstQty*@lstRate)
+								DELETE FROM @lstRecTbl WHERE ID=@lstI						        
+								set @lstI=@lstI-1
+								if (@RecQty=0)
+									break;
+							end
+						end
+					end
+
+					set @OpBalanceValue=@OpBalanceValue-@dblCOGS;
+					--set @COGS=@COGS+@dblCOGS
+
+					if (@OpBalanceValue < 0)
+						set @OpBalanceValue = 0;
+						
+					if (@Valuation!=4 and @Valuation!=5)
+					begin
+						if (@OpBalanceQty > 0)
+							set @dblAvgRate = @OpBalanceValue / @OpBalanceQty;
+						--else
+							--set @dblAvgRate = 0;
+					end
+
+				end
+			end
+			
+			if @IsMnWise=1
+			begin
+				update #TblAvgMn
+				set  BalQty=@OpBalanceQty,AvgRate=@dblAvgRate
+					,BalValue=case when @OpBalanceQty!=0 then @OpBalanceValue else 0 end
+					,IsDone=1
+				where @Date between FromDate and ToDate
+			end
+			
+
+			FETCH NEXT FROM @SPInvoice Into @Date,@VoucherType,@RecQty,@RecValue,@ID,@DocumentType
+			SET @nStatusOuter = @@FETCH_STATUS
+		END
+	END
+
+--SELECT getdate() Loop_AVG_Start, @I _I,@COUNT _COUNT,@TotalSaleQty,@ID,@nStatusOuter nStatusOuter
+		
+	IF @OpBalanceQty=0
+	BEGIN
+		SET @OpBalanceValue=0
+		--IF @TotalSaleQty IS NULL
+		--BEGIN
+		--	SET @Qty=NULL
+		--	SET @AvgRate=NULL
+		--	SET @OpBalanceValue=NULL
+		--END
+		--ELSE
+		--BEGIN
+			--SET @OpBalanceQty=-@TotalSaleQty
+			--SET @dblAvgRate=0
+			--SET @OpBalanceValue=0
+		--END
+	END
+	--ELSE IF @OpBalanceQty<0
+	--BEGIN
+	--	SET @OpBalanceValue=0
+	--END
+
+	CLOSE @SPInvoice
+	DEALLOCATE @SPInvoice
+	
+	if @IsMnWise=1 and @OpBalanceQty IS NOT NULL
+	begin
+		set @I=null
+		select @I=max(ID) from #TblAvgMn
+	
+		update #TblAvgMn
+		set  BalQty=@OpBalanceQty,AvgRate=@dblAvgRate,BalValue=@OpBalanceValue,IsDone=1
+		where ID=@I
+	end
+--select * from #TblAvgMn
+
+
+	--IF @Qty>0
+	--BEGIN
+	--	select * from @lstRecTbl
+	--	SELECT @ProductID ProductID,@Valuation Valuation, @OpBalanceQty Qty,@dblAvgRate AvgRate,@OpBalanceValue StockValue--getdate() Loop_END,
+	--END
+	--IF @InclueTransactions=1
+	--BEGIN 
+	--	IF @Valuation=1 OR @Valuation=2
+	--		SELECT @ProductID ProductID,Qty,RecRate Rate FROM @Tbl WHERE ID>=@ID --ORDER BY ID
+	--	ELSE
+	--		SELECT NULL ProductID,NULL Qty, NULL Rate WHERE 1<>1
+	--END
+	
+	--SELECT @ProductID ProductID,Qty,RecRate Rate FROM @Tbl WHERE ID>=@ID
+	
+--SELECT @ProductID ProductID,@Valuation Valuation, @OpBalanceQty Qty,@dblAvgRate AvgRate,@OpBalanceValue StockValue--getdate() Loop_END,
+' 
+END
+GO
+/****** Object:  StoredProcedure [dbo].[spRPT_StockValuation]    Script Date: 12-03-2026 18:40:34 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spRPT_StockValuation]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'
+CREATE PROCEDURE [dbo].[spRPT_StockValuation]
+	@ProductList [nvarchar](max),
+	@TagID [nvarchar](max),
+	@TagsList [nvarchar](max) = NULL,
+	@DimensionID [int],
+	@LocationWHERE [nvarchar](max) = NULL,
+	@DIMWHERE [nvarchar](max) = NULL,
+	@WHERE [nvarchar](max),
+	@ToDate [datetime],
+	@IncludeUpPostedDocs [bit],
+	@DefValuation [int],
+	@IsTagWise [bit],
+	@IgnoreTagWiseRate [bit] = 0,
+	@PCRates [nvarchar](500),
+	@PCFilter [nvarchar](500),
+	@CurrencyType [int],
+	@CurrencyID [int] = 0,
+	@SortTransactionsBy [nvarchar](50) = '''',
+	@FCWithExchRate [float] = 0,
+	@IsMfgDate [bit],
+	@UserID [int],
+	@LangID [int] = 1
+WITH  EXECUTE AS CALLER
+AS
+BEGIN TRY  
+SET NOCOUNT ON;  
+
+	DECLARE @SQL NVARCHAR(MAX),@RecQty FLOAT,@ProductID INT,@TagSQL NVARCHAR(MAX),
+			@AvgRate FLOAT,@BalQty FLOAT,@BalValue FLOAT,@COGS FLOAT,@VoucherType INT,@I INT,@COUNT INT
+	create table #TblProducts(ID INT IDENTITY(1,1) NOT NULL,ProductID INT)
+	declare @PCRate float,@PCi INT,@PCCnt INT,@PCcol nvarchar(50),@PCxml nvarchar(max)
+	declare @TblPCRates AS TABLE(ID INT IDENTITY(1,1) NOT NULL,Rate NVARCHAR(50))
+	
+	create table #TblAvgMn(ID int identity(0,1), FromDate Float, ToDate Float, BalQty float,AvgRate float,BalValue float,IsDone bit)
+	
+	
+	DECLARE @CUR_PRODUCT cursor, @nStatusOuter int
+	
+	SET @CUR_PRODUCT = cursor for 
+	SELECT ProductID FROM #TblProducts 
+	
+	OPEN @CUR_PRODUCT 
+	SET @nStatusOuter = @@FETCH_STATUS
+	
+	INSERT INTO #TblProducts(ProductID)
+	EXEC SPSplitString @ProductList,'',''
+	
+	set @PCCnt=0
+	if @PCRates!=''''
+	begin
+		INSERT INTO @TblPCRates(Rate)
+		EXEC SPSplitString @PCRates,'',''
+		select @PCCnt=count(*) from @TblPCRates
+	end
+	
+	SET @TagSQL=''''
+	IF (@LocationWHERE IS NOT NULL AND @LocationWHERE<>'''') OR (@DIMWHERE IS NOT NULL AND @DIMWHERE<>'''')
+	BEGIN
+		IF (@LocationWHERE IS NOT NULL AND @LocationWHERE<>'''')
+			SET @TagSQL=@TagSQL+'' AND DCC.DCCCNID''+CONVERT(NVARCHAR,@DimensionID-50000)+'' IN (''+@LocationWHERE+'') ''
+		IF (@DIMWHERE IS NOT NULL AND @DIMWHERE<>'''')
+			SET @TagSQL=@TagSQL+@DIMWHERE
+	END
+	
+
+	IF (@IsMfgDate=1)
+	SET @TagSQL=@TagSQL+'' LEFT JOIN [INV_Batches] BAT WITH(NOLOCK) ON BAT.[BatchID]=D.[BatchID]''
+
+	
+
+	DECLARE @Tbl2 AS TABLE(ID INT IDENTITY(1,1) NOT NULL,ProductID INT,TagID INT,BalQty FLOAT,AvgRate FLOAT,BalValue FLOAT,PCxml NVARCHAR(max))
+	DECLARE @Tbl AS TABLE(ID INT IDENTITY(1,1) NOT NULL,ProductID INT,BalQty FLOAT,AvgRate FLOAT,BalValue FLOAT,PCxml NVARCHAR(max))
+
+	IF @TagID=0
+	BEGIN
+		FETCH NEXT FROM @CUR_PRODUCT Into @ProductID
+		SET @nStatusOuter = @@FETCH_STATUS
+		
+		WHILE(@nStatusOuter<>-1)
+		BEGIN
+			--Price chart Data			
+			if @PCCnt>0
+			begin
+				set @PCxml=''''
+				set @PCi=1
+				while(@PCi<=@PCCnt)
+				begin
+					select @PCcol=Rate from @TblPCRates where ID=@PCi
+					EXEC spRPT_PCRate @ProductID,@ToDate,@PCcol,@PCFilter,@PCRate OUTPUT					
+					if @PCi>1
+						set @PCxml=@PCxml+'',''
+					if @PCRate is null
+						set @PCRate=0
+					set @PCxml=@PCxml+convert(nvarchar,@PCRate)
+					set @PCi=@PCi+1
+				end
+			end
+			
+			--TO GET BALANCE DATA
+			if @TagsList is not null and @TagsList like ''<X>%''
+			begin
+				--update #TblAvgMn 
+				--set BalQty=null,AvgRate=null,BalValue=null,IsDone=0
+				truncate table #TblAvgMn
+				if @TagsList is not null and @TagsList like ''<X>%''
+				begin
+					declare @XML xml
+					set @XML=@TagsList
+					--insert into #TblAvgMn(FromDate)
+					--values(0)
+					
+					insert into #TblAvgMn(ToDate)
+					select convert(float,X.value(''@D'',''datetime''))
+					from @XML.nodes(''/X/R'') as Data(X)  
+					
+					/*update #TblAvgMn
+					set FromDate=100(select ToDate-1 from #TblAvgMn where ID=ID-1)
+					where ID>0*/
+					
+					update T2
+					set FromDate=T1.ToDate -1
+					from #TblAvgMn T1
+					join #TblAvgMn T2 on T1.ID=T2.ID-1
+					
+					update #TblAvgMn set FromDate=0 where ID=0
+					
+					--select * from #TblAvgMn
+				end
+				EXEC [spRPT_AvgRate] 0,@ProductID,@TagSQL,@WHERE,@ToDate,@ToDate,@IncludeUpPostedDocs,@DefValuation,@CurrencyType,@CurrencyID,@SortTransactionsBy,@FCWithExchRate,1,@BalQty OUTPUT,@AvgRate OUTPUT,@BalValue OUTPUT,@COGS OUTPUT
+
+				INSERT INTO @Tbl2(ProductID,BalQty,AvgRate,BalValue,PCxml)
+				SELECT @ProductID,@BalQty,isnull(@AvgRate,0),@BalValue,@PCxml
+				WHERE @BalQty IS NOT NULL
+
+				if (select count(*) from #TblAvgMn where BalQty IS NULL or BalQty=0)!=(select count(*) from #TblAvgMn)
+					INSERT INTO @Tbl2(ProductID,TagID,BalQty,AvgRate,BalValue,PCxml)
+					SELECT @ProductID,ID,BalQty,AvgRate,BalValue,@PCxml
+					FROM #TblAvgMn
+			end
+			else
+			begin
+				EXEC [spRPT_AvgRate] 0,@ProductID,@TagSQL,@WHERE,@ToDate,@ToDate,@IncludeUpPostedDocs,@DefValuation,@CurrencyType,@CurrencyID,@SortTransactionsBy,@FCWithExchRate,0,@BalQty OUTPUT,@AvgRate OUTPUT,@BalValue OUTPUT,@COGS OUTPUT
+			
+				INSERT INTO @Tbl(ProductID,BalQty,AvgRate,BalValue,PCxml)
+				SELECT @ProductID,@BalQty,isnull(@AvgRate,0),@BalValue,@PCxml
+				WHERE @BalQty IS NOT NULL
+			end
+				
+
+			FETCH NEXT FROM @CUR_PRODUCT Into @ProductID
+			SET @nStatusOuter = @@FETCH_STATUS
+		END
+		if @TagsList is not null and @TagsList like ''<X>%''
+			SELECT * FROM @Tbl2
+		else
+			SELECT * FROM @Tbl
+	END
+	ELSE
+	BEGIN
+
+		DECLARE @TI INT,@TCNT INT,@NodeID INT,@SubTagSQL NVARCHAR(MAX)
+		create table #TblTags(ID INT IDENTITY(1,1) NOT NULL,NodeID INT)
+
+		INSERT INTO #TblTags(NodeID)
+		EXEC SPSplitString @TagsList,'',''
+		
+		SELECT @TCNT=COUNT(*) FROM #TblTags	
+		
+		FETCH NEXT FROM @CUR_PRODUCT Into @ProductID
+		SET @nStatusOuter = @@FETCH_STATUS
+		
+		WHILE(@nStatusOuter<>-1)
+		BEGIN
+			SET @TI=1
+			IF(@IsTagWise=1)
+			BEGIN
+				--TO GET BALANCE DATA
+			--	insert into #TblAvgMn
+				EXEC [spRPT_AvgRate] 0,@ProductID,@TagSQL,@WHERE,@ToDate,@ToDate,@IncludeUpPostedDocs,@DefValuation,@CurrencyType,@CurrencyID,@SortTransactionsBy,@FCWithExchRate,0,@BalQty OUTPUT,@AvgRate OUTPUT,@BalValue OUTPUT,@COGS OUTPUT
+				
+				--Price chart Data			
+				if @PCCnt>0
+				begin
+					set @PCxml=''''
+					set @PCi=1
+					while(@PCi<=@PCCnt)
+					begin
+						select @PCcol=Rate from @TblPCRates where ID=@PCi
+						EXEC spRPT_PCRate @ProductID,@ToDate,@PCcol,@PCFilter,@PCRate OUTPUT					
+						if @PCi>1
+							set @PCxml=@PCxml+'',''
+						if @PCRate is null
+							set @PCRate=0
+						set @PCxml=@PCxml+convert(nvarchar,@PCRate)
+						set @PCi=@PCi+1
+					end
+				end
+				
+				INSERT INTO @Tbl2(ProductID,BalQty,AvgRate,BalValue,PCxml)
+				SELECT @ProductID,@BalQty,isnull(@AvgRate,0),@BalValue,@PCxml
+				WHERE @BalQty IS NOT NULL
+			END
+
+			if @IgnoreTagWiseRate=0
+			begin
+				WHILE(@TI<=@TCNT)
+				BEGIN
+					SELECT @NodeID=NodeID FROM #TblTags WHERE ID=@TI
+					
+					IF @TagSQL=''''
+						SET @SubTagSQL='' AND DCC.DCCCNID''+CONVERT(NVARCHAR,@TagID-50000)+''=''+CONVERT(NVARCHAR,@NodeID)
+					ELSE
+						SET @SubTagSQL=@TagSQL + '' AND DCC.DCCCNID''+CONVERT(NVARCHAR,@TagID-50000)+''=''+CONVERT(NVARCHAR,@NodeID)		
+				
+					--TO GET BALANCE DATA
+					EXEC [spRPT_AvgRate] 0,@ProductID,@SubTagSQL,@WHERE,@ToDate,@ToDate,@IncludeUpPostedDocs,@DefValuation,@CurrencyType,@CurrencyID,@SortTransactionsBy,@FCWithExchRate,0,@BalQty OUTPUT,@AvgRate OUTPUT,@BalValue OUTPUT,@COGS OUTPUT
+					
+					INSERT INTO @Tbl2(ProductID,TagID,BalQty,AvgRate,BalValue)
+					SELECT @ProductID,@NodeID,@BalQty,isnull(@AvgRate,0),@BalValue
+					WHERE @BalQty IS NOT NULL-- and (@BalQty!=0 or @AvgRate!=0)
+					
+					SET @TI=@TI+1
+				END
+			end
+			FETCH NEXT FROM @CUR_PRODUCT Into @ProductID
+			SET @nStatusOuter = @@FETCH_STATUS
+			
+		END
+
+		if @IgnoreTagWiseRate=1
+		begin
+			set @SubTagSQL=''
+select P.ProductID,T.NodeID AS TagID,ISNULL(SUM(D.UOMConvertedQty*D.VoucherType),0) BalQty
+FROM INV_DocDetails D WITH(NOLOCK) INNER JOIN COM_DocCCData DCC WITH(NOLOCK) ON DCC.InvDocDetailsID=D.InvDocDetailsID''
+			set @SubTagSQL=@SubTagSQL+''
+INNER JOIN #TblProducts P WITH(NOLOCK) ON P.ProductID=D.ProductID
+INNER JOIN #TblTags T ON DCC.DCCCNID''+CONVERT(NVARCHAR,@TagID-50000)+''=T.NodeID 
+WHERE D.ProductID=P.ProductID AND (D.VoucherType=1 OR D.VoucherType=-1) AND D.IsQtyIgnored=0 AND (D.DocumentType=3 OR D.DocDate<=''+convert(nvarchar,convert(float,@TODATE))+'')''
+			if @IncludeUpPostedDocs=0
+				set @SubTagSQL=@SubTagSQL+'' AND D.StatusID=369''
+			else
+				set @SubTagSQL=@SubTagSQL+'' AND D.StatusID<>376''
+		set @SubTagSQL=@SubTagSQL+''
+GROUP BY P.ProductID,T.NodeID having ISNULL(SUM(D.UOMConvertedQty*D.VoucherType),0)!=0 
+Order BY P.ProductID,T.NodeID''
+			--print(@SubTagSQL)
+			INSERT INTO @Tbl2(ProductID,TagID,BalQty)
+			exec(@SubTagSQL)
+			
+			--update @Tbl2 set AvgRate=@AvgRate,BalValue=@AvgRate*BalQty
+			
+			update T1
+			set AvgRate=T2.AvgRate
+			from @Tbl2 T1
+			join @Tbl2 T2 on T1.ProductID=T2.ProductID and T2.TagID is null
+			where T1.TagID is not null
+			
+			update @Tbl2 set BalValue=AvgRate*BalQty where BalValue is null
+		end
+		
+		SELECT * FROM @Tbl2
+	END
+	
+	CLOSE @CUR_PRODUCT
+	DEALLOCATE @CUR_PRODUCT
+	
+SET NOCOUNT OFF;  
+RETURN 1
+END TRY
+BEGIN CATCH  
+	--Return exception info [Message,Number,ProcedureName,LineNumber]  
+	IF ERROR_NUMBER()=50000
+	BEGIN
+		SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(NOLOCK) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID
+	END
+	ELSE
+	BEGIN
+		SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() AS ErrorNumber, ERROR_PROCEDURE()AS ProcedureName, ERROR_LINE() AS ErrorLine
+		FROM COM_ErrorMessages WITH(NOLOCK) WHERE ErrorNumber=-999 AND LanguageID=@LangID
+	END
+SET NOCOUNT OFF  
+RETURN -999   
+END CATCH
+
+' 
+END
+GO

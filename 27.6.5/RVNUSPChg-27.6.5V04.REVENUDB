@@ -1,0 +1,1863 @@
+--Sajid
+/****** Object:  StoredProcedure [dbo].[spDOC_GetBillwiseDetails]    Script Date: 11-03-2026 15:25:12 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spDOC_GetBillwiseDetails]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spDOC_GetBillwiseDetails]
+GO
+/****** Object:  StoredProcedure [dbo].[spADM_GetCostCenterGridViewListAll]    Script Date: 11-03-2026 15:25:12 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spADM_GetCostCenterGridViewListAll]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spADM_GetCostCenterGridViewListAll]
+GO
+/****** Object:  StoredProcedure [dbo].[spADM_DefineCostCenterGridView]    Script Date: 11-03-2026 15:25:12 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spADM_DefineCostCenterGridView]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spADM_DefineCostCenterGridView]
+GO
+/****** Object:  StoredProcedure [dbo].[spADM_DefineCostCenterGridView]    Script Date: 11-03-2026 15:25:12 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spADM_DefineCostCenterGridView]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'   CREATE PROCEDURE [dbo].[spADM_DefineCostCenterGridView]     
+		@GridViewID int,    
+		@CostCenterID int=0,    
+		@FeatureID int=0,    
+		@ViewName  nvarchar(200),    
+		@ChunkCount  bigint,    
+		@ResourceID int,    
+		@SearchFilter nchar(300),    
+		@RoleID int,    
+		@SetUserID bigint,     
+		@IsViewRoleDefault bit,    
+		@IsViewUserDefault bit,    
+		@DefaultColID BIGINT,    
+		@DefaultFilterID INT,  
+		@CompanyGUID nvarchar(50),    
+		@Guid nvarchar(50),     
+		@UserName nvarchar(50),    
+		@GridViewColumnsXML nvarchar(max),    
+		@FILTERXML NVARCHAR(MAX),    
+		@RolesXML NVARCHAR(MAX)=NULL,    
+		@COLUMNLISTVIEWXML NVARCHAR(MAX),    
+		@DefaultListViewID varchar(50)=0,  
+		@isDefault bit,
+		@Type NVARCHAR(MAX)=NULL,
+		@DimWiseXML NVARCHAR(MAX)=NULL,
+		@UserID bigint,
+		@LangID int=1    
+AS    
+BEGIN TRANSACTION      
+BEGIN TRY      
+SET NOCOUNT ON;    
+    
+  --Declaration Section    
+  DECLARE @TempGuid nvarchar(50),@HasAccess bit
+  DECLARE @Dt float,@XML xml,@I int,@Cnt int,@CostCenterColID BIGINT    
+    
+  --Create temporary table to read xml data into table    
+  CREATE TABLE #tblList(ID int identity(1,1),CostCenterColID BIGINT)      
+
+  --SP Required Parameters Check    
+  if(@CostCenterID=0 or @FeatureID=0)    
+  BEGIN        
+   RAISERROR(''-100'',16,1)         
+  END    
+      
+  --User acces check    
+  IF @GridViewID=0    
+  BEGIN    
+   SET @HasAccess=dbo.fnCOM_HasAccess(@RoleID,26,1)    
+  END    
+  ELSE    
+  BEGIN    
+   SET @HasAccess=dbo.fnCOM_HasAccess(@RoleID,26,3)    
+  END    
+  IF @HasAccess=0    
+  BEGIN    
+   RAISERROR(''-105'',16,1)    
+  END    
+
+    
+  SET @Dt=convert(float,getdate())--Getting Current Date    
+  SET @XML=@GridViewColumnsXML --Set GridViewColumnsXML in XMl variable    
+      
+  --IF USER DEFAULT THEN CLEAR PREVIOUS Default    
+  IF(@CostCenterID<>16 and @IsViewUserDefault=1)    
+  BEGIN    
+   update ADM_GridView    
+   set IsViewUserDefault=0    
+   where UserID=@SetUserID  and CostCenterID=@CostCenterID   
+  END    
+      
+--ADDED CODE ON JUN 30 2011 BY HAFEEZ FOR BILLWISE VIEW    
+--IF @CostCenterID=99    
+--BEGIN 
+-- DELETE FROM [ADM_GridViewColumns] WHERE [GridViewID] IN(    
+-- SELECT [GridViewID] FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=99)    
+-- DELETE FROM [ADM_GridView] WHERE [CostCenterID]=99         
+--END
+IF @CostCenterID=99    
+BEGIN 
+   if(@GridViewID>0)
+   begin
+		DELETE FROM [ADM_GridViewColumns] WHERE [GridViewID] IN(    
+		SELECT [GridViewID] FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=99 and GridViewID=@GridViewID)    
+		DELETE FROM [ADM_GridView] WHERE [CostCenterID]=99 and GridViewID=@GridViewID
+		set @GridViewID=0
+   end
+   else
+   begin
+		if exists(select ViewName from [ADM_GridView] with(nolock) WHERE [CostCenterID]=99 and isnull(ViewName,'''')=@ViewName)
+		begin	
+			set @GridViewID=0
+			DELETE FROM [ADM_GridViewColumns] WHERE [GridViewID] IN(    
+			SELECT [GridViewID] FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=99 and isnull(ViewName,'''')=@ViewName)    
+			DELETE FROM [ADM_GridView] WHERE [CostCenterID]=99 and isnull(ViewName,'''')=@ViewName
+		end
+	end
+END       
+IF @CostCenterID=23    
+BEGIN    
+ DELETE FROM [ADM_GridViewColumns] WHERE [GridViewID] IN(    
+ SELECT [GridViewID] FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=23)    
+-- DELETE FROM [ADM_GridView] WHERE [CostCenterID]=23    
+END    
+
+IF @CostCenterID=159    
+BEGIN    
+ DELETE FROM [ADM_GridViewColumns] WHERE [GridViewID] IN(    
+ SELECT [GridViewID] FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=159)    
+ DELETE FROM [ADM_GridView] WHERE [CostCenterID]=159    
+     
+END    
+IF @CostCenterID=161    
+BEGIN    
+ DELETE FROM [ADM_GridViewColumns] WHERE [GridViewID] IN(    
+ SELECT [GridViewID] FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=161)    
+ DELETE FROM [ADM_GridView] WHERE [CostCenterID]=161    
+     
+END    
+IF (@CostCenterID=102 )    
+BEGIN    
+ DELETE FROM [ADM_GridViewColumns] WHERE [GridViewID] IN(    
+ SELECT [GridViewID] FROM [ADM_GridView] with(nolock) WHERE [FeatureID]=@CostCenterID) 
+END    
+    
+IF @CostCenterID=112    
+BEGIN     
+IF @GridViewID=0
+BEGIN     
+ DELETE FROM [ADM_GridViewColumns] WHERE [GridViewID] IN(    
+ SELECT [GridViewID] FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=112)    
+ DELETE FROM [ADM_GridView] WHERE [CostCenterID]=112    
+    
+END      
+    
+END    
+    
+ if(@CostCenterID=102 or @CostCenterID=23  )    
+ begin    
+  select top 1 @GridViewID=[GridViewID] FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=@CostCenterID      
+ end    
+ else    
+ begin    
+  IF @GridViewID=0--CREATE CostCenterGridView--    
+   BEGIN    
+       
+	select @ResourceID=MAX([ResourceID])+1 FROM [Com_LanguageResources] WITH(NOLOCK)
+
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[FEATURE])
+	VALUES(@ResourceID,@ViewName,1,''English'',@ViewName,@ViewName) 
+
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[FEATURE])
+	VALUES(@ResourceID,@ViewName,2,''Arabic'',@ViewName,@ViewName) 
+	
+	if exists(select * from ADM_Laguages with(nolock) where LanguageID=3)
+	begin
+		INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[FEATURE])
+		VALUES(@ResourceID,@ViewName,3,''Italian'',@ViewName,@ViewName) 
+	END
+	
+   INSERT INTO [ADM_GridView]    
+        ([CostCenterID]    
+        ,[FeatureID]    
+        ,[ViewName]    
+        ,[ResourceID]    
+        ,[SearchFilter]    
+        ,[RoleID]    
+        ,[UserID]    
+        ,[IsViewRoleDefault]    
+        ,[IsViewUserDefault]    
+        ,[IsUserDefined]    
+        ,[CompanyGUID]    
+        ,[GUID]     
+        ,[CreatedBy]    
+        ,[CreatedDate],FILTERXML,ChunkCount,DefaultSearchListviews, DefaultColID , DefaultFilterID,DefaultListViewID,isDefault,AccountView)    
+     VALUES    
+        (@CostCenterID    
+        ,@FeatureID    
+        ,@ViewName    
+        ,@ResourceID    
+        ,@SearchFilter    
+        ,@RoleID    
+        ,@SetUserID    
+        ,@IsViewRoleDefault    
+        ,@IsViewUserDefault    
+        ,1    
+        ,@CompanyGUID    
+        ,newid()     
+        ,@UserName    
+        ,@Dt,@FILTERXML,@ChunkCount ,@COLUMNLISTVIEWXML,@DefaultColID, @DefaultFilterID,@DefaultListViewID,@isDefault,@Type)    
+       
+   set @GridViewID=SCOPE_IDENTITY()--Getting GridViewID    
+    
+   END    
+   ELSE--UPDATE CostCenterGridView--    
+   BEGIN    
+    
+    select @TempGuid=[GUID] from [ADM_GridView]  WITH(NOLOCK)     
+     WHERE GridViewID=@GridViewID    
+    
+ 
+    if(@TempGuid!=@Guid)    
+    BEGIN    
+     RAISERROR(''-101'',16,1)    
+    END    
+      
+    UPDATE [ADM_GridView]    
+       SET [CostCenterID] = @CostCenterID    
+       ,[FeatureID] = @FeatureID    
+       ,[ViewName] = @ViewName      
+       ,[SearchFilter] = @SearchFilter    
+       ,[RoleID] = @RoleID    
+       ,[UserID] = @SetUserID    
+       ,[IsViewRoleDefault] = @IsViewRoleDefault    
+       ,[IsViewUserDefault] = @IsViewUserDefault    
+       ,[CompanyGUID] = @CompanyGUID    
+       ,[GUID] =newid(),FILTERXML=@FILTERXML    ,DefaultSearchListviews=@COLUMNLISTVIEWXML
+       ,[ModifiedBy] = @UserName    
+       ,[ModifiedDate] = @Dt    
+       ,ChunkCount=@ChunkCount    
+       ,DefaultColID = @DefaultColID    
+       ,DefaultFilterID =  @DefaultFilterID    ,DefaultListViewID=@DefaultListViewID,isDefault=@isDefault,AccountView=@Type
+     WHERE  GridViewID=@GridViewID      
+   END    
+    
+ end    
+
+IF @CostCenterID=99    
+BEGIN 
+    UPDATE [ADM_GridView]  SET DimWiseView = isnull(@DimWiseXML,'''') WHERE GridViewID=@GridViewID AND [FeatureID]=99
+END
+
+IF @CostCenterID=98    
+BEGIN
+	 DELETE FROM [ADM_GridViewColumns]    
+	 WHERE [GridViewID]=@GridViewID and ColumnType =1    
+END
+
+ DELETE FROM [ADM_GridViewColumns]    
+ WHERE [GridViewID]=@GridViewID and ColumnType =2 
+   
+    
+    --Insert into GridView Columns From XML    
+    INSERT INTO [ADM_GridViewColumns]    
+    ([GridViewID]    
+    ,CostCenterColID    
+    ,[ColumnResourceID]    
+    ,[ColumnFilter]    
+    ,[ColumnOrder]    
+    ,[ColumnWidth]    
+    ,[Description] 
+    ,[IsCode]   
+	,[HeaderAlignment]
+	,[DataAlignment]
+    ,[CreatedBy]    
+    ,[CreatedDate],ColumnType)    
+    SELECT @GridViewID    
+    ,X.value(''@CostCenterColID'',''INT'')    
+    ,X.value(''@ColumnResourceID'',''INT''),       
+    X.value(''@ColumnFilter'',''nvarchar(500)''),X.value(''@ColumnOrder'',''int''),X.value(''@ColumnWidth'',''int'')  ,    
+    X.value(''@Description'',''nvarchar(500)''),
+    X.value(''@IsCode'',''INT''),
+	X.value(''@HeaderAlignment'',''nvarchar(50)''),
+	X.value(''@DataAlignment'',''nvarchar(50)''),
+    @UserName,convert(float,getdate())    
+    ,X.value(''@ColumnType'',''INT'')    
+    from @XML.nodes(''/XML/Row'') as Data(X)    
+    WHERE X.value(''@MapAction'',''nvarchar(10)'') =''NEW''    
+    
+      UPDATE [ADM_GridViewColumns] SET CostCenterColID=A.value(''@CostCenterColID'',''INT''),[ColumnOrder]=A.value(''@ColumnOrder'',''int''),    
+      [ColumnWidth]=A.value(''@ColumnWidth'',''int''),[ModifiedBy]=@UserName,[ModifiedDate]=convert(float,getdate())    
+      ,ColumnType=A.value(''@ColumnType'',''INT''),[Description]=A.value(''@Description'',''nvarchar(500)''),
+      [IsCode]=A.value(''@IsCode'',''INT'')
+	  ,[HeaderAlignment]=A.value(''@HeaderAlignment'',''nvarchar(50)'')
+	,[DataAlignment]=A.value(''@DataAlignment'',''nvarchar(50)'')
+       FROM [ADM_GridViewColumns] U    
+      INNER JOIN @XML.nodes(''/XML/Row'') AS DATA(A)    
+       ON CONVERT(BIGINT,A.value(''@CostCenterColID'',''BIGINT''))=U.CostCenterColID    
+    WHERE A.value(''@MapAction'',''NVARCHAR(500)'')=''OLD'' AND [GridViewID]=@GridViewID AND U.ColumnType=A.value(''@ColumnType'',''INT'')
+    
+    --DELETE RECORDS FROM MAPPING    
+    --If MapAction is DELETE then delete        
+    DELETE FROM [ADM_GridViewColumns]    
+    WHERE CostCenterColID IN(SELECT A.value(''@CostCenterColID'',''BIGINT'')    
+    FROM @XML.nodes(''/XML/Row'') as Data(A)    
+    WHERE A.value(''@MapAction'',''NVARCHAR(10)'')=''DELETE'') AND [GridViewID]=@GridViewID    
+    
+   IF @RolesXML IS NOT NULL AND @RolesXML<>''''    
+   BEGIN    
+    EXEC [spCOM_SetCCCCMap] 26,@GridViewID,@RolesXML,''ADMIN'',@LangID    
+   END    
+      
+  select * from adm_gridviewColumns with(nolock) where GridViewID=@GridViewID    
+    
+COMMIT TRANSACTION      
+SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock)     
+WHERE ErrorNumber=100 AND LanguageID=@LangID     
+SET NOCOUNT OFF;      
+RETURN @GridViewID      
+END TRY      
+BEGIN CATCH      
+ --Return exception info [Message,Number,ProcedureName,LineNumber]      
+ IF ERROR_NUMBER()=50000    
+ BEGIN  
+	 IF ISNUMERIC(ERROR_MESSAGE())<>1
+	 BEGIN
+		SELECT ERROR_MESSAGE() ErrorMessage
+	 END
+	 ELSE
+	 BEGIN     
+		SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock)     
+		WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID  
+	 END 
+ END    
+ ELSE    
+ BEGIN    
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine    
+  FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=-999 AND LanguageID=@LangID    
+ END    
+ ROLLBACK TRANSACTION    
+ SET NOCOUNT OFF      
+ RETURN -999       
+END CATCH    
+    
+
+' 
+END
+GO
+/****** Object:  StoredProcedure [dbo].[spADM_GetCostCenterGridViewListAll]    Script Date: 11-03-2026 15:25:12 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spADM_GetCostCenterGridViewListAll]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'-- =============================================
+-- Author:		ADIL
+-- Create date: 30 Dec 2012
+-- Description:	Gets a list of all valid Grid Views and their definitions for that specific Cost Center User
+-- Example :  
+-- [spADM_GetCostCenterGridViewListAll] 98,3,1,1 
+-- =============================================
+CREATE PROCEDURE [dbo].[spADM_GetCostCenterGridViewListAll] 
+	@CostCenterID int=0,
+	@GridViewID BIGINT,
+	@UserID int=0 ,
+	@RoleID int=0,
+	@LangID int=1
+AS
+BEGIN TRY
+SET NOCOUNT ON
+		--Declaration Section
+		DECLARE @HasAccess bit,@FEATUREID int
+
+		--Check for manadatory paramters
+		if(@UserID=0 or @CostCenterID=0)
+			 RAISERROR(''-100'',16,1)
+
+		--User acces check
+		IF @HasAccess=0
+		BEGIN
+			RAISERROR(''-105'',16,1)
+		END
+
+		--Getting GridView
+		select * from ADM_GridView WITH(NOLOCK) 
+		where CostCenterID=@CostCenterID
+		order by IsViewUserDefault desc ,IsUserDefined
+
+		--select * from ADM_GridView where GridViewID=209
+		--select * from ADM_GridViewColumns where GridViewID=209
+
+		--delete from ADM_GridViewColumns where GridViewID=209 and GridViewColumnID>60000
+
+		--Getting GridViewColumns
+		IF @CostCenterID<>16
+		begin
+			select ''OLD'' as ''Link/Delink'',D.Resourceid,CASE WHEN c.CostCenterID=92 AND ResourceData=''Code'' THEN ''Property Code''
+			WHEN c.CostCenterID=93 AND ResourceData=''Code'' THEN ''Unit Code'' WHEN c.CostCenterID=94 AND ResourceData=''Code'' THEN ''Tenant Code''
+			ELSE ResourceData END ResourceData,UserColumnName,SysColumnName,a.ColumnOrder,ColumnWidth,
+			a.GridViewID,A.CostCenterColID,ColumnType ,b.DefaultColID DefaultColID , b.DefaultFilterID DefaultFilterID,a.Description,a.IsCode  
+			,a.HeaderAlignment,a.DataAlignment 
+			from ADM_GridViewColumns a WITH(NOLOCK) 
+			join ADM_GridView b WITH(NOLOCK) on a.GridViewID=b.GridViewID
+			join ADM_CostCenterDef c WITH(NOLOCK) on c.CostCenterColID=a.CostCenterColID--b.CostCenterID=c.CostCenterID and 
+			JOIN COM_LanguageResources D WITH(NOLOCK) ON D.ResourceID=C.ResourceID AND D.LanguageID=@LangID
+			where b.CostCenterID=@CostCenterID
+			union 
+			select ''OLD'' as ''Link/Delink'',  a.CostCenterColID CostCenterColID,''Assign_'' + f.name ResourceData,''Assign_'' + f.name UserColumnName,
+			'''' SysColumnName,a.ColumnOrder,ColumnWidth,
+			a.GridViewID,A.CostCenterColID,ColumnType ,b.DefaultColID DefaultColID , b.DefaultFilterID DefaultFilterID,a.Description,a.IsCode
+			,a.HeaderAlignment,a.DataAlignment
+			from ADM_GridViewColumns a WITH(NOLOCK) 
+			join ADM_GridView b WITH(NOLOCK)  on a.GridViewID=b.GridViewID
+		    join ADM_Features f  WITH(NOLOCK)  on f.FeatureID=-a.CostCenterColID 
+			where b.CostCenterID=@CostCenterID and (f.FeatureID between 50000 and 50090 OR f.FeatureID=6 OR f.FeatureID=7)
+			ORDER BY a.ColumnOrder
+		end
+		ELSE
+		BEGIN
+			select ''OLD'' as ''Link/Delink'',D.Resourceid,ResourceData,UserColumnName,SysColumnName,a.ColumnOrder,ColumnWidth,
+			a.GridViewID,A.CostCenterColID,ColumnType ,b.DefaultColID DefaultColID , b.DefaultFilterID DefaultFilterID  
+			,a.HeaderAlignment,a.DataAlignment
+			from ADM_GridViewColumns a WITH(NOLOCK) 
+			join ADM_GridView b WITH(NOLOCK) on a.GridViewID=b.GridViewID
+			join ADM_CostCenterDef c WITH(NOLOCK) on c.CostCenterColID=a.CostCenterColID
+			JOIN COM_LanguageResources D WITH(NOLOCK) ON D.ResourceID=C.ResourceID AND D.LanguageID=@LangID
+			where b.CostCenterID =@CostCenterID
+			UNION
+			select ''OLD'' as ''Link/Delink'',D.Resourceid,ResourceData,UserColumnName,SysColumnName,a.ColumnOrder,ColumnWidth,
+			a.GridViewID,A.CostCenterColID,ColumnType ,b.DefaultColID DefaultColID , b.DefaultFilterID DefaultFilterID  
+			,a.HeaderAlignment,a.DataAlignment
+			from ADM_GridViewColumns a WITH(NOLOCK) 
+			join ADM_GridView b WITH(NOLOCK) on a.GridViewID=b.GridViewID
+			join ADM_CostCenterDef c WITH(NOLOCK) on c.CostCenterColID=a.CostCenterColID
+			JOIN COM_LanguageResources D WITH(NOLOCK) ON D.ResourceID=C.ResourceID AND D.LanguageID=1
+			where b.CostCenterID=3 AND SysColumnName LIKE ''CCNID%''		
+			ORDER BY a.ColumnOrder
+		END
+		--GETTING CONTEXTMENU
+		SELECT A.GridViewID,GridViewColumnID,B.FeatureActionTypeID,ResourceData,B.GridShortCut,A.MenuOrder
+		from  ADM_GridContextMenu A WITH(NOLOCK) 
+		JOIN ADM_FeatureAction  B WITH(NOLOCK)  on A.FeatureActionID=B.FeatureActionID
+		JOIN COM_LanguageResources D WITH(NOLOCK) ON D.ResourceID=B.ResourceID AND D.LanguageID=@LangID
+		JOIN ADM_GridView G WITH(NOLOCK) on A.GridViewID=G.GridViewID
+		WHERE A.RoleID=@RoleID
+		AND G.CostCenterID=@CostCenterID
+		--UNION
+		--SELECT A.GridViewID,GridViewColumnID,B.FeatureActionTypeID,ResourceData,B.GridShortCut,A.MenuOrder
+		--FROM  ADM_UserGridContextMenu A WITH(NOLOCK) 
+		--join ADM_FeatureAction  B WITH(NOLOCK)  on A.FeatureActionID=B.FeatureActionID
+		--JOIN COM_LanguageResources D ON D.ResourceID=B.ResourceID AND D.LanguageID=@LangID
+		--JOIN ADM_GridView G on A.GridViewID=G.GridViewID
+		--WHERE A.UserID=@UserID AND G.CostCenterID=@CostCenterID  
+
+		--Getting QuickView
+		/*IF EXISTS(select IsUserDefined from ADM_QuickViewDef WITH(NOLOCK) 
+		where CostCenterID=@CostCenterID AND UserID = @UserID AND IsUserDefined=1)			
+		BEGIN
+			select * from ADM_QuickViewDef WITH(NOLOCK) 
+			where CostCenterID=@CostCenterID AND UserID = @UserID AND IsUserDefined=1
+		END	
+		ELSE
+		BEGIN
+			select * from ADM_QuickViewDef WITH(NOLOCK) 
+			where CostCenterID=@CostCenterID AND IsUserDefined=0
+		END*/
+		select 3 QuickViewTableRemoved
+
+		IF @CostCenterID=16
+		BEGIN
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,D.ResourceData UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',D.ResourceID
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_CostCenterDef a WITH(NOLOCK) 
+			JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=a.ResourceID AND D.LanguageID=@LangID
+			 WHERE  ((a.IsColumnInUse=1 and a.CostCenterID=16) or a.CostCenterColID between 1101 and 1250 or a.CostCenterColID between 1261 and 1310)
+			 AND a.CostCenterColID NOT IN (SELECT COSTCENTERCOLID 
+			 FROM ADM_GridViewColumns gc with(nolock)
+			 JOIN ADM_GridView g with(nolock) on gc.GridViewID=g.GridViewID)
+			 AND (a.COLUMNDATATYPE <>''BIT'' OR a.COLUMNDATATYPE IS NULL)
+			 UNION
+			 SELECT ''NEW'' as ''Link/Delink'',SysColumnName,D.ResourceData UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',D.ResourceID
+			 ,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			 FROM ADM_CostCenterDef a WITH(NOLOCK) 
+			 JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=a.ResourceID AND D.LanguageID=@LangID
+			 WHERE  IsColumnInUse=1 and CostCenterID =3
+			 AND CostCenterColID NOT IN (SELECT COSTCENTERCOLID 
+			 FROM ADM_GridViewColumns gc with(nolock) 
+			 JOIN ADM_GridView g with(nolock) on gc.GridViewID=g.GridViewID AND g.CostCenterID=16)
+			 AND SysColumnName LIKE ''CCNID%'' 
+			 ORDER BY UserColumnName
+		END
+		ELSE IF @CostCenterID>=40000 AND @CostCenterID<50000 
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',D.ResourceID 
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_CostCenterDef WITH(NOLOCK) JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=ADM_CostCenterDef.ResourceID AND D.LanguageID=@LangID
+			WHERE  IsColumnInUse=1 and CostCenterID=@CostCenterID AND CostCenterColID NOT IN
+			(SELECT COSTCENTERCOLID FROM ADM_GridViewColumns a with(nolock) JOIN ADM_GridView b with(nolock) on b.GridViewID=a.GridViewID AND b.COSTCENTERID=@CostCenterID)
+			AND (ADM_CostCenterDef.COLUMNDATATYPE <>''BIT'' OR ADM_CostCenterDef.COLUMNDATATYPE IS NULL) AND SysColumnName NOT LIKE ''dcNum%''
+			AND SysColumnName NOT LIKE ''dcCalcNum%'' AND SysColumnName NOT LIKE ''dcCurrID%'' AND SysColumnName NOT LIKE ''dcExchRT%''
+			ORDER BY ADM_CostCenterDef.UserColumnName
+		ELSE IF @CostCenterID=2
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',D.ResourceID 
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_CostCenterDef WITH(NOLOCK) JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=ADM_CostCenterDef.ResourceID AND D.LanguageID=@LangID
+			WHERE  (IsColumnInUse=1 OR SYSCOLUMNNAME LIKE ''AccountGroup'') and CostCenterID=@CostCenterID AND CostCenterColID NOT IN
+			(SELECT COSTCENTERCOLID FROM ADM_GridViewColumns a with(nolock) JOIN ADM_GridView b with(nolock) on b.GridViewID=a.GridViewID AND b.COSTCENTERID=@CostCenterID)
+			AND (ADM_CostCenterDef.COLUMNDATATYPE <>''BIT'' OR ADM_CostCenterDef.COLUMNDATATYPE IS NULL  OR SYSCOLUMNNAME LIKE ''IsBillwise'' ) 
+			UNION ALL
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',D.ResourceID 
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_CostCenterDef WITH(NOLOCK) JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=ADM_CostCenterDef.ResourceID AND D.LanguageID=@LangID
+			WHERE CostCenterID=3 AND SysColumnName IN (''CreatedDate'',''ModifiedDate'')
+		ELSE 
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',D.ResourceID 
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_CostCenterDef WITH(NOLOCK) JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=ADM_CostCenterDef.ResourceID AND D.LanguageID=@LangID
+			WHERE  IsColumnInUse=1 and CostCenterID=@CostCenterID AND CostCenterColID NOT IN
+			(SELECT COSTCENTERCOLID FROM ADM_GridViewColumns a with(nolock) JOIN ADM_GridView b with(nolock) on b.GridViewID=a.GridViewID AND b.COSTCENTERID=@CostCenterID)
+			AND (ADM_CostCenterDef.COLUMNDATATYPE <>''BIT'' OR ADM_CostCenterDef.COLUMNDATATYPE IS NULL) 
+			AND SysTableName<>''REN_QuotationParticulars'' AND SysTableName<>''REN_QuotationPayTerms''
+			AND SysTableName<>''REN_ContractParticulars'' AND SysTableName<>''REN_ContractPayTerms''
+			UNION 
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',ResourceID 
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_CostCenterDef WITH(NOLOCK) 
+			WHERE  IsColumnInUse=1 and CostCenterID=@CostCenterID AND SysColumnName=''RentAmount''
+			UNION ALL
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',D.ResourceID 
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_CostCenterDef WITH(NOLOCK) JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=ADM_CostCenterDef.ResourceID AND D.LanguageID=@LangID
+			WHERE CostCenterID=3 AND @CostCenterID>50000 AND SysColumnName IN (''ModifiedBy'',''ModifiedDate'')
+			ORDER BY UserColumnName ----1
+		  
+	if(@costcenterid=99 OR @costcenterid=112 or @costcenterid=159 or @costcenterid=23)
+	Begin
+		if(@costcenterid=99)
+		Begin
+			--SELECT ''NEW'' as ''Link/Delink'',TableName SysColumnName,Name UserColumnName,FeatureID CostCenterColID,''100'' as ''ColumnWidth'',''TEXT'' ColumnDataType,0 ResourceID
+			--,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			--FROM ADM_Features WITH(NOLOCK) 
+			--WHERE  IsEnabled=1  and FeatureID>50000 
+			--AND FeatureID NOT IN (SELECT CostCenterColID FROM [ADM_GridViewColumns] with(nolock) WHERE GRIDVIEWID IN (
+			--SELECT GRIDVIEWID FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=99))
+			--union 
+			--SELECT ''NEW'' as ''Link/Delink'',SysColumnName,resourcedata UserColumnName,a.CostCenterColID, ''100'' as ''ColumnWidth'',a.ColumnDataType,0 ResourceID
+			--,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			--  from ADM_CostCenterDef a WITH(NOLOCK)
+			--  			  JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=a.ResourceID AND D.LanguageID=@LangID 		
+			--  where Costcenterid=99	and  a.CostCenterColID not in (SELECT CostCenterColID FROM [ADM_GridViewColumns] with(nolock) WHERE GRIDVIEWID IN (
+			--SELECT GRIDVIEWID FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=99)) order by Usercolumnname 
+			declare @strSql nvarchar(max)
+			set @strSql=''''
+			set @strSql=''SELECT ''''NEW'''' as ''''Link/Delink'''',TableName SysColumnName,Name UserColumnName,FeatureID CostCenterColID,''''100'''' as ''''ColumnWidth'''',''''TEXT'''' ColumnDataType,0 ResourceID
+			,''''Left'''' as ''''HeaderAlignment'''',''''Left'''' as ''''DataAlignment''''
+			FROM ADM_Features WITH(NOLOCK) 
+			WHERE  IsEnabled=1  and FeatureID>50000 
+			AND FeatureID NOT IN (SELECT CostCenterColID FROM [ADM_GridViewColumns] with(nolock) WHERE GRIDVIEWID IN (
+			SELECT GRIDVIEWID FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=99))''
+			set @strSql=@strSql +'' union 
+				SELECT ''''NEW'''' as ''''Link/Delink'''',SysColumnName,resourcedata UserColumnName,a.CostCenterColID, ''''100'''' as ''''ColumnWidth'''',a.ColumnDataType,0 ResourceID
+				,''''Left'''' as ''''HeaderAlignment'''',''''Left'''' as ''''DataAlignment''''
+				from ADM_CostCenterDef a WITH(NOLOCK)
+			  			  JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=a.ResourceID AND D.LanguageID=''+ convert(nvarchar,@LangID)+''
+				where Costcenterid=99	''
+
+			if exists(select value from ADM_GlobalPreferences with(nolock) where Name=''Maintain Dimensionwise Bills'' and isnull(value,'''')='''')
+			begin
+				 set @strSql=@strSql + '' and  a.CostCenterColID not in (SELECT CostCenterColID FROM [ADM_GridViewColumns] with(nolock) WHERE GRIDVIEWID IN (
+				SELECT GRIDVIEWID FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=99))''
+				
+			end
+			set @strSql=@strSql + '' order by Usercolumnname''
+			--print (@strSql)
+			exec (@strSql)
+
+			SELECT ''NEW'' as ''Link/Delink'',TableName SysColumnName,Name UserColumnName,FeatureID CostCenterColID,g.ColumnWidth,''TEXT'' ColumnDataType,0 ResourceID, g.columnorder,g.ColumnType
+			,g.HeaderAlignment,g.DataAlignment
+			FROM ADM_Features  a with(nolock) join ADM_GridViewColumns g with(nolock) on a.FeatureID=g.CostCenterColID and g.GridViewID
+			  in (select GridViewID from ADM_GridView with(nolock) where CostCenterID=99)
+			WHERE  IsEnabled=1  --and FeatureID>50000 
+			AND FeatureID  IN (SELECT CostCenterColID FROM [ADM_GridViewColumns] with(nolock) WHERE GRIDVIEWID IN (
+			SELECT GRIDVIEWID FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=99))
+			union 
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,a.CostCenterColID,g.ColumnWidth,a.ColumnDataType,0 ResourceID, g.columnorder,g.ColumnType
+			,g.HeaderAlignment,g.DataAlignment
+			from ADM_CostCenterDef a with(nolock) join ADM_GridViewColumns g with(nolock) on a.CostCenterColID=g.CostCenterColID and g.GridViewID
+			  in (select GridViewID from ADM_GridView with(nolock) where CostCenterID=99)
+			where Costcenterid=99 and a.costcentercolid in (SELECT CostCenterColID FROM [ADM_GridViewColumns] with(nolock) WHERE GRIDVIEWID IN (
+			SELECT GRIDVIEWID FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=99)) 
+			order by g.ColumnOrder
+
+
+		end
+		
+		else if(@costcenterid=159)
+		Begin
+	 		SELECT ''NEW'' as ''Link/Delink'',TableName SysColumnName,Name UserColumnName,FeatureID CostCenterColID,''100'' as ''ColumnWidth'',''TEXT'' ColumnDataType,0 ResourceID
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_Features WITH(NOLOCK) 
+			WHERE  IsEnabled=1  and FeatureID>50000 
+			AND FeatureID NOT IN (SELECT CostCenterColID FROM [ADM_GridViewColumns] with(nolock) WHERE GRIDVIEWID IN (
+			SELECT GRIDVIEWID FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=159))
+			union 
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,a.CostCenterColID, ''100'' as ''ColumnWidth'',a.ColumnDataType,0 ResourceID
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			  from ADM_CostCenterDef a WITH(NOLOCK)
+			  where Costcenterid=159	and  a.CostCenterColID not in (SELECT CostCenterColID FROM [ADM_GridViewColumns] with(nolock) WHERE GRIDVIEWID IN (
+			SELECT GRIDVIEWID FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=159)) order by Usercolumnname
+			 
+
+
+			SELECT ''NEW'' as ''Link/Delink'',TableName SysColumnName,Name UserColumnName,FeatureID CostCenterColID,g.ColumnWidth,''TEXT'' ColumnDataType,0 ResourceID, g.columnorder,g.ColumnType
+			,g.HeaderAlignment,g.DataAlignment
+			FROM ADM_Features  a with(nolock) join ADM_GridViewColumns g with(nolock) on a.FeatureID=g.CostCenterColID and g.GridViewID
+			  in (select GridViewID from ADM_GridView with(nolock) where CostCenterID=159)
+			WHERE  IsEnabled=1  --and FeatureID>50000 
+			AND FeatureID  IN (SELECT CostCenterColID FROM [ADM_GridViewColumns] with(nolock) WHERE GRIDVIEWID IN (
+			SELECT GRIDVIEWID FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=159))
+			union 
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,a.CostCenterColID,g.ColumnWidth,a.ColumnDataType,0 ResourceID, g.columnorder,g.ColumnType
+			,g.HeaderAlignment,g.DataAlignment
+			from ADM_CostCenterDef a with(nolock) join ADM_GridViewColumns g with(nolock) on a.CostCenterColID=g.CostCenterColID and g.GridViewID
+			  in (select GridViewID from ADM_GridView with(nolock) where CostCenterID=159)
+			where Costcenterid=159 and a.costcentercolid in (SELECT CostCenterColID FROM [ADM_GridViewColumns] with(nolock) WHERE GRIDVIEWID IN (
+			SELECT GRIDVIEWID FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=159)) 
+			order by g.ColumnOrder
+		
+			 select [ColumnWidth] from  ADM_GridViewColumns b WITH(NOLOCK) WHERE GRIDVIEWID IN (
+			SELECT GRIDVIEWID FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=159)
+			and b.CostCenterColID=0 
+		 
+
+		end	
+
+		else if @costcenterid=112
+		Begin
+		SELECT ''NEW'' as ''Link/Delink'',TableName SysColumnName,Name UserColumnName,FeatureID CostCenterColID,''100'' as ''ColumnWidth'',''TEXT'' ColumnDataType,0 ResourceID
+		,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+		FROM ADM_Features WITH(NOLOCK) 
+		WHERE  IsEnabled=1  and FeatureID>50000 
+		AND FeatureID NOT IN (SELECT CostCenterColID FROM [ADM_GridViewColumns] with(nolock) WHERE GRIDVIEWID IN (
+		SELECT GRIDVIEWID FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=112))
+		union 
+		SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,a.CostCenterColID, ''100'' as ''ColumnWidth'',a.ColumnDataType,0 ResourceID
+		,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+		from ADM_CostCenterDef a with(nolock)
+		where (Costcenterid=112 or Costcenterid=16)	and a.IsColumninUse=1 and  a.CostCenterColID not in (SELECT CostCenterColID FROM [ADM_GridViewColumns] with(nolock) WHERE GRIDVIEWID IN (
+		SELECT GRIDVIEWID FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=112)) order by Usercolumnname
+
+
+		SELECT ''NEW'' as ''Link/Delink'',TableName SysColumnName,Name UserColumnName,FeatureID CostCenterColID,g.ColumnWidth,''TEXT'' ColumnDataType,0 ResourceID, g.columnorder,g.ColumnType
+		,g.HeaderAlignment,g.DataAlignment
+		FROM ADM_Features  a with(nolock) join ADM_GridViewColumns g with(nolock) on a.FeatureID=g.CostCenterColID and g.GridViewID
+		  in (select GridViewID from ADM_GridView with(nolock) where CostCenterID=112)
+		WHERE  IsEnabled=1  --and FeatureID>50000 
+		AND FeatureID  IN (SELECT CostCenterColID FROM [ADM_GridViewColumns] with(nolock) WHERE GRIDVIEWID IN (
+		SELECT GRIDVIEWID FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=112))
+		union 
+		SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,a.CostCenterColID,g.ColumnWidth,a.ColumnDataType,0 ResourceID, g.columnorder,g.ColumnType
+		,g.HeaderAlignment,g.DataAlignment
+		from ADM_CostCenterDef a with(nolock) join ADM_GridViewColumns g with(nolock) on a.CostCenterColID=g.CostCenterColID and g.GridViewID
+		  in (select GridViewID from ADM_GridView with(nolock) where CostCenterID=112)
+		where Costcenterid=112 and a.IsColumninUse=1 and  a.costcentercolid in (SELECT CostCenterColID FROM [ADM_GridViewColumns] with(nolock) WHERE GRIDVIEWID IN (
+		SELECT GRIDVIEWID FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=112)) 
+		order by g.ColumnOrder
+		--   SELECT ''NEW'' as ''Link/Delink'',TableName SysColumnName,Name UserColumnName,FeatureID CostCenterColID,''200'' as ''ColumnWidth'',null ColumnDataType,0 ResourceID
+		--FROM ADM_Features WITH(NOLOCK) 
+		--WHERE  IsEnabled=1  and FeatureID>50000 
+		--AND FeatureID NOT IN (SELECT CostCenterColID FROM [ADM_GridViewColumns]  WHERE GRIDVIEWID IN (
+		--SELECT GRIDVIEWID FROM [ADM_GridView] WHERE [CostCenterID]=112))
+
+
+		--SELECT ''NEW'' as ''Link/Delink'',TableName SysColumnName,Name UserColumnName,FeatureID CostCenterColID,''200'' as ''ColumnWidth'',null ColumnDataType,0 ResourceID
+		--FROM ADM_Features WITH(NOLOCK) 
+		--WHERE  IsEnabled=1  and FeatureID>50000 
+		--AND FeatureID  IN (SELECT CostCenterColID FROM [ADM_GridViewColumns]  WHERE GRIDVIEWID IN (
+		--SELECT GRIDVIEWID FROM [ADM_GridView] WHERE [CostCenterID]=112))
+
+		end	 
+		else if (@costcenterid=23)
+		Begin
+			SELECT ''NEW'' as ''Link/Delink'',TableName SysColumnName,Name UserColumnName,FeatureID CostCenterColID,''100'' as ''ColumnWidth'',''TEXT'' ColumnDataType,0 ResourceID
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_Features WITH(NOLOCK) 
+			WHERE  IsEnabled=1  and FeatureID>50000 
+			AND FeatureID NOT IN (SELECT CostCenterColID FROM [ADM_GridViewColumns] with(nolock) WHERE GRIDVIEWID IN (
+			SELECT GRIDVIEWID FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=23))
+			union 
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,a.CostCenterColID, ''100'' as ''ColumnWidth'',a.ColumnDataType,0 ResourceID
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			  from ADM_CostCenterDef a with(nolock)
+			  where Costcenterid=3	and iscolumninuse=1 and syscolumnname not like ''%alpha%'' and syscolumnname not like ''%CCNID%'' and   iscolumnuserdefined=0 and  a.CostCenterColID not in (SELECT CostCenterColID FROM [ADM_GridViewColumns]  WHERE GRIDVIEWID IN (
+			SELECT GRIDVIEWID FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=23)) order by Usercolumnname
+ 
+			SELECT ''NEW'' as ''Link/Delink'',TableName SysColumnName,Name UserColumnName,FeatureID CostCenterColID,g.ColumnWidth,''TEXT'' ColumnDataType,0 ResourceID, g.columnorder,g.ColumnType
+			,g.HeaderAlignment,g.DataAlignment
+			FROM ADM_Features  a WITH(NOLOCK) join ADM_GridViewColumns g with(nolock) on a.FeatureID=g.CostCenterColID and g.GridViewID
+			  in (select GridViewID from ADM_GridView with(nolock) where CostCenterID=23)
+			WHERE  IsEnabled=1  and FeatureID>50000 
+			AND FeatureID  IN (SELECT CostCenterColID FROM [ADM_GridViewColumns] with(nolock) WHERE GRIDVIEWID IN (
+			SELECT GRIDVIEWID FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=23))
+			union 
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,a.CostCenterColID,g.ColumnWidth,a.ColumnDataType,0 ResourceID, g.columnorder,g.ColumnType
+			,g.HeaderAlignment,g.DataAlignment
+			from ADM_CostCenterDef a with(nolock) join ADM_GridViewColumns g with(nolock) on a.CostCenterColID=g.CostCenterColID and g.GridViewID
+			  in (select GridViewID from ADM_GridView with(nolock) where CostCenterID=23)
+			where Costcenterid=3 and iscolumninuse=1 and syscolumnname not like ''%alpha%'' and syscolumnname not like ''%CCNID%'' and a.costcentercolid in (SELECT CostCenterColID FROM [ADM_GridViewColumns] with(nolock) WHERE GRIDVIEWID IN (
+			SELECT GRIDVIEWID FROM [ADM_GridView] with(nolock) WHERE [CostCenterID]=23)) 
+			order by g.ColumnOrder
+		end	
+	end
+	else if(@costcenterid=98 or @costcenterid=102)
+	 begin
+		if(@costcenterid=102)		
+			select @FEATUREID=3,@GridViewID=GRIDVIEWID from [ADM_GridView] WITH(NOLOCK) WHERE FEATUREID=102		
+		if(@GridViewID=2 or @GridViewID=3 or @GridViewID between 50000 and 50090)
+			set @FEATUREID=@GridViewID
+		ELSE
+			select @FEATUREID=FEATUREID from [ADM_GridView] WITH(NOLOCK) WHERE GRIDVIEWID=@GridViewID
+		
+		declare @value nvarchar(50),@cc int,@colid bigint
+		declare @tab table(colid bigint,name nvarchar(500))
+		
+		if(@FEATUREID=3)
+		BEGIN
+			if (exists(select name from adm_globalpreferences with(nolock)
+			where name=''EnableLocationWise'' and value=''True'') and exists(select name from adm_globalpreferences with(nolock)
+			where name=''Location Stock'' and value=''True'') )
+			begin
+				insert into @tab
+				select c.CostCenterColID,case when iscolumninuse=1 then resourcedata else (select name from ADM_Features with(nolock) where FeatureID=50002) end 
+				FROM ADM_CostCenterDef c WITH(NOLOCK) 
+				JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=c.ResourceID   AND D.LanguageID=@LangID
+				where c.CostCenterColID=14391
+			end
+			if (exists(select name from adm_globalpreferences with(nolock)
+			where name=''EnableDivisionWise'' and value=''True'') and exists(select name from adm_globalpreferences with(nolock)
+			where name=''Division Stock'' and value=''True'') )
+			begin
+				 insert into @tab
+				 select c.CostCenterColID,case when iscolumninuse=1 then resourcedata else (select name from ADM_Features with(nolock) where FeatureID=50001) end 
+				FROM ADM_CostCenterDef c WITH(NOLOCK) 
+				JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=c.ResourceID   AND D.LanguageID=@LangID
+				where c.CostCenterColID=14390
+			end
+		
+			select @value=value from adm_globalpreferences with(nolock)
+			where name=''Maintain Dimensionwise stock'' 
+
+			if(@value is not null and @value<>'''')
+			begin
+				set @cc=CONVERT(int,@value) 
+				 select @colid=CostCenterColID FROM ADM_CostCenterDef with(nolock)
+				where costcenterid=3 and SysColumnName =''CCNID''+convert(nvarchar,(@cc-50000))
+
+				insert into @tab
+				select c.CostCenterColID,case when iscolumninuse=1 then resourcedata else (select name from ADM_Features with(nolock) where FeatureID=@cc) end 
+				FROM ADM_CostCenterDef c WITH(NOLOCK) 
+				JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=c.ResourceID   AND D.LanguageID=@LangID
+				where c.CostCenterColID=@colid
+			end
+		END
+		
+		if(@FEATUREID=2 AND @costcenterid=98)
+		BEGIN
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',D.ResourceID
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_CostCenterDef WITH(NOLOCK)
+			JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=ADM_CostCenterDef.ResourceID   AND D.LanguageID=@LangID
+			WHERE  IsColumnInUse=1 and (ADM_CostCenterDef.CostCenterID=@FEATUREID or (@FEATUREID=3 and CostCenterColID=23089)) 
+			AND CostCenterColID NOT IN (SELECT COSTCENTERCOLID FROM ADM_GridViewColumns with(nolock) where GRIDVIEWID=@GridViewID and ColumnType=1  )
+			union all 
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,''Address_''+UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',D.ResourceID
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_CostCenterDef WITH(NOLOCK) 
+			JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=ADM_CostCenterDef.ResourceID AND D.LanguageID=@LangID 		
+			WHERE  IsColumnInUse=1 and IsColumnUserDefined=0 and ADM_CostCenterDef.CostCenterID=110 and ColumnCostCenterID=0		
+			union all 
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,t.name,CostCenterColID,''200'' as ''ColumnWidth'',ResourceID
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_CostCenterDef c WITH(NOLOCK)
+			join @tab t on c.CostCenterColID=t.colid
+			order by UserColumnName
+		END
+		ELSE
+		BEGIN
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',D.ResourceID
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_CostCenterDef WITH(NOLOCK)
+			JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=ADM_CostCenterDef.ResourceID   AND D.LanguageID=@LangID
+			WHERE  IsColumnInUse=1 and (ADM_CostCenterDef.CostCenterID=@FEATUREID or (@FEATUREID=3 and CostCenterColID=23089)) 
+			AND CostCenterColID NOT IN (SELECT COSTCENTERCOLID FROM ADM_GridViewColumns with(nolock) where GRIDVIEWID=@GridViewID and ColumnType=1  )
+			union all 
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,t.name,CostCenterColID,''200'' as ''ColumnWidth'',ResourceID
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_CostCenterDef c WITH(NOLOCK)
+			join @tab t on c.CostCenterColID=t.colid
+			order by UserColumnName
+		END
+		
+		SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',ColumnDataType,D.ResourceID
+		,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+		FROM ADM_CostCenterDef WITH(NOLOCK) JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=ADM_CostCenterDef.ResourceID AND D.LanguageID=@LangID 		
+		WHERE  IsColumnInUse=1 and (ADM_CostCenterDef.CostCenterID=@FEATUREID or (@FEATUREID=3 and CostCenterColID=23089)) 
+		AND (ADM_CostCenterDef.COLUMNDATATYPE IS NULL)				
+		union all 
+		SELECT ''NEW'' as ''Link/Delink'',SysColumnName,t.name,CostCenterColID,''200'' as ''ColumnWidth'',ColumnDataType,ResourceID
+		,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+		FROM ADM_CostCenterDef c WITH(NOLOCK)
+		join @tab t on c.CostCenterColID=t.colid
+		order by CostCenterColID
+		
+		SELECT distinct ''NEW'' as ''Link/Delink'',D.Resourceid,case when t.name is null then ResourceData else t.name end as ResourceData,case when t.name is null then ResourceData else t.name end as UserColumnName,SysColumnName,a.ColumnOrder,ColumnWidth,c.ColumnDataType,
+		a.GridViewID,A.CostCenterColID,a.description,a.ColumnType  
+		,a.HeaderAlignment,a.DataAlignment
+		from ADM_GridViewColumns a WITH(NOLOCK) 			
+		left join ADM_CostCenterDef c WITH(NOLOCK) on c.CostCenterColID=a.CostCenterColID
+		left join @tab t on c.CostCenterColID=t.colid
+		left JOIN COM_LanguageResources D WITH(NOLOCK) ON D.ResourceID=C.ResourceID AND D.LanguageID=@LangID
+		where GRIDVIEWID=@GridViewID and a.CostCenterColID!=0 and charindex(''~'',a.Description,1)=0
+		UNION ALL
+		SELECT distinct ''NEW'' as ''Link/Delink'',a.CostCenterColID,F.Name ResourceData,F.Name as UserColumnName,'''' SysColumnName,a.ColumnOrder,ColumnWidth,'''',
+		a.GridViewID,A.CostCenterColID,a.description,a.ColumnType  
+		,a.HeaderAlignment,a.DataAlignment
+		from ADM_GridViewColumns a WITH(NOLOCK) 			
+		left join ADM_Features F WITH(NOLOCK) on F.FeatureID=abs(a.CostCenterColID)
+		where GRIDVIEWID=@GridViewID and charindex(''~'',a.Description,1)>0			
+		ORDER BY ColumnOrder
+		
+		if(@FEATUREID=2 AND @costcenterid=98)
+		BEGIN	
+			SELECT D.Resourceid,  ResourceData  ,  UserColumnName,SysColumnName,c.ColumnDataType,c.CostCenterColID  
+			from  ADM_CostCenterDef c with(nolock)
+			JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=C.ResourceID AND D.LanguageID=@LangID
+			where c.CostCenterID=@FEATUREID and IsColumnInUse=1 
+			UNION ALL
+			SELECT D.Resourceid,  ''Address_''+ResourceData  ,  UserColumnName,SysColumnName,c.ColumnDataType,c.CostCenterColID  
+			from  ADM_CostCenterDef c with(nolock)
+			JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=C.ResourceID AND D.LanguageID=@LangID
+			where c.CostCenterID=110 and IsColumnInUse=1 
+		END
+		ELSE
+		BEGIN	
+			SELECT D.Resourceid,  ResourceData  ,  UserColumnName,SysColumnName,c.ColumnDataType,c.CostCenterColID  
+			from  ADM_CostCenterDef c with(nolock)
+			JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=C.ResourceID AND D.LanguageID=@LangID
+			where c.CostCenterID=@FEATUREID and IsColumnInUse=1 
+			UNION ALL
+			SELECT ResourceID,''ActualQty'',''ActualQty'',''ActualQty'',''FLOAT'',CostCenterColID
+			FROM ADM_CostCenterDef WHERE SysCOlumnName=''ActualQuantity''
+		END
+		
+		select [ColumnWidth] from  ADM_GridViewColumns b WITH(NOLOCK) where GRIDVIEWID=@GridViewID
+		and b.CostCenterColID=0 
+
+	 end
+	else if (@costcenterid=161)
+	 begin  
+		 SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',D.ResourceID
+		 ,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+		 FROM ADM_CostCenterDef WITH(NOLOCK)
+		 JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=ADM_CostCenterDef.ResourceID   AND D.LanguageID=@LangID
+		 WHERE  IsColumnInUse=1 and (ADM_CostCenterDef.CostCenterID=73) 
+		 AND CostCenterColID NOT IN 
+		 (SELECT COSTCENTERCOLID FROM ADM_GridViewColumns a with(nolock) JOIN ADM_GridView b with(nolock) on b.GridViewID=a.GridViewID and b.featureid=@costcenterid where a.ColumnType=1  )
+		 AND (ADM_CostCenterDef.COLUMNDATATYPE <>''BIT'' OR ADM_CostCenterDef.COLUMNDATATYPE IS NULL)
+		union all
+		SELECT ''NEW'' as ''Link/Delink'',SysColumnName,D.ResourceData UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',D.ResourceID
+		,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+		FROM ADM_CostCenterDef a WITH(NOLOCK) 
+		JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=a.ResourceID AND D.LanguageID=@LangID
+		WHERE  IsColumnInUse=1 and CostCenterID =40997    AND CostCenterColID NOT IN 
+		(SELECT COSTCENTERCOLID FROM ADM_GridViewColumns GC with(nolock) JOIN ADM_GRIDVIEW  G with(nolock) ON (GC.GRIDVIEWID=G.GRIDVIEWID OR  G.GRIDVIEWID=@GridViewID) AND G.COSTCENTERID=161 
+		where   ColumnType=1  ) 
+		and  SysColumnName LIKE ''%CCNID%'' 
+		ORDER BY UserColumnName
+		 
+		 SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',ColumnDataType,D.ResourceID
+		 ,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+		 FROM ADM_CostCenterDef WITH(NOLOCK) JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=ADM_CostCenterDef.ResourceID AND D.LanguageID=@LangID 		
+		 WHERE  IsColumnInUse=1 and (ADM_CostCenterDef.CostCenterID=73)
+		 AND (ADM_CostCenterDef.COLUMNDATATYPE <>''BIT'' OR ADM_CostCenterDef.COLUMNDATATYPE IS NULL)				
+		   
+		SELECT distinct ''NEW'' as ''Link/Delink'',D.Resourceid, ResourceData  as ResourceData, ResourceData  as UserColumnName,SysColumnName,a.ColumnOrder,ColumnWidth,c.ColumnDataType,
+		a.GridViewID,A.CostCenterColID,a.description,a.ColumnType  
+		,a.HeaderAlignment,a.DataAlignment
+		from ADM_GridViewColumns a WITH(NOLOCK) 
+		inner join ADM_GridView b WITH(NOLOCK) on a.GridViewID=b.GridViewID
+		left join ADM_CostCenterDef c WITH(NOLOCK) on c.CostCenterColID=a.CostCenterColID 
+		left JOIN COM_LanguageResources D WITH(NOLOCK) ON D.ResourceID=C.ResourceID AND D.LanguageID=@LangID
+		where b.featureid=@costcenterid and a.CostCenterColID!=0 and charindex(''~'',a.Description,1)=0
+		 
+			
+			SELECT D.Resourceid,  ResourceData  ,  UserColumnName,SysColumnName,c.ColumnDataType,
+			 c.CostCenterColID  
+			from  ADM_CostCenterDef c with(nolock)
+			JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=C.ResourceID AND D.LanguageID=@LangID
+			where c.CostCenterID=73 and IsColumnInUse=1 
+		 
+		select [ColumnWidth]
+		from  ADM_GridViewColumns b WITH(NOLOCK) where 
+		  GRIDVIEWID IN (SELECT GRIDVIEWID FROM [ADM_GridView] WITH(NOLOCK) WHERE FeatureID=161)
+		and b.CostCenterColID=0 
+
+	 end 
+	 else if (@costcenterid=16)
+	 BEGIN
+	 	SELECT ''NEW'' as ''Link/Delink'',SysColumnName,D.ResourceData UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',ColumnDataType,D.ResourceID
+		,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+		FROM ADM_CostCenterDef a WITH(NOLOCK) 		
+		JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=a.ResourceID AND D.LanguageID=@LangID 		
+		WHERE  ((IsColumnInUse=1 and a.CostCenterID=16 ) or a.CostCenterColID between 1101 and 1250 or a.CostCenterColID between 1261 and 1310)
+		AND (a.COLUMNDATATYPE <>''BIT'' OR a.COLUMNDATATYPE IS NULL) 
+		ORDER BY UserColumnName
+
+	 END
+	 ELSE
+	 begin
+		IF @CostCenterID=2			
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',ColumnDataType,D.ResourceID
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_CostCenterDef WITH(NOLOCK) JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=ADM_CostCenterDef.ResourceID AND D.LanguageID=@LangID 		
+			WHERE  (IsColumnInUse=1 or syscolumnname=''AccountGroup'') and ADM_CostCenterDef.CostCenterID IN (@CostCenterID  )
+			AND (ADM_CostCenterDef.COLUMNDATATYPE <>''BIT'' OR ADM_CostCenterDef.COLUMNDATATYPE IS NULL) 
+			UNION ALL
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,''Address_''+UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',ColumnDataType,D.ResourceID
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_CostCenterDef WITH(NOLOCK) JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=ADM_CostCenterDef.ResourceID AND D.LanguageID=@LangID 		
+			WHERE  IsColumnInUse=1 and IsColumnUserDefined=0 and ADM_CostCenterDef.CostCenterID=110 and ColumnCostCenterID=0
+			ORDER BY ADM_CostCenterDef.UserColumnName
+		ELSE IF @CostCenterID>=40000 AND @CostCenterID<50000 
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',ColumnDataType,D.ResourceID
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_CostCenterDef WITH(NOLOCK) JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=ADM_CostCenterDef.ResourceID AND D.LanguageID=@LangID 		
+			WHERE  IsColumnInUse=1 and ADM_CostCenterDef.CostCenterID=@CostCenterID  
+			AND (ADM_CostCenterDef.COLUMNDATATYPE <>''BIT'' OR ADM_CostCenterDef.COLUMNDATATYPE IS NULL) AND SysColumnName NOT LIKE ''dcNum%''
+			AND SysColumnName NOT LIKE ''dcCalcNum%'' AND SysColumnName NOT LIKE ''dcCurrID%'' AND SysColumnName NOT LIKE ''dcExchRT%''ORDER BY ADM_CostCenterDef.UserColumnName
+		ELSE IF @CostCenterID=95
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',ColumnDataType,D.ResourceID
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_CostCenterDef WITH(NOLOCK) JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=ADM_CostCenterDef.ResourceID AND D.LanguageID=@LangID 		
+			WHERE  IsColumnInUse=1 and ADM_CostCenterDef.CostCenterID=@CostCenterID  
+			AND SysTableName<>''REN_QuotationParticulars'' AND SysTableName<>''REN_QuotationPayTerms''
+			AND SysTableName<>''REN_ContractParticulars'' AND SysTableName<>''REN_ContractPayTerms''
+			AND (ADM_CostCenterDef.COLUMNDATATYPE <>''BIT'' OR ADM_CostCenterDef.COLUMNDATATYPE IS NULL) 
+			UNION 
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',ColumnDataType,ResourceID 
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_CostCenterDef WITH(NOLOCK) 
+			WHERE  IsColumnInUse=1 and CostCenterID=@CostCenterID AND SysColumnName=''RentAmount''
+			UNION
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,''Property Code'' UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',ColumnDataType,ResourceID  
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_CostCenterDef WITH(NOLOCK) WHERE CostCenterID=92 AND SysColumnName=''Code''
+			UNION
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,''Unit Code'' UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',ColumnDataType,ResourceID  
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_CostCenterDef WITH(NOLOCK) WHERE CostCenterID=93 AND SysColumnName=''Code''
+			UNION
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,''Tenant Code'' UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',ColumnDataType,ResourceID  
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_CostCenterDef WITH(NOLOCK) WHERE CostCenterID=94 AND SysColumnName=''TenantCode''
+			ORDER BY UserColumnName ----2
+		ELSE
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',ColumnDataType,D.ResourceID
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_CostCenterDef WITH(NOLOCK) JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=ADM_CostCenterDef.ResourceID AND D.LanguageID=@LangID 		
+			WHERE  IsColumnInUse=1 and ADM_CostCenterDef.CostCenterID=@CostCenterID  
+			AND SysTableName<>''REN_QuotationParticulars'' AND SysTableName<>''REN_QuotationPayTerms''
+			AND SysTableName<>''REN_ContractParticulars'' AND SysTableName<>''REN_ContractPayTerms''
+			AND (ADM_CostCenterDef.COLUMNDATATYPE <>''BIT'' OR ADM_CostCenterDef.COLUMNDATATYPE IS NULL) 
+			UNION 
+			SELECT ''NEW'' as ''Link/Delink'',SysColumnName,UserColumnName,CostCenterColID,''200'' as ''ColumnWidth'',ColumnDataType,ResourceID 
+			,''Left'' as ''HeaderAlignment'',''Left'' as ''DataAlignment''
+			FROM ADM_CostCenterDef WITH(NOLOCK) 
+			WHERE  IsColumnInUse=1 and CostCenterID=@CostCenterID AND SysColumnName=''RentAmount''
+			ORDER BY UserColumnName 
+	end
+	
+	
+  declare @CCColID bigint
+  select @CCColID=CostCenterColID from ADM_CostCenterDef with(nolock)
+  where SysColumnName like ''Status%'' and costcenterid=@CostCenterID
+  order by CostCenterColID desc
+  select StatusID,Status,@CCColID as CostCenterColID from com_Status with(nolock) where costcenterid=@CostCenterID
+	
+	SELECT NodeID RoleID,ParentNodeID GridViewID FROM COM_CostCenterCostCenterMap a WITH(NOLOCK) 
+	join ADM_GridView b WITH(NOLOCK) on a.ParentNodeID=b.GridViewID 
+	WHERE ParentCostCenterID=26 AND a.CostCenterID=6 AND  b.CostCenterID=@CostCenterID
+	
+	if(@CostCenterID=16)
+	begin
+	 	SELECT b.GridViewID,SysColumnName,
+		case when SysColumnName like ''%Num%'' and isnull(g.Description,''Description'')<>''Description'' then g.Description else d.ResourceData end UserColumnName
+		,a.CostCenterColID
+		FROM ADM_GridViewColumns g WITH(NOLOCK) 
+			join ADM_GridView b WITH(NOLOCK) on g.GridViewID=b.GridViewID
+			join ADM_CostCenterDef a WITH(NOLOCK) on a.CostCenterColID=g.CostCenterColID	
+		JOIN COM_LanguageResources D with(nolock) ON D.ResourceID=a.ResourceID AND D.LanguageID=@LangID 		
+		WHERE  ((IsColumnInUse=1 and a.CostCenterID=16 ) or a.CostCenterColID between 1101 and 1250 or a.CostCenterColID between 1261 and 1310)
+		AND (a.COLUMNDATATYPE <>''BIT'' OR a.COLUMNDATATYPE IS NULL)  and SysColumnName like ''%Num%''
+		ORDER BY UserColumnName
+	end
+	else 
+	begin
+		select 1
+	end
+			
+SET NOCOUNT OFF;
+RETURN 1
+END TRY
+BEGIN CATCH  
+	--Return exception info [Message,Number,ProcedureName,LineNumber]  
+	IF ERROR_NUMBER()=50000
+	BEGIN
+		SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID
+	END
+	ELSE
+	BEGIN
+		SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine
+		FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=-999 AND LanguageID=@LangID
+	END
+
+SET NOCOUNT OFF  
+RETURN -999   
+END CATCH  
+' 
+END
+GO
+/****** Object:  StoredProcedure [dbo].[spDOC_GetBillwiseDetails]    Script Date: 11-03-2026 15:25:12 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spDOC_GetBillwiseDetails]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N' 
+-- =============================================  
+CREATE procedure [dbo].[spDOC_GetBillwiseDetails]  
+	@AccountID INT=0,	
+	@AccXml NVARCHAR(max),
+	@IsCredit BIT,
+	@VoucherNo NVARCHAR(500),
+	@DocSeqNo INT, 
+	@LocationWhere NVARCHAR(max),
+	@DivisionWhere NVARCHAR(max),
+	@DimensionWhere NVARCHAR(max),
+	@DimWhere NVARCHAR(max),
+	@Docdate datetime,
+	@CostCenterID INT,
+	@IsInv bit,
+	@LinkedVchrs NVARCHAR(max),
+	@getAmt bit,	
+	@UserID int,
+	@LangID int=1
+AS
+ 
+SET NOCOUNT ON
+BEGIN TRY 
+   
+		DECLARE @Sql nvarchar(max),@CustomQuery1 nvarchar(max),@PrefValue nvarchar(max),@Where NVARCHAR(max),
+		@CustomQuery2 nvarchar(max),@CustomQuery3 nvarchar(max),@i int ,@CNT int,@inclDBCR bit,@TableName nvarchar(100)
+		,@TabRef nvarchar(3),@CCID int,@xml xml,@NonAccdocs nvarchar(max),@IsFc bit,@inclUnapp bit,@inclPDCS bit,@inclfrmdoc bit
+		
+		IF(@VoucherNo<>'''')
+		BEGIN
+			set @VoucherNo=replace(@VoucherNo,'''''''','''''''''''')
+			set @VoucherNo=replace(@VoucherNo,'''''''''','''''''''','''''','''''')
+		END
+		
+		if @VoucherNo<>'''' and exists(select name from sys.columns where name=''FromDocNo'' and object_id=object_id(''COM_Billwise''))
+		BEGIN
+			set @Sql='' if exists(select * from COM_Billwise with(nolock) where FromDocNo in(''''''+@VoucherNo+''''''))
+				set @inclfrmdoc=1
+			else
+				set @inclfrmdoc=0	''
+			EXEC sp_executesql @Sql,N''@inclfrmdoc bit output'',@inclfrmdoc output	
+		END	
+		else
+			set @inclfrmdoc=0
+				
+		set @Where=''''
+		if exists(select value from ADM_GlobalPreferences with(nolock) where Name=''BillwiseCurrency''  and value=''true'')
+			set @IsFc=1
+		else
+			set @IsFc=0	
+		
+		--SP Required Parameters Check
+		IF (@AccountID=0 and (@AccXml is null or @AccXml=''''))
+		BEGIN
+			RAISERROR(''-100'',16,1)
+		END
+		
+		set @xml=@AccXml
+		IF (@AccountID=0 and @AccXml is not null and @AccXml<>'''')
+		BEGIN
+			select @AccountID=AccountID,@IsCredit=X.value(''@Iscr'',''BIT''),@DocSeqNo=X.value(''@DocSeqNo'',''int'') from ACC_Accounts a WITH(NOLOCK)
+			join @XML.nodes(''/XML/Row'') as Data(X) on X.value(''@AccountID'',''INT'')=a.AccountID
+			where IsBillwise=1 
+			
+			if(@AccountID=0)
+				return 1;
+				
+			if(@DocSeqNo is null)
+				set @DocSeqNo=1	
+		END
+		ELSE IF(@AccountID>0 and @IsInv=0)
+		BEGIN
+			if not exists(select IsBillwise from ACC_Accounts a WITH(NOLOCK)
+			where IsBillwise=1 and AccountID=@AccountID)
+				return 1;
+		END
+		ELSE IF(@AccountID>0 and @getAmt=1)
+		BEGIN
+			if not exists(select IsBillwise from ACC_Accounts a WITH(NOLOCK)
+			where IsBillwise=1 and AccountID=@AccountID)
+				return 1;
+		END
+		
+		set @inclDBCR=0
+		if(@IsInv=0)
+		BEGIN
+			select @NonAccdocs=PrefValue from COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and PrefName=''NonAccDocs''
+			
+			if exists(select [PrefValue] from [COM_DOCUMENTPREFERENCES] WITH(NOLOCK)
+			where [CostCenterID]=@CostCenterID and [PrefName]=''DbCrBills'' and [PrefValue]=''true'')
+				set @inclDBCR=1
+		END
+		
+		
+		if(@LocationWhere is not null and @LocationWhere<>'''')
+			set @Where=@Where+'' and dcCCNID2 in (''+@LocationWhere+'')''
+
+		if(@DivisionWhere is not null and @DivisionWhere<>'''')
+			set @Where=@Where+'' and dcCCNID1 in (''+@DivisionWhere+'')''
+			
+		if(@DimensionWhere is not null and @DimensionWhere<>'''')
+		begin
+			 set @PrefValue=''''
+			select @PrefValue= isnull(Value,'''') from ADM_GlobalPreferences with(nolock) where Name=''Maintain Dimensionwise Bills''  
+		    
+			if(@PrefValue is not null and @PrefValue<>'''' and convert(INT,@PrefValue)>0)  
+			begin
+				  set @PrefValue=convert(INT,@PrefValue)-50000  						 
+				  set @Where=@Where+'' and dcCCNID''+@PrefValue+'' in (''+@DimensionWhere+'')''
+			end  			
+		end
+		
+		set @Where=@Where+@DimWhere
+
+
+		--Dimensionwise Billwise View
+		Declare @DimViewxml XML,@GrdViewID INT, @strSql NVARCHAR(MAX),@BWViewID INT
+		Declare @TblDimWiseView table(ID BIGINT IDENTITY(1,1),GridViewID INT,DimViewxml NVARCHAR(MAX))
+		Select @BWViewID=GridViewID from ADM_GridView with(nolock) where CostCenterID=99 and isnull(DimWiseView,'''')=''''
+		set @PrefValue=''''
+		set @strSql=''''
+		select @PrefValue= isnull(Value,'''') from ADM_GlobalPreferences with(nolock) where Name=''Maintain Dimensionwise Bills''  
+		if(@PrefValue is not null and @PrefValue<>'''' and convert(INT,@PrefValue)>0 and @DimensionWhere is not null and @DimensionWhere<>'''')  
+		begin
+			INSERT INTO @TblDimWiseView select GridViewID,DimWiseView from ADM_GridView with(nolock) where CostCenterID=99 and isnull(DimWiseView,'''')<>''''
+			IF OBJECT_ID(''tempdb..#TblDimWiseNodes'') IS NOT NULL 
+				DROP TABLE #TblDimWiseNodes
+			create table #TblDimWiseNodes (ID BIGINT IDENTITY(1,1),GridViewID INT,CCID INT,NodeID INT)
+
+			set @i=1 
+			select @CNT=count(*) from @TblDimWiseView
+			while (@i<=@CNT)
+			begin
+					SELECT @DimViewxml=DimViewxml,@GrdViewID=GridViewID from @TblDimWiseView where ID=@i
+					INSERT INTO #TblDimWiseNodes(GridViewID,CCID,NodeID)  
+					SELECT @GrdViewID,X.value(''@CCID'',''INT''), X.value(''@NodeID'',''INT'')            
+					FROM @DimViewxml.nodes(''/XML/Rows'') as Data(X)  
+			set @i=@i+1	
+			end
+			SET @GrdViewID=0
+			SET @strSql=''select @BWGRViewID=GridViewID from #TblDimWiseNodes where CCID=''+ convert(nvarchar,@PrefValue) +'' and NodeID in (''+ convert(nvarchar,@DimensionWhere) +'')''	
+			print @strSql
+			EXEC sp_executesql @strSql,N''@BWGRViewID INT OUTPUT'',@GrdViewID output
+			PRINT @GrdViewID
+			if(isnull(@GrdViewID,0)>0)
+				set @BWViewID=@GrdViewID
+			IF OBJECT_ID(''tempdb..#TblDimWiseNodes'') IS NOT NULL 
+				DROP TABLE #TblDimWiseNodes
+		end  
+		--
+		
+		if exists(select [PrefValue] from [COM_DOCUMENTPREFERENCES] WITH(NOLOCK)
+			where [CostCenterID]=@CostCenterID and [PrefName]=''UnappinBills'' and [PrefValue]=''true'')
+			set @inclUnapp=1
+		else
+			set @inclUnapp=0
+		
+		if exists(select Value from ADM_GlobalPreferences WITH(NOLOCK)
+			where Name=''PDCBILLS'' and Value=''true'')
+			set @inclPDCS=1
+		else
+			set @inclPDCS=0
+			
+		declare @Tab table(ID int identity(1,1) PRIMARY KEY,FeatID int,TabName nvarchar(100))
+		
+		insert into @Tab
+		SELECT a.FeatureID,TableName
+		FROM ADM_Features a WITH(NOLOCK)
+		join ADM_GridViewColumns g WITH(NOLOCK) on a.FeatureID=g.CostCenterColID
+		join adm_gridview gr WITH(NOLOCK) on gr.GridViewID=g.GridViewID and gr.costcenterid=99
+		WHERE  IsEnabled=1  and a.FeatureID>50000
+		
+		set @i=0
+		set @CustomQuery1=''''
+		set @CustomQuery2='', ''
+		set @CustomQuery3='', ''
+		select @CNT=count(id) from @Tab
+		while (@i <	@CNT)
+		begin
+			set @i=@i+1		
+			select @TableName=TabName,@CCID=FeatID from @Tab where ID=@i
+	 
+    		set @TabRef=''A''+CONVERT(nvarchar,@i)
+    		
+			if(@CCID>50000)
+			begin			
+				set @CustomQuery3=@CustomQuery3+'' ''+@TabRef+''.Name as A''+convert(nvarchar,@CCID)+'' ,''
+				set @CustomQuery3=@CustomQuery3+'' ''+@TabRef+''.Code as A''+convert(nvarchar,@CCID)+''Code ,''
+				set @CCID=@CCID-50000	    	
+				set @CustomQuery1=@CustomQuery1+'' left join ''+@TableName+'' ''+@TabRef+'' with(nolock) on ''+@TabRef+''.NodeID=B.dcCCNID''+CONVERT(nvarchar,@CCID)
+				set @CustomQuery2=@CustomQuery2+'' ''+@TabRef+''.Name ,''
+				set @CustomQuery2=@CustomQuery2+'' ''+@TabRef+''.Code ,''
+			end 
+		end  
+		--select @CustomQuery1,@CustomQuery2,@CustomQuery3
+		--Added for Text fields for Billwise pranathi
+		declare @TabText table(ID int identity(1,1) PRIMARY KEY,Syscolumnname nvarchar(100))
+		
+		declare @syscolumnname nvarchar(100)
+		insert into @TabText
+		SELECT a.Syscolumnname
+		FROM ADM_Costcenterdef a WITH(NOLOCK)
+		join ADM_GridViewColumns g WITH(NOLOCK) on a.CostcenterColID=g.CostCenterColID
+		join adm_gridview gr WITH(NOLOCK) on gr.GridViewID=g.GridViewID and gr.costcenterid=99
+		WHERE a.costcenterid=99 and systablename=''COM_DocTextData''
+		 
+		set @i=0
+		select @CNT=count(id) from @TabText
+		if(@CNT>0)
+			set @CustomQuery1=@CustomQuery1+'' left join COM_DocTextData acctext with(nolock) on acctext.accdocdetailsid=a.accdocdetailsid and acctext.accdocdetailsid is not null
+			left join COM_DocTextData invtext with(nolock) on invtext.invdocdetailsid=a.invdocdetailsid and invtext.invdocdetailsid is not null ''
+			
+		while (@i <	@CNT)
+		begin
+			set @i=@i+1		 
+			select @syscolumnname=Syscolumnname from @TabText where ID=@i 
+			set @CustomQuery3=@CustomQuery3 +''isnull(acctext.''+@Syscolumnname+'',invtext.''+@Syscolumnname+'') ''+ @Syscolumnname+'' ,''
+			set @CustomQuery2=@CustomQuery2 +''acctext.''+@Syscolumnname+'',invtext.''+@Syscolumnname+'' ,''
+		end
+		
+		if(len(@CustomQuery2)>0)
+		begin
+			set @CustomQuery2=SUBSTRING(@CustomQuery2,0,LEN(@CustomQuery2)-1)
+	    end
+	    
+		if(len(@CustomQuery3)>0)
+		begin
+			set @CustomQuery3=SUBSTRING(@CustomQuery3,0,LEN(@CustomQuery3)-1)
+		end
+		
+		--select @CustomQuery1,@CustomQuery2,@CustomQuery3
+		
+		 
+		select @PrefValue= [PrefValue] from [COM_DOCUMENTPREFERENCES] WITH(NOLOCK) 
+		where [CostCenterID]=	@CostCenterID and [PrefName]=''ShowDueBills''  
+		if(@PrefValue=''true'')
+		begin
+				select @PrefValue= [PrefValue] from [COM_DOCUMENTPREFERENCES] WITH(NOLOCK) 
+				where [CostCenterID]=	@CostCenterID and [PrefName]=''DueBillsDays''  
+				begin try
+					set @PrefValue=CONVERT(nvarchar,convert(int,@PrefValue))
+				end try
+				begin catch
+					set @PrefValue=''0''
+				end catch
+				if(@Where is null)
+					set @Where=''''
+				set @Where =@Where+'' and DocDueDate<=''+convert(nvarchar,convert(float,(@Docdate+convert(int,@PrefValue))))
+		end
+		
+		if(@IsCredit=1 or @inclDBCR=1)
+		begin
+			IF(@VoucherNo<>'''')
+			BEGIN
+			  
+				set @Sql=''SELECT 0 NonAc,abs(sum(case when DocType in(40,42) then B.VatAdvance else 0 end)) VatAdvance,B.StatusID,a.CostCenterID CostCenterID, DocAbbr,DocPrefix,Docnumber,  DocNo, abs(sum(AdjAmount)) Amount,abs(sum(B.AmountFC)) AmountFC,B.DocSeqNo,CONVERT(DATETIME,B.DocDate) DocDate ,CONVERT(DATETIME,DocDueDate) DocDueDate,
+				ISNULL((SELECT abs(SUM(SQ.AdjAmount)) FROM COM_Billwise SQ with(nolock) WHERE SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and   SQ.RefDocNo=B.DocNo AND SQ.RefDocSeqNo=B.DocSeqNo AND not (SQ.DocNo in(''''''+@VoucherNo+''''''))),0) 
+				+ISNULL((SELECT abs(SUM(SQ.AdjAmount)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and  SQ.DocNo=B.DocNo AND SQ.DocSeqNo=B.DocSeqNo AND IsNewReference=0),0)
+				Paid,''
+				
+				if(@IsFc=1)
+					set @Sql=@Sql+''ISNULL((SELECT abs(SUM(SQ.amountfc)) FROM COM_Billwise SQ with(nolock) WHERE SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and   SQ.RefDocNo=B.DocNo AND SQ.RefDocSeqNo=B.DocSeqNo AND not (SQ.DocNo in(''''''+@VoucherNo+''''''))),0) 
+					+ISNULL((SELECT abs(SUM(SQ.amountfc)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and  SQ.DocNo=B.DocNo AND SQ.DocSeqNo=B.DocSeqNo AND IsNewReference=0),0)
+					Paidfc,''
+				if(@inclfrmdoc=1)
+					set @Sql=@Sql+''FromDocNo,''
+				set @Sql=@Sql+''[AdjCurrID],c.Name''+@CustomQuery3
+				
+				set @Sql=@Sql+'',max(case when  IsNewReference=1 then [AdjExchRT] else 0 end) AdjExchRT,
+				B.BILLNO as BillNo,Convert(DATETIME, B.Billdate) as BillDate, a.CommonNarration,B.Narration, a.ChequeBankName, a.ChequeNumber, 
+				Convert(DATETIME,a.ChequeDate) as ChequeDate,
+				Convert(DATETIME,a.ChequeMaturityDate) as  ChequeMaturityDate 
+				FROM COM_Billwise B  with(nolock)
+				join (select VoucherNo,CostCenterID, DocAbbr,DocPrefix,Docnumber,DocSeqNo,min(AccDocDetailsID) AccDocDetailsID,min(INVDocDetailsID) INVDocDetailsID, min(CommonNarration) CommonNarration,min(ChequeBankName) ChequeBankName, min(ChequeNumber) ChequeNumber, 
+				min(Convert(DATETIME,ChequeDate)) ChequeDate,min(statusid) statusid,
+				min(Convert(DATETIME,ChequeMaturityDate)) ChequeMaturityDate 
+				from acc_docdetails with(nolock)
+				where DebitAccount=''+convert(nvarchar,@AccountID)+''
+				group by VoucherNo,DocSeqNo,CostCenterID, DocAbbr,DocPrefix,Docnumber
+				) as a on B.DocNo=a.VoucherNo and (B.DocSeqNo=a.DocSeqNo  or a.INVDocDetailsID>0)
+								
+				left join COM_Currency c with(nolock) on c.CurrencyID=b.AdjCurrID
+				''+@CustomQuery1+''
+			 	WHERE a.statusid in (''
+			 	if(@inclUnapp=1)
+			 		set @Sql=@Sql+''369,441,371''
+			 	else
+			 		set @Sql=@Sql+''369''
+			 	if(@inclPDCS=1)	
+			 		set @Sql=@Sql+'',370''
+			 	set @Sql=@Sql+'') and  AccountID=''+convert(nvarchar,@AccountID)+'' and AdjAmount>0 ''
+				
+				set @Sql=@Sql+@Where
+
+				set @Sql=@Sql+'' Group By B.StatusID,DocNo,B.DocSeqNo,B.DocDate,DocDueDate,[AdjCurrID],c.Name''+@CustomQuery2
+				
+				set @Sql=@Sql+'', B.BILLNO, Convert(DATETIME, B.Billdate), a.CommonNarration, a.ChequeBankName,a.CostCenterID  , DocAbbr,DocPrefix,Docnumber,  
+				a.ChequeNumber, a.ChequeDate,B.Narration,a.ChequeMaturityDate''
+				if(@inclfrmdoc=1)
+					set @Sql=@Sql+'',FromDocNo''
+					
+				set @Sql=@Sql+'' having abs(sum(AdjAmount)) >
+				ISNULL((SELECT abs(SUM(SQ.AdjAmount)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and   SQ.RefDocNo=B.DocNo AND SQ.RefDocSeqNo=B.DocSeqNo AND not (SQ.DocNo in(''''''+@VoucherNo+'''''') )),0) 
+				+ISNULL((SELECT abs(SUM(SQ.AdjAmount)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and  SQ.DocNo=B.DocNo AND SQ.DocSeqNo=B.DocSeqNo AND IsNewReference=0),0) ''
+				if(@inclfrmdoc=1)
+					set @Sql=@Sql+'' or FromDocNo in(''''''+@VoucherNo+'''''')''
+				if(@NonAccdocs is not null and @NonAccdocs<>'''')
+				BEGIN
+					set @PrefValue=''''
+					select @PrefValue= isnull(Value,'''') from ADM_GlobalPreferences with(nolock) where Name=''NetFld''  
+					if(@PrefValue<>'''')
+					BEGIN
+						set @Sql=@Sql+'' UNION 
+						SELECT 1 NonAc,0 VatAdvance,a.StatusID,a.CostCenterID CostCenterID, a.DocAbbr,a.DocPrefix,a.Docnumber,  a.VoucherNO, abs(sum(''+@PrefValue+'')) Amount,abs(sum(''+@PrefValue+'')) AmountFC,1 DocSeqNo,CONVERT(DATETIME,a.DocDate) DocDate ,CONVERT(DATETIME,a.DueDate) DocDueDate,
+						ISNULL((SELECT abs(SUM(SQ.Amount)) FROM COM_BillWiseNonAcc SQ with(nolock) WHERE  SQ.RefDocNo=a.voucherno AND not (SQ.DocNo in(''''''+@VoucherNo+'''''') )),0) 
+						Paid,''
+						if(@IsFc=1)
+							set @Sql=@Sql+''ISNULL((SELECT abs(SUM(SQ.Amount)) FROM COM_BillWiseNonAcc SQ with(nolock) WHERE  SQ.RefDocNo=a.voucherno AND not (SQ.DocNo in(''''''+@VoucherNo+'''''') )),0) Paidfc,''
+						if(@inclfrmdoc=1)
+							set @Sql=@Sql+'''''''''',''
+							
+						set @Sql=@Sql+''a.CurrencyID,c.Name''+@CustomQuery3
+						
+						set @Sql=@Sql+'',a.[ExchangeRate],
+						a.BILLNO as BillNo,Convert(DATETIME, a.Billdate) as BillDate, a.CommonNarration,NULL,NULL, NULL, 
+						NULL,NULL 
+						FROM INV_docdetails a  with(nolock)
+						left join INV_docdetails lnk with(nolock) on lnk.LinkedinvDocDetailsid=a.invDocDetailsid
+						left join COM_Currency c with(nolock) on c.CurrencyID=a.CurrencyID
+						join COM_DocCCData b with(nolock) on b.invDocDetailsid=a.invDocDetailsid
+						join COM_DocNumData d with(nolock) on d.invDocDetailsid=a.invDocDetailsid
+						''+@CustomQuery1+''
+		 				WHERE lnk.invDocDetailsid is null and a.statusid =369 and  a.DebitAccount=''+convert(nvarchar,@AccountID)
+		 				
+		 				set @Sql=@Sql+'' and a.costcenterID in(''+@NonAccdocs+'')''
+						
+						set @Sql=@Sql+@Where
+
+						set @Sql=@Sql+'' Group By a.StatusID,a.CostCenterID, a.DocAbbr,a.DocPrefix,a.Docnumber,a.DocDate,a.DueDate , a.VoucherNO,a.[ExchangeRate], a.BILLNO, Convert(DATETIME, a.Billdate), a.CommonNarration,a.CostCenterID    
+						''+@CustomQuery2+'',a.CurrencyID,c.Name
+						having abs(sum(''+@PrefValue+'')) >ISNULL((SELECT abs(SUM(SQ.Amount)) FROM COM_BillWiseNonAcc SQ with(nolock) WHERE  SQ.RefDocNo=a.voucherno AND not (SQ.DocNo in(''''''+@VoucherNo+''''''))),0) 
+						
+						order by DocDate,DocNo''
+					END
+					ELSE
+						set @Sql=@Sql+''order by B.DocDate,DocNo''
+				END
+				ELSE
+					set @Sql=@Sql+''order by B.DocDate,DocNo''
+				
+				print @Sql
+				exec(@Sql)
+				
+			 SELECT [BillwiseID]
+			  ,[DocNo]
+			  ,b.[DocSeqNo]
+			  ,[AccountID]
+			  ,[AdjAmount]
+			  ,[AdjCurrID]
+			  ,[AdjExchRT] 
+			  ,[DocType]
+			  ,[IsNewReference]
+			  ,[RefDocNo]
+			  ,[RefDocSeqNo] 
+			  ,[RefBillWiseID]
+			  ,[DiscAccountID]
+			  ,[DiscAmount]
+			  ,[DiscCurrID]
+			  ,[DiscExchRT]
+			  ,[Narration]
+			  ,[IsDocPDC],abs(B.VatAdvance) VatAdvance,b.AmountFC,a.CostCenterID,case when d.InvDocDetailsID is null then a.DocID else d.DocID end as DocID,
+			 CONVERT(DATETIME,b.DocDate) DocDate,CONVERT(DATETIME,DocDueDate) DocDueDate,CONVERT(DATETIME,RefDocDate) RefDocDate,CONVERT(DATETIME,RefDocDueDate) RefDocDueDate
+			,c.Name	from COM_Billwise b WITH(NOLOCK)
+			left join COM_Currency c WITH(NOLOCK) on c.CurrencyID=b.AdjCurrID
+			inner join acc_docdetails a with(nolock) on B.DocNo=a.VoucherNo and a.AccDocDetailsID =(select Min(AccDocDetailsID) from acc_docdetails temp with(nolock) where temp.VoucherNo=B.DocNo)
+			left join INV_DocDetails d  WITH(NOLOCK) on a.InvDocDetailsID=d.InvDocDetailsID
+			 	where RefDocNo=@VoucherNo and RefDocSeqNo=@DocSeqNo
+				and [AccountID]=@AccountID
+			END
+			ELSE
+			BEGIN
+				set @Sql=''SELECT 0 NonAc,abs(sum(case when DocType in(40,42) then B.VatAdvance else 0 end)) VatAdvance,B.StatusID,a.CostCenterID CostCenterID, DocAbbr,DocPrefix,Docnumber,  DocNo, abs(sum(AdjAmount)) Amount,abs(sum(B.AmountFC)) AmountFC,B.DocSeqNo,CONVERT(DATETIME,B.DocDate) DocDate ,CONVERT(DATETIME,DocDueDate) DocDueDate,
+				ISNULL((SELECT abs(SUM(SQ.AdjAmount)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and  SQ.RefDocNo=B.DocNo  AND SQ.RefDocSeqNo=B.DocSeqNo),0) 
+				+ISNULL((SELECT abs(SUM(SQ.AdjAmount)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and  SQ.DocNo=B.DocNo AND SQ.DocSeqNo=B.DocSeqNo AND IsNewReference=0),0)
+				Paid,''
+				
+				if(@IsFc=1)
+					set @Sql=@Sql+''ISNULL((SELECT abs(SUM(SQ.amountfc)) FROM COM_Billwise SQ with(nolock) WHERE SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and   SQ.RefDocNo=B.DocNo AND SQ.RefDocSeqNo=B.DocSeqNo),0) 
+					+ISNULL((SELECT abs(SUM(SQ.amountfc)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and  SQ.DocNo=B.DocNo AND SQ.DocSeqNo=B.DocSeqNo AND IsNewReference=0),0)
+					Paidfc,''
+				if(@inclfrmdoc=1)
+					set @Sql=@Sql+''FromDocNo,''
+				set @Sql=@Sql+''[AdjCurrID],c.Name''+@CustomQuery3
+				
+					
+				set @Sql=@Sql+'',max(case when  IsNewReference=1 then [AdjExchRT] else 0 end) [AdjExchRT],
+				B.BILLNO as BillNo, Convert(DATETIME, B.Billdate) AS BillDate, a.CommonNarration,B.Narration, a.ChequeBankName, a.ChequeNumber,
+				Convert(DATETIME,a.ChequeDate) as ChequeDate,
+				Convert(DATETIME,a.ChequeMaturityDate) as  ChequeMaturityDate 
+				FROM COM_Billwise B  with(nolock)
+				join (select VoucherNo,CostCenterID, DocAbbr,DocPrefix,Docnumber,DocSeqNo,min(AccDocDetailsID) AccDocDetailsID,min(INVDocDetailsID) INVDocDetailsID, min(CommonNarration) CommonNarration,min(ChequeBankName) ChequeBankName, min(ChequeNumber) ChequeNumber, 
+				min(Convert(DATETIME,ChequeDate)) ChequeDate,min(statusid) statusid,
+				min(Convert(DATETIME,ChequeMaturityDate)) ChequeMaturityDate 
+				from acc_docdetails with(nolock)
+				where DebitAccount=''+convert(nvarchar,@AccountID)+''
+				group by VoucherNo,DocSeqNo,CostCenterID, DocAbbr,DocPrefix,Docnumber
+				) as a on B.DocNo=a.VoucherNo and (B.DocSeqNo=a.DocSeqNo  or a.INVDocDetailsID>0)				left join COM_Currency c with(nolock) on c.CurrencyID=b.AdjCurrID
+				''+@CustomQuery1+''
+			 	WHERE a.statusid  in (''
+			 	if(@inclUnapp=1)
+			 		set @Sql=@Sql+''369,441,371''
+			 	else
+			 		set @Sql=@Sql+''369''
+			 	if(@inclPDCS=1)	
+			 		set @Sql=@Sql+'',370''	
+			 	set @Sql=@Sql+'')  and  AccountID=''+convert(nvarchar,@AccountID)+''  and AdjAmount>0''
+			 	
+				set @Sql=@Sql+@Where
+				
+				set @Sql=@Sql+''Group By B.StatusID,DocNo,B.DocSeqNo,B.DocDate,DocDueDate,[AdjCurrID],c.Name''+@CustomQuery2
+				set @Sql=@Sql+'', B.BILLNO, Convert(DATETIME, B.Billdate), a.CommonNarration,B.Narration, a.ChequeBankName,a.CostCenterID , DocAbbr,DocPrefix,Docnumber,  
+         		  a.ChequeNumber, a.ChequeDate,a.ChequeMaturityDate''
+				if(@inclfrmdoc=1)
+					set @Sql=@Sql+'',FromDocNo''
+					
+				set @Sql=@Sql+'' having abs(sum(AdjAmount)) >
+					ISNULL((SELECT abs(SUM(SQ.AdjAmount)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and  SQ.RefDocNo=B.DocNo AND SQ.RefDocSeqNo=B.DocSeqNo),0) 
+					+ISNULL((SELECT abs(SUM(SQ.AdjAmount)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and  SQ.DocNo=B.DocNo AND SQ.DocSeqNo=B.DocSeqNo AND IsNewReference=0),0)''
+				if(@inclfrmdoc=1)
+					set @Sql=@Sql+'' or FromDocNo in(''''''+@VoucherNo+'''''')''
+					
+				if(@NonAccdocs is not null and @NonAccdocs<>'''')
+				BEGIN
+					set @PrefValue=''''
+					select @PrefValue= isnull(Value,'''') from ADM_GlobalPreferences with(nolock) where Name=''NetFld''  
+					if(@PrefValue<>'''')
+					BEGIN
+						set @Sql=@Sql+'' UNION 
+						SELECT 1 NonAc,0 VatAdvance,a.StatusID,a.CostCenterID CostCenterID, a.DocAbbr,a.DocPrefix,a.Docnumber,  a.VoucherNO, abs(sum(''+@PrefValue+'')) Amount,abs(sum(''+@PrefValue+'')) AmountFC,1 DocSeqNo,CONVERT(DATETIME,a.DocDate) DocDate ,CONVERT(DATETIME,a.DueDate) DocDueDate,
+						ISNULL((SELECT abs(SUM(SQ.Amount)) FROM COM_BillWiseNonAcc SQ with(nolock) WHERE  SQ.RefDocNo=a.voucherno ),0) 
+						Paid,''
+						if(@IsFc=1)
+							set @Sql=@Sql+''ISNULL((SELECT abs(SUM(SQ.Amount)) FROM COM_BillWiseNonAcc SQ with(nolock) WHERE  SQ.RefDocNo=a.voucherno ),0) Paidfc,''
+						if(@inclfrmdoc=1)
+							set @Sql=@Sql+'''''''''',''
+							
+						set @Sql=@Sql+''a.CurrencyID,c.Name''+@CustomQuery3
+						
+						set @Sql=@Sql+'',a.[ExchangeRate],
+						a.BILLNO as BillNo,Convert(DATETIME, a.Billdate) as BillDate, a.CommonNarration,NULL, NULL, NULL, 
+						NULL,NULL 
+						FROM INV_docdetails a  with(nolock)
+						left join INV_docdetails lnk with(nolock) on lnk.LinkedinvDocDetailsid=a.invDocDetailsid
+						left join COM_Currency c with(nolock) on c.CurrencyID=a.CurrencyID
+						join COM_DocCCData b with(nolock) on b.invDocDetailsid=a.invDocDetailsid
+						join COM_DocNumData d with(nolock) on d.invDocDetailsid=a.invDocDetailsid
+						''+@CustomQuery1+''
+		 				WHERE a.statusid =369 and  a.DebitAccount=''+convert(nvarchar,@AccountID)
+						set @Sql=@Sql+'' and a.costcenterID in(''+@NonAccdocs+'')''
+						set @Sql=@Sql+@Where
+
+						set @Sql=@Sql+'' Group By a.StatusID,a.CostCenterID, a.DocAbbr,a.DocPrefix,a.Docnumber,a.DocDate,a.DueDate , a.VoucherNO,a.[ExchangeRate], a.BILLNO, Convert(DATETIME, a.Billdate), a.CommonNarration,a.CostCenterID  
+						''+@CustomQuery2+'',a.CurrencyID,c.Name
+						having abs(sum(''+@PrefValue+'')) >ISNULL((SELECT abs(SUM(SQ.Amount)) FROM COM_BillWiseNonAcc SQ with(nolock) WHERE  SQ.RefDocNo=a.voucherno ),0) 
+						
+						order by DocDate,DocNo''
+					END
+					ELSE
+						set @Sql=@Sql+''order by B.DocDate,DocNo''
+				END
+				ELSE
+					set @Sql=@Sql+''order by B.DocDate,DocNo''
+					
+				print @Sql
+				exec(@Sql)
+				
+				Select 1 where 1=2
+			END
+		END
+		
+		if(@IsCredit=0 or @inclDBCR=1)
+		BEGIN
+		
+			IF(@VoucherNo<>'''')
+			BEGIN
+				set @Sql=''SELECT 0 NonAc,abs(sum(case when DocType in(40,42) then B.VatAdvance else 0 end)) VatAdvance,B.StatusID,a.CostCenterID CostCenterID, DocAbbr,DocPrefix,Docnumber,  DocNo, abs(sum(AdjAmount)) Amount,abs(sum(B.AmountFC)) AmountFC,B.DocSeqNo,CONVERT(DATETIME,B.DocDate) DocDate ,CONVERT(DATETIME,DocDueDate) DocDueDate,
+				ISNULL((SELECT abs(SUM(SQ.AdjAmount)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and  SQ.RefDocNo=B.DocNo AND SQ.RefDocSeqNo=B.DocSeqNo AND not (SQ.DocNo in(''''''+@VoucherNo+'''''') )),0) 
+				+ISNULL((SELECT abs(SUM(SQ.AdjAmount)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and  SQ.DocNo=B.DocNo AND SQ.DocSeqNo=B.DocSeqNo AND IsNewReference=0),0)
+				Paid,''
+				
+				if(@IsFc=1)
+					set @Sql=@Sql+''ISNULL((SELECT abs(SUM(SQ.amountfc)) FROM COM_Billwise SQ with(nolock) WHERE SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and   SQ.RefDocNo=B.DocNo AND SQ.RefDocSeqNo=B.DocSeqNo AND not (SQ.DocNo in(''''''+@VoucherNo+''''''))),0) 
+					+ISNULL((SELECT abs(SUM(SQ.amountfc)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and  SQ.DocNo=B.DocNo AND SQ.DocSeqNo=B.DocSeqNo AND IsNewReference=0),0)
+					Paidfc,''
+				if(@inclfrmdoc=1)
+					set @Sql=@Sql+''FromDocNo,''
+				set @Sql=@Sql+''[AdjCurrID],c.Name''+@CustomQuery3
+				
+				set @Sql=@Sql+'',max(case when  IsNewReference=1 then [AdjExchRT] else 0 end) [AdjExchRT]
+				,B.BILLNO as BillNo, Convert(DATETIME, B.Billdate) AS BillDate, a.CommonNarration,B.Narration, a.ChequeBankName, a.ChequeNumber,
+				Convert(DATETIME,a.ChequeDate) as ChequeDate,Convert(DATETIME,a.ChequeMaturityDate) as  ChequeMaturityDate 
+				FROM COM_Billwise B with(nolock) 
+				join (select CostCenterID, DocAbbr,DocPrefix,Docnumber,VoucherNo,DocSeqNo,min(AccDocDetailsID) AccDocDetailsID,min(INVDocDetailsID) INVDocDetailsID, min(CommonNarration) CommonNarration,min(ChequeBankName) ChequeBankName, min(ChequeNumber) ChequeNumber, 
+				min(Convert(DATETIME,ChequeDate)) ChequeDate,min(statusid) statusid,
+				min(Convert(DATETIME,ChequeMaturityDate)) ChequeMaturityDate 
+				from acc_docdetails with(nolock)
+				where CreditAccount=''+convert(nvarchar,@AccountID)+''
+				group by VoucherNo,DocSeqNo,CostCenterID, DocAbbr,DocPrefix,Docnumber
+				) as a on B.DocNo=a.VoucherNo and (B.DocSeqNo=a.DocSeqNo  or a.INVDocDetailsID>0)				left join COM_Currency c with(nolock) on c.CurrencyID=b.AdjCurrID  
+				''+@CustomQuery1+''
+				WHERE  a.statusid in (''
+			 	if(@inclUnapp=1)
+			 		set @Sql=@Sql+''369,441,371''
+			 	else
+			 		set @Sql=@Sql+''369''
+			 	if(@inclPDCS=1)	
+			 		set @Sql=@Sql+'',370''	
+				if exists (SELECT 1 FROM COM_DocumentPreferences WITH(NOLOCK) WHERE PrefName=''UseAsDownPmt'' AND PrefValue=''True'')	
+			 		set @Sql=@Sql+'',448''	
+			 	set @Sql=@Sql+'')   and AccountID=''+convert(nvarchar,@AccountID)+''  and AdjAmount <0''
+
+				set @Sql=@Sql+@Where
+
+				set @Sql=@Sql+''Group By B.StatusID,DocNo,B.DocSeqNo,B.DocDate,DocDueDate,[AdjCurrID],c.Name''+@CustomQuery2
+				set @Sql=@Sql+'', B.BILLNO, Convert(DATETIME, B.Billdate), a.CommonNarration,B.Narration, a.ChequeBankName,a.CostCenterID, DocAbbr,DocPrefix,Docnumber,  
+				  a.ChequeNumber, a.ChequeDate,a.ChequeMaturityDate''
+				if(@inclfrmdoc=1)
+					set @Sql=@Sql+'',FromDocNo''
+					
+				set @Sql=@Sql+'' having abs(sum(AdjAmount)) >
+				ISNULL((SELECT abs(SUM(SQ.AdjAmount)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and  SQ.RefDocNo=B.DocNo AND SQ.RefDocSeqNo=B.DocSeqNo AND not (SQ.DocNo in(''''''+@VoucherNo+''''''))),0) 
+				+ISNULL((SELECT abs(SUM(SQ.AdjAmount)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and  SQ.DocNo=B.DocNo AND SQ.DocSeqNo=B.DocSeqNo AND IsNewReference=0),0)''
+				if(@inclfrmdoc=1)
+					set @Sql=@Sql+'' or FromDocNo in(''''''+@VoucherNo+'''''')''
+				if(@NonAccdocs is not null and @NonAccdocs<>'''')
+				BEGIN
+					set @PrefValue=''''
+					select @PrefValue= isnull(Value,'''') from ADM_GlobalPreferences with(nolock) where Name=''NetFld''  
+					if(@PrefValue<>'''')
+					BEGIN
+						set @Sql=@Sql+'' UNION 
+						SELECT 1 NonAc,0 VatAdvance,a.StatusID,a.CostCenterID CostCenterID, a.DocAbbr,a.DocPrefix,a.Docnumber,  a.VoucherNO, abs(sum(''+@PrefValue+'')) Amount,abs(sum(''+@PrefValue+'')) AmountFC,1 DocSeqNo,CONVERT(DATETIME,a.DocDate) DocDate ,CONVERT(DATETIME,a.DueDate) DocDueDate,
+						ISNULL((SELECT abs(SUM(SQ.Amount)) FROM COM_BillWiseNonAcc SQ with(nolock) WHERE  SQ.RefDocNo=a.voucherno ),0) 
+						Paid,''
+						if(@IsFc=1)
+							set @Sql=@Sql+''ISNULL((SELECT abs(SUM(SQ.Amount)) FROM COM_BillWiseNonAcc SQ with(nolock) WHERE  SQ.RefDocNo=a.voucherno ),0) paidfc,''
+						if(@inclfrmdoc=1)
+							set @Sql=@Sql+'''''''''',''
+							
+						set @Sql=@Sql+''a.CurrencyID,c.Name''+@CustomQuery3
+						
+						set @Sql=@Sql+'',a.[ExchangeRate],
+						a.BILLNO as BillNo,Convert(DATETIME, a.Billdate) as BillDate, a.CommonNarration,NULL, NULL, NULL, 
+						NULL,NULL 
+						FROM INV_docdetails a  with(nolock)
+						left join INV_docdetails lnk with(nolock) on lnk.LinkedinvDocDetailsid=a.invDocDetailsid
+						left join COM_Currency c with(nolock) on c.CurrencyID=a.CurrencyID
+						join COM_DocCCData b with(nolock) on b.invDocDetailsid=a.invDocDetailsid
+						join COM_DocNumData d with(nolock) on d.invDocDetailsid=a.invDocDetailsid
+						''+@CustomQuery1+''
+		 				WHERE a.statusid =369 and  a.CreditAccount=''+convert(nvarchar,@AccountID)
+						set @Sql=@Sql+'' and a.costcenterID in(''+@NonAccdocs+'')''
+						set @Sql=@Sql+@Where
+
+						set @Sql=@Sql+'' Group By a.StatusID,a.CostCenterID, a.DocAbbr,a.DocPrefix,a.Docnumber,a.DocDate,a.DueDate , a.VoucherNO,a.[ExchangeRate], a.BILLNO, Convert(DATETIME, a.Billdate), a.CommonNarration,a.CostCenterID 
+						''+@CustomQuery2+'',a.CurrencyID,c.Name
+						having abs(sum(''+@PrefValue+'')) >ISNULL((SELECT abs(SUM(SQ.Amount)) FROM COM_BillWiseNonAcc SQ with(nolock) WHERE  SQ.RefDocNo=a.voucherno ),0) 
+						
+						order by DocDate,DocNo''
+					END
+					ELSE
+						set @Sql=@Sql+''order by B.DocDate,DocNo''
+				END
+				ELSE
+					set @Sql=@Sql+''order by B.DocDate,DocNo''
+				
+					print @Sql
+				exec(@Sql)
+
+				SELECT [BillwiseID]
+     			  ,[DocNo]
+				  ,b.[DocSeqNo]
+				  ,[AccountID]
+				  ,[AdjAmount]
+				  ,[AdjCurrID]
+				  ,[AdjExchRT] 
+				  ,[DocType]
+				  ,[IsNewReference]
+				  ,[RefDocNo]
+				  ,[RefDocSeqNo] 
+				  ,[RefBillWiseID]
+				  ,[DiscAccountID]
+				  ,[DiscAmount]
+				  ,[DiscCurrID]
+				  ,[DiscExchRT]
+				  ,[Narration]
+				  ,[IsDocPDC],abs(B.VatAdvance) VatAdvance,b.AmountFC,a.CostCenterID,case when d.InvDocDetailsID is null then a.DocID else d.DocID end as DocID,
+				CONVERT(DATETIME,b.DocDate) DocDate,CONVERT(DATETIME,DocDueDate) DocDueDate,CONVERT(DATETIME,RefDocDate) RefDocDate,CONVERT(DATETIME,RefDocDueDate) RefDocDueDate
+				,c.Name	from COM_Billwise b  WITH(NOLOCK)
+				inner join acc_docdetails a with(nolock) on B.DocNo=a.VoucherNo and a.AccDocDetailsID =(select Min(AccDocDetailsID) from acc_docdetails temp with(nolock) where temp.VoucherNo=B.DocNo)
+				left join INV_DocDetails d  WITH(NOLOCK) on a.InvDocDetailsID=d.InvDocDetailsID
+				left join COM_Currency c WITH(NOLOCK) on c.CurrencyID=b.AdjCurrID
+		 		where RefDocNo=@VoucherNo and RefDocSeqNo=@DocSeqNo
+			 and [AccountID]=@AccountID
+			END
+			ELSE
+			BEGIN
+				set @Sql=''SELECT 0 NonAc,abs(sum(case when DocType in(40,42) then B.VatAdvance else 0 end)) VatAdvance,B.StatusID,a.CostCenterID CostCenterID, DocAbbr,DocPrefix,Docnumber,  DocNo, abs(sum(AdjAmount)) Amount,abs(sum(B.AmountFC)) AmountFC,B.DocSeqNo,CONVERT(DATETIME,B.DocDate) DocDate ,CONVERT(DATETIME,DocDueDate) DocDueDate,
+				ISNULL((SELECT abs(SUM(SQ.AdjAmount)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and  SQ.RefDocNo=B.DocNo AND SQ.RefDocSeqNo=B.DocSeqNo),0) 
+				+ISNULL((SELECT abs(SUM(SQ.AdjAmount)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and  SQ.DocNo=B.DocNo AND SQ.DocSeqNo=B.DocSeqNo AND IsNewReference=0),0)
+				Paid,''
+				
+				if(@IsFc=1)
+					set @Sql=@Sql+''ISNULL((SELECT abs(SUM(SQ.amountfc)) FROM COM_Billwise SQ with(nolock) WHERE SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and   SQ.RefDocNo=B.DocNo AND SQ.RefDocSeqNo=B.DocSeqNo),0) 
+					+ISNULL((SELECT abs(SUM(SQ.amountfc)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and  SQ.DocNo=B.DocNo AND SQ.DocSeqNo=B.DocSeqNo AND IsNewReference=0),0)
+					Paidfc,''
+				if(@inclfrmdoc=1)
+					set @Sql=@Sql+''FromDocNo,''
+				set @Sql=@Sql+''[AdjCurrID],c.Name''+@CustomQuery3
+				
+				set @Sql=@Sql+'',max(case when  IsNewReference=1 then [AdjExchRT] else 0 end) [AdjExchRT]
+				,B.BILLNO as BillNo, Convert(DATETIME, B.Billdate) AS BillDate, a.CommonNarration,B.Narration, a.ChequeBankName, a.ChequeNumber, 
+				Convert(DATETIME,a.ChequeDate) as ChequeDate,Convert(DATETIME,a.ChequeMaturityDate) as  ChequeMaturityDate 
+				FROM COM_Billwise B  with(nolock)
+				join (select VoucherNo,CostCenterID, DocAbbr,DocPrefix,Docnumber,DocSeqNo,min(AccDocDetailsID) AccDocDetailsID,min(INVDocDetailsID) INVDocDetailsID, min(CommonNarration) CommonNarration,min(ChequeBankName) ChequeBankName, min(ChequeNumber) ChequeNumber, 
+				min(Convert(DATETIME,ChequeDate)) ChequeDate,min(statusid) statusid,
+				min(Convert(DATETIME,ChequeMaturityDate)) ChequeMaturityDate 
+				from acc_docdetails with(nolock)
+				where CreditAccount=''+convert(nvarchar,@AccountID)+''
+				group by VoucherNo,DocSeqNo,CostCenterID, DocAbbr,DocPrefix,Docnumber
+				) as a on B.DocNo=a.VoucherNo and (B.DocSeqNo=a.DocSeqNo  or a.INVDocDetailsID>0)				left join COM_Currency c with(nolock) on c.CurrencyID=b.AdjCurrID
+				''+@CustomQuery1+''
+		 		WHERE a.statusid  in (''
+			 	if(@inclUnapp=1)
+			 		set @Sql=@Sql+''369,441,371''
+			 	else
+			 		set @Sql=@Sql+''369''
+			 	if(@inclPDCS=1)	
+			 		set @Sql=@Sql+'',370''
+				if exists (SELECT 1 FROM COM_DocumentPreferences WITH(NOLOCK) WHERE PrefName=''UseAsDownPmt'' AND PrefValue=''True'')	
+			 		set @Sql=@Sql+'',448''	
+			 	set @Sql=@Sql+'')   and  AccountID=''+convert(nvarchar,@AccountID)+''  and AdjAmount <0''
+
+				set @Sql=@Sql+@Where
+
+
+				set @Sql=@Sql+''Group By B.StatusID,DocNo,B.DocSeqNo,B.DocDate,DocDueDate,[AdjCurrID],c.Name''+@CustomQuery2
+				set @Sql=@Sql+'',B.BILLNO, Convert(DATETIME, B.Billdate), a.CommonNarration,B.Narration, a.ChequeBankName, a.ChequeNumber, a.ChequeDate,a.CostCenterID, DocAbbr,DocPrefix,Docnumber,  a.ChequeMaturityDate 
+				''
+				if(@inclfrmdoc=1)
+					set @Sql=@Sql+'',FromDocNo''
+					
+				set @Sql=@Sql+'' having abs(sum(AdjAmount)) >
+				ISNULL((SELECT abs(SUM(SQ.AdjAmount)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and  SQ.RefDocNo=B.DocNo AND SQ.RefDocSeqNo=B.DocSeqNo),0) 
+				+ISNULL((SELECT abs(SUM(SQ.AdjAmount)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and  SQ.DocNo=B.DocNo AND SQ.DocSeqNo=B.DocSeqNo AND IsNewReference=0),0)
+				''
+				if(@inclfrmdoc=1)
+					set @Sql=@Sql+'' or FromDocNo in(''''''+@VoucherNo+'''''')''
+				if(@NonAccdocs is not null and @NonAccdocs<>'''')
+				BEGIN
+					set @PrefValue=''''
+					select @PrefValue= isnull(Value,'''') from ADM_GlobalPreferences with(nolock) where Name=''NetFld''  
+					if(@PrefValue<>'''')
+					BEGIN
+						set @Sql=@Sql+'' UNION  
+						SELECT 1 NonAc,0 VatAdvance,a.StatusID,a.CostCenterID CostCenterID, a.DocAbbr,a.DocPrefix,a.Docnumber,  a.VoucherNO, abs(sum(''+@PrefValue+'')) Amount,abs(sum(''+@PrefValue+'')) AmountFC,1 DocSeqNo,CONVERT(DATETIME,a.DocDate) DocDate ,CONVERT(DATETIME,a.DueDate) DocDueDate,
+						ISNULL((SELECT abs(SUM(SQ.Amount)) FROM COM_BillWiseNonAcc SQ with(nolock) WHERE  SQ.RefDocNo=a.voucherno ),0) 
+						Paid,''
+						if(@IsFc=1)
+							set @Sql=@Sql+''ISNULL((SELECT abs(SUM(SQ.Amount)) FROM COM_BillWiseNonAcc SQ with(nolock) WHERE  SQ.RefDocNo=a.voucherno ),0) paidfc,''
+						if(@inclfrmdoc=1)
+							set @Sql=@Sql+'''''''''',''
+							
+						set @Sql=@Sql+''a.CurrencyID,c.Name''+@CustomQuery3
+						
+						set @Sql=@Sql+'',a.[ExchangeRate],
+						a.BILLNO as BillNo,Convert(DATETIME, a.Billdate) as BillDate, a.CommonNarration,NULL, NULL, NULL, 
+						NULL,NULL 
+						FROM INV_docdetails a  with(nolock)
+						left join INV_docdetails lnk with(nolock) on lnk.LinkedinvDocDetailsid=a.invDocDetailsid
+						left join COM_Currency c with(nolock) on c.CurrencyID=a.CurrencyID
+						join COM_DocCCData b with(nolock) on b.invDocDetailsid=a.invDocDetailsid
+						join COM_DocNumData d with(nolock) on d.invDocDetailsid=a.invDocDetailsid
+						''+@CustomQuery1+''
+		 				WHERE a.statusid =369 and  a.CreditAccount=''+convert(nvarchar,@AccountID)
+						set @Sql=@Sql+'' and a.costcenterID in(''+@NonAccdocs+'')''
+						set @Sql=@Sql+@Where
+
+						set @Sql=@Sql+'' Group By a.StatusID,a.CostCenterID, a.DocAbbr,a.DocPrefix,a.Docnumber,a.DocDate,a.DueDate , a.VoucherNO,a.[ExchangeRate], a.BILLNO, Convert(DATETIME, a.Billdate), a.CommonNarration,a.CostCenterID    
+						''+@CustomQuery2+'',a.CurrencyID,c.Name
+						having abs(sum(''+@PrefValue+'')) >ISNULL((SELECT abs(SUM(SQ.Amount)) FROM COM_BillWiseNonAcc SQ with(nolock) WHERE  SQ.RefDocNo=a.voucherno ),0) 
+						
+						order by DocDate,DocNo''
+					END
+					ELSE
+						set @Sql=@Sql+''order by B.DocDate,DocNo''
+				END
+				ELSE
+					set @Sql=@Sql+''order by B.DocDate,DocNo''
+				
+				print @Sql	
+				exec(@Sql)
+				
+				Select 1 where 1=2
+			END
+		END
+		
+		SELECT a.FeatureID CostCenterID,isnull(lr.ResourceData,Name) UserColumnName,Name,''DIM'' UserColumnType, g.ColumnWidth, g.ColumnOrder, ''False'' IsEditable
+		FROM ADM_Features a WITH(NOLOCK)
+		join ADM_GridViewColumns g WITH(NOLOCK) on a.FeatureID=g.CostCenterColID
+		join adm_gridview gr WITH(NOLOCK) on gr.GridViewID=g.GridViewID and gr.costcenterid=99
+		left join COM_LanguageResources lr WITH(NOLOCK) on  lr.ResourceID= a.ResourceID and lr.LanguageID=@LangID  
+		WHERE  IsEnabled=1  and a.FeatureID>50000
+		union
+		select a.CostCenterColID,isnull(lr.ResourceData,UserColumnName) UserColumnName, SyscolumnName Name, UserColumnType, g.ColumnWidth, g.ColumnOrder, A.IsEditable
+		from adm_costcenterdef a WITH(NOLOCK) 
+		join ADM_GridViewColumns g WITH(NOLOCK) on a.CostCenterColID=g.CostCenterColID
+		join adm_gridview gr WITH(NOLOCK) on gr.GridViewID=g.GridViewID and gr.costcenterid=99  
+		left join COM_LanguageResources lr WITH(NOLOCK) on  lr.ResourceID= a.ResourceID and lr.LanguageID=@LangID                    
+		where a.CostCenterID=99                     
+		order by g.ColumnOrder                         
+		
+		if(@AccXml is not null and @AccXml<>'''')
+		BEGIN
+			select distinct AccountID,AccountName,@AccountID SelectedAcc,@DocSeqNo SelSeq from ACC_Accounts a WITH(NOLOCK)
+			join @XML.nodes(''/XML/Row'') as Data(X) on X.value(''@AccountID'',''INT'')=a.AccountID
+			where IsBillwise=1
+		END
+		ELSE if(@getAmt=1)
+		BEGIN
+			select @NonAccdocs=AccountName from ACC_Accounts a WITH(NOLOCK)
+			where AccountID=@AccountID
+			
+			Select @NonAccdocs AccountName,SUM(AdjAmount)AdjAmount,SUM(AmountFC)AmountFC,max(AdjCurrID)AdjCurrID,max(AdjExchRT)AdjExchRT,Convert(datetime,max(Docdate)) Docdate FROM COM_Billwise B  with(nolock)
+			Where AccountID=@AccountID and docno=@VoucherNo
+		END	
+		ELSE		
+			Select 1 where 1=2
+			
+		if(@IsInv=1)
+		BEGIN	
+			Select RefDocNo,RefDocSeqNo,IsNewReference,AmountFC,Narration FROM COM_Billwise B  with(nolock)
+			Where AccountID=@AccountID and docno=@VoucherNo
+		END
+		ELSE
+			Select 1 where 1=2
+			
+		if(@IsInv=0 and exists(select [PrefValue] from [COM_DOCUMENTPREFERENCES] WITH(NOLOCK)
+			where [CostCenterID]=	@CostCenterID and [PrefName]=''ShowNewReference'' and [PrefValue]=''true''))  
+		BEGIN
+			set @Sql=''SELECT  case when d.InvDocDetailsID is null then a.DocID else d.DocID end as DocID,a.CostCenterID,DocNo, abs(sum(AdjAmount)) Amount,CONVERT(DATETIME,B.DocDate) DocDate ,CONVERT(DATETIME,DocDueDate) DocDueDate,
+			ISNULL((SELECT abs(SUM(SQ.AdjAmount)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)+''  and  SQ.RefDocNo=B.DocNo AND SQ.RefDocSeqNo=B.DocSeqNo),0) 
+			+ISNULL((SELECT abs(SUM(SQ.AdjAmount)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)+''  and  SQ.DocNo=B.DocNo AND SQ.DocSeqNo=B.DocSeqNo AND IsNewReference=0),0)
+			Paid
+			FROM COM_Billwise B  with(nolock)
+			inner join acc_docdetails a with(nolock) on B.DocNo=a.VoucherNo and a.AccDocDetailsID =(select Min(AccDocDetailsID) from acc_docdetails temp with(nolock) where temp.VoucherNo=B.DocNo and (B.DocSeqNo=temp.DocSeqNo or temp.DocSeqNo=0))
+			left join INV_DocDetails d WITH(NOLOCK) on a.InvDocDetailsID=d.InvDocDetailsID
+			WHERE a.statusid =369  and  AccountID=''+convert(nvarchar,@AccountID)  
+			if(@IsCredit=1)
+				set @Sql=@Sql+''and AdjAmount <0 ''
+			else
+				set @Sql=@Sql+''and AdjAmount >0 ''
+			set @Sql=@Sql+@Where
+			set @Sql=@Sql+''
+			Group By DocNo,B.DocSeqNo,B.DocDate,DocDueDate,d.DocID,a.DocID,a.CostCenterID,d.InvDocDetailsID
+			having abs(sum(AdjAmount)) >
+			ISNULL((SELECT abs(SUM(SQ.AdjAmount)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)
+			
+			if(@inclfrmdoc=1)
+				set @Sql=@Sql+'' and SQ.fromDocNo  not in(''''''+@VoucherNo+'''''')''
+			
+			set @Sql=@Sql+'' and  SQ.RefDocNo=B.DocNo AND SQ.RefDocSeqNo=B.DocSeqNo),0) 
+			+ISNULL((SELECT abs(SUM(SQ.AdjAmount)) FROM COM_Billwise SQ with(nolock) WHERE  SQ.AccountID=''+convert(nvarchar,@AccountID)+'' and  SQ.DocNo=B.DocNo AND SQ.DocSeqNo=B.DocSeqNo AND IsNewReference=0),0)
+			order by B.DocDate,DocNo''
+			print @Sql
+			exec(@Sql)
+		END
+		ELSE if(@IsInv=1 and @LinkedVchrs<>'''' and exists(select [PrefValue] from [COM_DOCUMENTPREFERENCES] WITH(NOLOCK) 
+			where [CostCenterID]=	@CostCenterID and [PrefName]=''AutoAdjReptsOrds'' and [PrefValue]=''true''))  
+		BEGIN
+			declare @tabvchrs table(ID INT IDENTITY(1,1) PRIMARY KEY,vchrs nvarchar(200),typ int)
+			
+			insert into @tabvchrs(vchrs)
+			exec SPSplitString @LinkedVchrs,'',''  
+			
+			update @tabvchrs
+			set typ=1
+			
+			set @cnt=1
+			while exists(select vchrs from @tabvchrs where typ=@cnt)
+			BEGIN
+				insert into @tabvchrs
+				select b.voucherno,@cnt+1 from INV_DocDetails a WITH(NOLOCK)
+				join INV_DocDetails b WITH(NOLOCK) on a.linkedInvDocdetailsid=b.InvDocdetailsid
+				join @tabvchrs c on a.VoucherNo=c.vchrs 
+				where c.typ=@cnt and a.linkedInvDocdetailsid>0
+				
+				set @cnt=@cnt+1
+			END
+			
+			select a.docno,a.DocSeqNo,isnull(sum(a.amount),0) amount from COM_BillWiseNonAcc a WITH(NOLOCK)
+			join @tabvchrs b on a.refdocno=b.vchrs
+			group by a.docno,a.DocSeqNo
+			
+		END
+SET NOCOUNT OFF;  
+RETURN 1
+END TRY
+BEGIN CATCH  
+	--Return exception info [Message,Number,ProcedureName,LineNumber]  
+	IF ERROR_NUMBER()=50000
+	BEGIN
+		SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID
+	END
+	ELSE
+	BEGIN
+		SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() AS ErrorNumber, ERROR_PROCEDURE()AS ProcedureName, ERROR_LINE() AS ErrorLine
+		FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=-999 AND LanguageID=@LangID
+	END
+ 
+SET NOCOUNT OFF  
+RETURN -999   
+END CATCH
+' 
+END
+GO
