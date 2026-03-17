@@ -1,0 +1,43 @@
+--KHASIM
+
+
+IF NOT EXISTS(SELECT ID From ADM_Widgets WITH(NOLOCK) WHERE ID=111)
+BEGIN
+    DECLARE @lft bigint,@rgt bigint,@Selectedlft bigint,@Selectedrgt bigint,@Depth int,@ParentID bigint, 
+            @SelectedIsGroup bit, @NoOfReports INT, @SelectedNodeID int
+    SET @NoOfReports=1
+    set @SelectedNodeID=1
+    
+    SELECT @SelectedIsGroup=IsGroup,@Selectedlft = lft,@Selectedrgt = rgt,@ParentID = ParentID,@Depth = Depth
+    from [ADM_Widgets] with(NOLOCK) where ID=@SelectedNodeID
+        
+    IF(@SelectedIsGroup = 1)
+    BEGIN
+        UPDATE [ADM_Widgets] SET rgt = rgt + @NoOfReports*2 WHERE rgt > @Selectedlft;
+        UPDATE [ADM_Widgets] SET lft = lft + @NoOfReports*2 WHERE lft > @Selectedlft;
+        SET @lft  = @Selectedlft + 1
+        SET @ParentID = @SelectedNodeID
+        SET @Depth = @Depth + 1
+    END
+    
+    SET IDENTITY_INSERT [ADM_Widgets] ON
+    INSERT INTO [ADM_Widgets] ([ID],[Name],[OptionsXML],[AccountsXML],[CreatedBy],[CreatedDate],[WType],[Depth],[ParentID],[lft],[rgt],[IsGroup])
+    VALUES
+          (111,'Total Properties','', '', 'ADMIN', CONVERT(FLOAT,GETDATE()), 111, @Depth, @ParentID, @lft + 2*0, @lft + 2*0+1, 0),
+          (112,'Total Units','', '', 'ADMIN', CONVERT(FLOAT,GETDATE()), 112, @Depth, @ParentID, @lft + 2*1, @lft + 2*1+1, 0),
+          (113,'Occupied Units','', '', 'ADMIN', CONVERT(FLOAT,GETDATE()), 113, @Depth, @ParentID, @lft + 2*2, @lft + 2*2+1, 0),
+          (114,'Vacant Units','', '', 'ADMIN', CONVERT(FLOAT,GETDATE()), 114, @Depth, @ParentID, @lft + 2*3, @lft + 2*3+1, 0),
+          (115,'Reserved Units','', '', 'ADMIN', CONVERT(FLOAT,GETDATE()), 115, @Depth, @ParentID, @lft + 2*4, @lft + 2*4+1, 0),
+          (116,'Active Contracts','', '', 'ADMIN', CONVERT(FLOAT,GETDATE()), 116, @Depth, @ParentID, @lft + 2*5, @lft + 2*5+1, 0),
+		  (117,'Renewal Rate','', '', 'ADMIN', CONVERT(FLOAT,GETDATE()), 117, @Depth, @ParentID, @lft + 2*6, @lft + 2*6+1, 0),
+		  (118,'Tenant Matser','', '', 'ADMIN', CONVERT(FLOAT,GETDATE()), 118, @Depth, @ParentID, @lft + 2*7, @lft + 2*7+1, 0),
+		  (119,'Landlord Matser','', '', 'ADMIN', CONVERT(FLOAT,GETDATE()), 119, @Depth, @ParentID, @lft + 2*8, @lft + 2*8+1, 0),
+		  (120,'Contracts Trend','', '', 'ADMIN', CONVERT(FLOAT,GETDATE()), 120, @Depth, @ParentID, @lft + 2*9, @lft + 2*9+1, 0),
+		  (121,'Contract Expiry','', '', 'ADMIN', CONVERT(FLOAT,GETDATE()), 121, @Depth, @ParentID, @lft + 2*10, @lft + 2*10+1, 0),
+          (122,'Unti Type wise Vacant','', '', 'ADMIN', CONVERT(FLOAT,GETDATE()), 122, @Depth, @ParentID, @lft + 2*11, @lft + 2*11+1, 0),
+          (123,'Expired Contracts Past History','', '', 'ADMIN', CONVERT(FLOAT,GETDATE()), 123, @Depth, @ParentID, @lft + 2*12, @lft + 2*12+1, 0),
+          (124,'Month Wise Revenu','', '', 'ADMIN', CONVERT(FLOAT,GETDATE()), 124, @Depth, @ParentID, @lft + 2*13, @lft + 2*13+1, 0),
+		  (125,'Month Wise Contract Statuses','', '', 'ADMIN', CONVERT(FLOAT,GETDATE()), 125, @Depth, @ParentID, @lft + 2*14, @lft + 2*14+1, 0),
+		  (126,'PDC Maturity Slab Wise','', '', 'ADMIN', CONVERT(FLOAT,GETDATE()), 126, @Depth, @ParentID, @lft + 2*15, @lft + 2*15+1, 0)
+    SET IDENTITY_INSERT [ADM_Widgets] OFF
+END
