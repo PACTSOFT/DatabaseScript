@@ -1,0 +1,19 @@
+--Sajid
+DECLARE @Rid INT,@FeatureActionID INT,@ListViewID INT
+SELECT @Rid=MAX(ResourceID) from COM_LanguageResources WITH(NOLOCK)
+SET @Rid=@Rid+1
+
+IF NOT EXISTS (SELECT * FROM COM_DOCUMENTPREFERENCES WITH(NOLOCK) WHERE DocumentType=32 AND PrefName='PickStockDateInsteadOfDocDate')
+BEGIN
+
+	INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid,'PickStockDateInsteadOfDocDate',1,'English','Pick Stock Date Instead Of Doc Date','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',convert(float,getdate()),NULL,NULL,'')
+
+	INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@RId,'PickStockDateInsteadOfDocDate',2,'Arabic','Pick Stock Date Instead Of Doc Date-AR','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',convert(float,getdate()),NULL,NULL,'')
+
+
+	INSERT INTO [COM_DOCUMENTPREFERENCES] ([CostCenterID],[DocumentTypeID],[DocumentType],[ResourceID],[PreferenceTypeID],[PreferenceTypeName],[PrefValueType],[PrefName],[PrefValue],[PrefDefalutValue],[IsPrefValid],[PrefColOrder],[PrefRowOrder],[UnderGroupBox],[CompanyGUID],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate])
+	SELECT CostCenterID,DocumentTypeID,DocumentType,@RID,1,'General','CheckBox','PickStockDateInsteadOfDocDate',N'False',N'False',1,1,11,NULL,'guid','guid',NULL,'admin',convert(float,getdate()),'admin',convert(float,getdate())
+	From ADM_DocumentTypes with(nolock) where DocumentType=32
+END
