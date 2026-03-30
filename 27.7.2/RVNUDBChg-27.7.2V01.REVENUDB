@@ -1,0 +1,9 @@
+--Sajid
+if not exists (select Name from sys.columns where Name='RoleView' and object_id=object_id('ADM_GridView'))
+begin
+	ALTER TABLE ADM_GridView ADD RoleView nvarchar(max)
+end
+if not exists (select Name from sys.columns where Name='UserView' and object_id=object_id('ADM_GridView'))
+begin
+	ALTER TABLE ADM_GridView ADD UserView nvarchar(max)
+end

@@ -1,0 +1,48 @@
+--Sameer
+
+
+
+create table #ViewRecords(GridViewID int,UserColumnName varchar(100),CostCenterID int,CostCenterColID int,Rn int)
+
+insert into #ViewRecords(CostCenterID,GridViewID,UserColumnName,CostCenterColID,Rn)
+select CostCenterID,GridViewID,UserColumnName,CostCenterColID,Rn from (
+		select b.CostCenterID,UserColumnName,
+			a.GridViewID,A.CostCenterColID, row_number() over (partition by a.GridViewID order by a.GridViewID ) as Rn
+			from ADM_GridViewColumns a WITH(NOLOCK) 
+			join ADM_GridView b WITH(NOLOCK) on a.GridViewID=b.GridViewID
+			join ADM_CostCenterDef c WITH(NOLOCK) on c.CostCenterColID=a.CostCenterColID
+			JOIN COM_LanguageResources D WITH(NOLOCK) ON D.ResourceID=C.ResourceID AND D.LanguageID=1
+			union 
+			select b.CostCenterID,f.name UserColumnName,a.GridViewID,a.CostCenterColID CostCenterColID, row_number() over (partition by a.GridViewID order by a.GridViewID ) as Rn
+			from ADM_GridViewColumns a WITH(NOLOCK) 
+			join ADM_GridView b WITH(NOLOCK)  on a.GridViewID=b.GridViewID
+		    join ADM_Features f  WITH(NOLOCK)  on f.FeatureID=-a.CostCenterColID 
+			where  (f.FeatureID between 50000 and 50090 OR f.FeatureID=6 OR f.FeatureID=7)
+			) t 
+			where Rn <= 3
+			order by GridViewID,Rn
+
+			delete from #ViewRecords where GridViewID in (select TypeID from adm_mobilegridview WITH(NOLOCK) where CostCenterID = 230)
+
+			
+DECLARE @ColName nvarchar(100),@ColID INT
+
+DECLARE @MainCardStyle nvarchar(100) = '{"background":"","padding":"","margin":""}'
+DECLARE @CardStyle nvarchar(100) = '{"text-align":"left","background":"#fff","border-radius":"0px,0px,0px,0px"}'
+DECLARE @HeadingStyle nvarchar(100) = '{"display":"0","color":"#000","font-weight":"normal","font-size":"12px"}'
+DECLARE @ValueStyle nvarchar(100) = '{"color":"#000","font-weight":"normal","font-size":"14"}'
+				
+			
+				insert into ADM_MobileGridView(TypeID,CostCenterID,DimType,Name,CostCenterColID,CompanyGUID,GUID,CreatedBy,CreatedDate,[Type],RowNo,ColNo,RowSpan,ColSpan,Mode,MainCardStyle,CardStyle,HeadingStyle,ValueStyle,ReportCol,Height,VoucherNoField,IsReadonly,EnableAccordian)
+			 SELECT gridViewID,230,'3 * 1',UserColumnName,CostCenterColID,NULL,NEWID(),1,convert(float,getdate()),'MobileGrid',Rn-1,0,1,1,3,@MainCardStyle,@CardStyle,@HeadingStyle,@ValueStyle,CostCenterID,0,NULL,1,'NO'
+ FROM #ViewRecords C WITH(NOLOCK)    
+	  ORDER BY GridViewID,Rn desc
+	
+
+			--select * from #ViewRecords order by GridViewID,Rn
+
+drop table #ViewRecords
+
+
+
+

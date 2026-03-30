@@ -1,0 +1,57 @@
+--Sameer
+
+
+DECLARE @FROMCCID INT,@TOCCID INT
+SELECT @TOCCID=MAX(COSTCENTERID) FROM ADM_DOCUMENTTYPES WITH(NOLOCK)
+SET @FROMCCID=40000
+
+WHILE(@FROMCCID<=@TOCCID)
+BEGIN	
+		IF ((SELECT COUNT(*) FROM ADM_DOCUMENTTYPES WITH(NOLOCK) WHERE CostCenterID=@FROMCCID)>0)
+		BEGIN
+
+			IF NOT EXISTS (select Name from adm_mobilegridview where TypeID = 1 and CostCenterID=@FROMCCID)
+			BEGIN
+
+			
+DECLARE @ColName nvarchar(100),@ColID INT
+
+DECLARE @MainCardStyle nvarchar(100) = '{"background":"","padding":"","margin":""}'
+DECLARE @CardStyle nvarchar(100) = '{"text-align":"left","background":"#fff","border-radius":"0px,0px,0px,0px"}'
+DECLARE @HeadingStyle nvarchar(100) = '{"display":"0","color":"#000","font-weight":"normal","font-size":"12px"}'
+DECLARE @ValueStyle nvarchar(100) = '{"color":"#000","font-weight":"normal","font-size":"14"}'
+				
+				  declare @isInv bit 
+	  select @isInv = IsInventory from adm_documenttypes where CostCenterID = @FROMCCID
+
+	  IF @isInv = 1
+			BEGIN
+				insert into ADM_MobileGridView(TypeID,CostCenterID,DimType,Name,CostCenterColID,CompanyGUID,GUID,CreatedBy,CreatedDate,[Type],RowNo,ColNo,RowSpan,ColSpan,Mode,MainCardStyle,CardStyle,HeadingStyle,ValueStyle,ReportCol,Height,VoucherNoField,IsReadonly,EnableAccordian)
+			 SELECT 1,@FROMCCID,'3 * 1',R.ResourceData,C.CostCenterColID,NULL,NEWID(),1,convert(float,getdate()),'MobileGrid',(row_number() over (order by C.RowNo) - 1),0,1,1,3,@MainCardStyle,@CardStyle,@HeadingStyle,@ValueStyle,0,0,NULL,1,'NO'
+ FROM ADM_CostCenterDef C WITH(NOLOCK)    
+	  LEFT JOIN COM_LanguageResources R WITH(NOLOCK) ON R.ResourceID=C.ResourceID AND R.LanguageID=1    
+	  WHERE C.CostCenterID = @FROMCCID     
+	  AND SysColumnName in ('ProductID','Quantity','ProductID')
+	  ORDER BY C.RowNo,C.ColumnNo, C.IsColumnInUse    
+			END
+			ELSE
+			BEGIN
+				insert into ADM_MobileGridView(TypeID,CostCenterID,DimType,Name,CostCenterColID,CompanyGUID,GUID,CreatedBy,CreatedDate,[Type],RowNo,ColNo,RowSpan,ColSpan,Mode,MainCardStyle,CardStyle,HeadingStyle,ValueStyle,ReportCol,Height,VoucherNoField,IsReadonly,EnableAccordian)
+			 SELECT 1,@FROMCCID,'3 * 1',R.ResourceData,C.CostCenterColID,NULL,NEWID(),1,convert(float,getdate()),'MobileGrid',(row_number() over (order by C.RowNo) - 1),0,1,1,3,@MainCardStyle,@CardStyle,@HeadingStyle,@ValueStyle,0,0,NULL,1,'NO'
+ FROM ADM_CostCenterDef C WITH(NOLOCK)    
+	  LEFT JOIN COM_LanguageResources R WITH(NOLOCK) ON R.ResourceID=C.ResourceID AND R.LanguageID=1    
+	  WHERE C.CostCenterID = @FROMCCID     
+	  AND SysColumnName in ('AccountID','CreditAccount','CreditAccount','Amount')
+	  ORDER BY C.RowNo,C.ColumnNo, C.IsColumnInUse    
+			END
+
+				
+			
+
+			END
+		END
+SET @FROMCCID=@FROMCCID+1
+END
+
+
+	           
