@@ -1,0 +1,15 @@
+
+
+
+
+
+M	RevenUWeb/src/app/document/pdcgenerate-cheque/pdcGenerateChequeViewModel.ts
+M	RevenUWeb/src/app/pages/home/RibbonExtViewModel.ts
+M	RevenUWeb/src/app/property/Unit/AddEditUnitsViewModel.ts
+M	RevenUWeb/src/app/property/Unit/add-edit-units.component.html
+M	RevenUWeb/src/app/reports/StaticReports/PAY_Reports.ts
+M	RevenUWeb/src/app/reports/report-view/ReportViewModel.ts
+M	RevenUWeb/src/app/services/session-manager.service.ts
+M	RevenUWeb/src/app/shared/models/Util.ts
+M	RevenUWeb/src/app/shared/models/controls/PactImageControlData.ts
+M	RevenuWeb/src/app/ess/biometric-config-view-model/BiometricConfigViewModel.ts
