@@ -1,0 +1,28 @@
+--waseem 
+DECLARE @RID INT
+IF NOT EXISTS(SELECT value FROM ADM_GlobalPreferences WITH(NOLOCK) WHERE  [Name]='GPAttachmentType')
+begin
+	SELECT @RID=MAX(ResourceID) FROM COM_LanguageResources WITH(NOLOCK)
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid+1,'GPAttachmentType',1,'English','GPAttachmentType','GUID',NULL,'Admin',convert(float,getdate()),NULL,NULL,'') 
+
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid+1,'GPAttachmentType',2,'Arabic','GPAttachmentType','GUID',NULL,'Admin',convert(float,getdate()),NULL,NULL,'') 
+
+	INSERT [dbo].[ADM_GlobalPreferences] ([ResourceID], [Name], [Value], [DefaultValue], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate], [PreferenceTypeName], [PrefRowOrder], [PrefColOrder], [PrefValueType], [Version]) 
+	VALUES (@RID+1, N'GPAttachmentType', N'FileSystem', N'FileSystem', N'', NULL, N'ADMIN', 1, NULL, NULL, NULL, NULL, NULL, NULL, 1)
+end
+
+DECLARE @RID1 INT
+IF NOT EXISTS(SELECT value FROM ADM_GlobalPreferences WITH(NOLOCK) WHERE  [Name]='DBAttachmentURL')
+begin
+	SELECT @RID1=MAX(ResourceID) FROM COM_LanguageResources WITH(NOLOCK)
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid1+1,'DBAttachmentURL',1,'English','Db Attachment URL','GUID',NULL,'Admin',convert(float,getdate()),NULL,NULL,'') 
+
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid1+1,'DBAttachmentURL',2,'Arabic','DB Attachment URL','GUID',NULL,'Admin',convert(float,getdate()),NULL,NULL,'') 
+
+	INSERT [dbo].[ADM_GlobalPreferences] ([ResourceID], [Name], [Value], [DefaultValue], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate], [PreferenceTypeName], [PrefRowOrder], [PrefColOrder], [PrefValueType], [Version]) 
+	VALUES (@RID1+1, N'DBAttachmentURL', N'', N'', N'', NULL, N'ADMIN', 1, NULL, NULL, NULL, NULL, NULL, NULL, 1)
+end

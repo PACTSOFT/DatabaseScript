@@ -1,0 +1,47 @@
+--Sameer
+
+   create table #ListViewRecords(ListViewID int,UserColumnName varchar(100),SysColumnName varchar(100),CostCenterColID int,Rn int)
+
+
+   insert into #ListViewRecords(ListViewID,UserColumnName,SysColumnName,CostCenterColID,Rn)
+   select ListViewID,UserColumnName,SysColumnName,CostCenterColID,Rn from (
+		 SELECT a.CostCenterColID,UserColumnName,SysColumnName,a.ListViewID, row_number() over (partition by a.ListViewID order by a.ListViewID ) as Rn
+   FROM ADM_ListViewColumns a WITH(NOLOCK)   
+   LEFT JOIN ADM_ListView b  WITH(NOLOCK) on a.ListViewID=b.ListViewID  
+   LEFT JOIN ADM_CostCenterDef c  WITH(NOLOCK) on b.CostCenterID=c.CostCenterID AND c.CostCenterColID=a.CostCenterColID  
+   LEFT JOIN COM_LanguageResources D  WITH(NOLOCK) ON D.ResourceID=C.ResourceID AND D.LanguageID=1  
+   
+			) t 
+			where Rn <= 3
+			order by ListViewID,Rn
+
+
+			delete from #ListViewRecords where ListViewID in (select TypeID from adm_mobilegridview WITH(NOLOCK) where CostCenterID = 220)
+
+
+			
+DECLARE @ColName nvarchar(100),@ColID INT
+
+DECLARE @MainCardStyle nvarchar(100) = '{"background":"","padding":"","margin":""}'
+DECLARE @CardStyle nvarchar(100) = '{"text-align":"left","background":"#fff","border-radius":"0px,0px,0px,0px"}'
+DECLARE @HeadingStyle nvarchar(100) = '{"display":"0","color":"#000","font-weight":"normal","font-size":"12px"}'
+DECLARE @ValueStyle nvarchar(100) = '{"color":"#000","font-weight":"normal","font-size":"14"}'
+				
+			
+				insert into ADM_MobileGridView(TypeID,CostCenterID,DimType,Name,CostCenterColID,CompanyGUID,GUID,CreatedBy,CreatedDate,[Type],RowNo,ColNo,RowSpan,ColSpan,Mode,MainCardStyle,CardStyle,HeadingStyle,ValueStyle,ReportCol,Height,VoucherNoField,IsReadonly,EnableAccordian)
+			 SELECT ListViewID,220,'2 * 1',UserColumnName,CostCenterColID,NULL,NEWID(),1,convert(float,getdate()),'MobileGrid',Rn-1,0,1,1,3,@MainCardStyle,@CardStyle,@HeadingStyle,@ValueStyle,SysColumnName,0,NULL,1,'NO'
+ FROM #ListViewRecords C WITH(NOLOCK)    
+	  ORDER BY ListViewID,Rn desc
+
+			drop table #ListViewRecords
+
+
+
+
+
+
+
+
+
+
+

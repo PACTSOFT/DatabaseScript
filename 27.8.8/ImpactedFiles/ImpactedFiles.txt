@@ -1,0 +1,60 @@
+
+
+
+
+
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/CommonController.cs
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/PactRequestTokenController.cs
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/PactRevenUWebapi2.0.csproj
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/Views/Shared/_Layout.cshtml
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.COMMON.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.DBHandler.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.MODEL.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.Service.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.VIEWMODEL.Base.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.VIEWMODEL.Crm.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.VIEWMODEL.Payroll.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.VIEWMODEL.Prd.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.VIEWMODEL.Rental.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.VIEWMODEL.Reports.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.VIEWMODEL.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PactRevenUWebapi2.0.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PactRevenUWebapi2.0.pdb
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/WPFToolkit.Extended.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/WPFToolkit.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/PactRevenUWebapi2.0.csproj.CopyComplete
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/PactRevenUWebapi2.0.csproj.CoreCompileInputs.cache
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/PactRevenUWebapi2.0.csproj.FileListAbsolute.txt
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/PactRevenUWebapi2.0.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/PactRevenUWebapi2.0.pdb
+M	RevenUNestAPI/src/PACTAPI/Controllers/CRM/CRM.controller.ts
+M	RevenUNestAPI/src/PACTAPI/Services/Common/common.service.ts
+M	RevenUWeb/node_modules/@slickgrid-universal/common/dist/esm/core/slickGrid.js
+M	RevenUWeb/src/app/document/add-edit-document/VoucherGenerator.ts
+M	RevenUWeb/src/app/facility-management/Tenant/TenantDashboard.component.html
+M	RevenUWeb/src/app/facility-management/Tenant/TenantDashboard.component.ts
+M	RevenUWeb/src/app/property/contract/AddEditRenContractViewModel.ts
+M	RevenUWeb/src/app/services/session-manager.service.ts
+M	RevenUWebWhiteTheme/src/app/analytics/core/analytics/analytics.facade.ts
+M	RevenUWebWhiteTheme/src/app/analytics/core/config/kpi-config.service.ts
+M	RevenUWebWhiteTheme/src/app/analytics/features/dashboard/analytics-popup.component.html
+M	RevenUWebWhiteTheme/src/app/analytics/features/dashboard/analytics-popup.component.ts
+M	RevenUWebWhiteTheme/src/app/analytics/features/dashboard/components/analytics-explorer.shared.scss
+M	RevenUWebWhiteTheme/src/app/analytics/features/dashboard/components/analytics-property-explorer.component.html
+M	RevenUWebWhiteTheme/src/app/analytics/features/dashboard/components/analytics-workspace-context-strip.component.html
+M	RevenUWebWhiteTheme/src/app/analytics/features/dashboard/components/analytics-workspace-context-strip.component.scss
+M	RevenUWebWhiteTheme/src/app/analytics/features/dashboard/components/analytics-workspace-filter-surface.component.scss
+M	RevenUWebWhiteTheme/src/app/analytics/features/dashboard/components/analytics-workspace-header.component.html
+M	RevenUWebWhiteTheme/src/app/analytics/features/module-shells/suite-dashboard-input-mapper.service.ts
+M	RevenUWebWhiteTheme/src/app/analytics/features/property-detail/property-detail-view.component.ts
+M	RevenUWebWhiteTheme/src/app/analytics/features/unit-detail/unit-detail-view.component.ts
+M	RevenUWebWhiteTheme/src/app/analytics/models/property-analytics.model.ts
+M	RevenUWebWhiteTheme/src/app/analytics/repositories/mock/mock-unit-status.repository.ts
+M	RevenUWebWhiteTheme/src/app/analytics/shared/components/ag-grid/enterprise-ag-grid.component.ts
+M	RevenUWebWhiteTheme/src/app/analytics/shared/components/charts/chart-shell/analytics-chart-shell.component.ts
+M	RevenUWebWhiteTheme/src/app/analytics/shared/components/filter-toolbar/filter-toolbar.component.ts
+M	RevenUWebWhiteTheme/src/app/analytics/shared/widgets/widget-factory.service.ts
+M	RevenUWebWhiteTheme/src/app/dashboard/dbview/DBViewViewModel.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/Fields/PListView.component.html
+M	RevenUWebWhiteTheme/src/app/shared/controls/Fields/PactCodeNameListBox.component.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/PactGridView/PactGridView.component.ts

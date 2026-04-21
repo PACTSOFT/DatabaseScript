@@ -1,0 +1,2 @@
+--khaja
+ALTER TABLE INV_GSTMapping ADD IsRequired NVARCHAR(2)

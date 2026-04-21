@@ -1,0 +1,2 @@
+--waseem 
+delete from  ADM_GridView where GridViewID not in (select GridViewID from ADM_GridViewColumns with(nolock))

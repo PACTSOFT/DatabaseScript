@@ -1,0 +1,20 @@
+--waseem
+ DECLARE @FeatureActionID bigint,@I INT,@CNT INT,@FeatureActionTypeID INT,@CCID BigINT,@RID BIGINT
+DECLARE @Tab Table(ID INT IDENTITY(1,1),CCID BigINT)
+INSERT INTO @Tab 
+SELECT FeatureID from ADM_Features WITH(NOLOCK) where ((FeatureID in (83,89,94,86,73,65,95,88)) OR (FeatureID BETWEEN 40000 AND 50000))
+
+SELECT @I=1,@CNT=COUNT(*) FROM @Tab
+WHILE(@I<=@CNT)
+BEGIN
+	SELECT @CCID=CCID from @Tab where ID=@I 
+	IF EXISTS (SELECT FeatureID FROM [ADM_FeatureAction] WITH(NOLOCK) WHERE [FeatureID]=@CCID AND [Name]='ReSchedule') 
+	BEGIN
+		Select @FeatureActionID=FeatureActionID FROM [ADM_FeatureAction] WITH(NOLOCK) WHERE [FeatureID]=@CCID AND [Name]='ReSchedule'
+		
+		Update [ADM_FeatureAction] set Name='Disable ReSchedule'  WHERE [FeatureID]=@CCID and FeatureActionID=@FeatureActionID
+		
+		Delete from	[ADM_FeatureActionRoleMap] WHERE FeatureActionID=@FeatureActionID AND [RoleID]=1
+	END
+	SET @I=@I+1
+END
