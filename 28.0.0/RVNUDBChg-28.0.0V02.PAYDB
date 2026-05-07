@@ -1,0 +1,18 @@
+-- Wajid
+
+IF NOT EXISTS (
+    SELECT * 
+    FROM sys.columns 
+    WHERE Name = N'ShowOnOrgChart' AND Object_ID = Object_ID(N'COM_CC50051')
+)
+
+BEGIN
+
+    
+	ALTER TABLE COM_CC50051
+	ADD ShowOnOrgChart NVARCHAR(5) DEFAULT('Yes')
+	ALTER TABLE COM_CC50051_History
+	ADD ShowOnOrgChart NVARCHAR(5) DEFAULT('Yes')
+
+
+END

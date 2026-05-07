@@ -1,0 +1,52 @@
+-- Wajid
+
+IF NOT EXISTS (
+    SELECT * 
+    FROM sys.columns 
+    WHERE Name = N'ShowOnOrgChart' AND Object_ID = Object_ID(N'COM_CC50051')
+)
+
+BEGIN
+
+	
+	DECLARE @RId INT, @CostCenterColID int, @SectionSeqNumber Int, @RowNo Int
+
+	SELECT @RId=MAX(ResourceID)+1 from COM_LanguageResources WITH(NOLOCK)
+
+	INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@RId,'ShowOnOrgChart',1,'English','Show On Org Chart','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',convert(float,getdate()),NULL,NULL,'')
+
+	INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@RId,'ShowOnOrgChart',2,'Arabic','Show On Org Chart-AR','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',convert(float,getdate()),NULL,NULL,'')
+
+	SELECT @CostCenterColID=MAX(CostCenterColID)+1 from ADM_CostCenterDef WITH(NOLOCK)
+
+	SELECT @SectionSeqNumber=MAX(SectionSeqNumber)+1 from ADM_CostCenterDef WITH(NOLOCK) where CostCenterID = 50051 and SectionID = 700
+
+	
+SELECT @RowNo=MAX(RowNo)+1 from ADM_CostCenterDef WITH(NOLOCK) where CostCenterID = 50051 and SectionID = 700
+
+	
+
+SET IDENTITY_INSERT [dbo].[ADM_CostCenterDef] ON
+	
+
+	INSERT INTO [ADM_CostCenterDef] ([CostCenterID], [CostCenterColID], [ResourceID], [CostCenterName], [SysTableName], [UserColumnName], [SysColumnName], 
+	[ColumnTypeSeqNumber], [UserColumnType], [ColumnDataType], [UserDefaultValue], [UserProbableValues], [ColumnOrder], [IsMandatory],
+	[IsEditable], [IsVisible], [IsCostCenterUserDefined], [IsColumnUserDefined], [IsCCDeleted], [IsColumnDeleted], [ColumnCostCenterID],
+	[ColumnCCListViewTypeID], [FetchMaxRows], [IsColumnGroup], [ColumnGroupNumber], [SectionSeqNumber], [SectionID], [SectionName], [RowNo], 
+	[ColumnNo], [ColumnSpan], [IsColumnInUse], [UIWidth], [CompanyGUID], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate], 
+	[IsUnique], [IsForeignKey], [ParentCostCenterID], [ParentCostCenterColID], [IsValidReportBuilderCol], [ParentCostCenterSysName], [ParentCostCenterColSysName], 
+	[ParentCCDefaultColID], [LinkData], [LocalReference], [Decimal], [TextFormat], [Filter], [IsRepeat], [LastValueVouchers], [IsnoTab], [dependancy], 
+	[dependanton], [IsTransfer], [DbFilter], [CrFilter], [ShowInQuickAdd], [QuickAddOrder], [Calculate], [Cformula], [IsReEvaluate], [IgnoreChar], [WaterMark])
+	VALUES (50051, @CostCenterColID, @RId, N'Employee Master', N'COM_CC50051', N'Show On Org Chart', N'ShowOnOrgChart', NULL, N'COMBOBOX', N'TEXT', N'Yes', NULL, 3, 0, 1, 1, 0, 0, 0, 0, 0, 0, NULL, 0, NULL
+	, @SectionSeqNumber, 700, N'General', @RowNo, 0, 1, 1, NULL, N'CompanyGUID', N'', NULL, N'ADMIN', 43227.271230092592, NULL, NULL, NULL, 0, NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, 1, NULL, NULL, NULL, NULL, NULL)
+	
+	SET 
+IDENTITY_INSERT [dbo].[ADM_CostCenterDef] OFF
+
+
+	
+	update COM_CC50051 set ShowOnOrgChart = 'Yes'
+
+END

@@ -1,0 +1,8 @@
+-- SHASHANK
+
+IF NOT EXISTS(SELECT Name From Sys.columns WHERE object_id=OBJECT_ID(N'PAY_EmpPay') AND Name='DocDate')
+ALTER TABLE PAY_EmpPay ADD DocDate INT
+
+IF NOT EXISTS(SELECT Name From Sys.columns WHERE object_id=OBJECT_ID(N'PAY_EmpPay_History') AND Name='DocDate')
+ALTER TABLE PAY_EmpPay_History ADD DocDate INT
+
