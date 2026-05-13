@@ -1,0 +1,44 @@
+--Khasim
+
+DECLARE @CCColID INT,@RId BIGINT
+SELECT @RId=ResourceID From [COM_LanguageResources] where ResourceName like '%DimWiseAttachments%'
+
+INSERT [dbo].[COM_CostCenterPreferences] ([CostCenterID], [FeatureID], [ResourceID], [Name], [Value], [DefaultValue], [ProbableValues], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate]) 
+VALUES (95, 95, @RId, N'DimWiseAttachments', N'', N'', NULL, N'guid', NULL, N'admin', 22, NULL, NULL)
+
+INSERT [dbo].[COM_CostCenterPreferences] ([CostCenterID], [FeatureID], [ResourceID], [Name], [Value], [DefaultValue], [ProbableValues], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate]) 
+VALUES (103, 103, @RId, N'DimWiseAttachments', N'', N'', NULL, N'guid', NULL, N'admin', 22, NULL, NULL)
+
+INSERT [dbo].[COM_CostCenterPreferences] ([CostCenterID], [FeatureID], [ResourceID], [Name], [Value], [DefaultValue], [ProbableValues], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate]) 
+VALUES (129, 129, @RId, N'DimWiseAttachments', N'', N'', NULL, N'guid', NULL, N'admin', 22, NULL, NULL)
+
+
+select @RId=MAX(ResourceID) from COM_LanguageResources 
+set @RId=@RId+1
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@RId,'AutoDimWiseAttachments',1,'English','Auto Dimension Wise Attachments','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+insert into COM_CostCenterPreferences(CostCenterID,FeatureID,ResourceID,Name,Value,GUID,CreatedBy,CreatedDate,DefaultValue)
+values(95,95,@RId,'AutoDimWiseAttachments','False','guid','admin',22,'false')
+
+insert into COM_CostCenterPreferences(CostCenterID,FeatureID,ResourceID,Name,Value,GUID,CreatedBy,CreatedDate,DefaultValue)
+values(103,103,@RId,'AutoDimWiseAttachments','False','guid','admin',22,'false')
+
+insert into COM_CostCenterPreferences(CostCenterID,FeatureID,ResourceID,Name,Value,GUID,CreatedBy,CreatedDate,DefaultValue)
+values(129,129,@RId,'AutoDimWiseAttachments','False','guid','admin',22,'false')
+
+set @Rid=@Rid+1
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@RId,'IgnoreFieldlevelAttachments',1,'English','Ignore Field Level Attachments','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+insert into COM_CostCenterPreferences(CostCenterID,FeatureID,ResourceID,Name,Value,GUID,CreatedBy,CreatedDate,DefaultValue)
+values(95,95,@RId,'IgnoreFieldlevelAttachments','False','guid','admin',22,'false')
+
+insert into COM_CostCenterPreferences(CostCenterID,FeatureID,ResourceID,Name,Value,GUID,CreatedBy,CreatedDate,DefaultValue)
+values(103,103,@RId,'IgnoreFieldlevelAttachments','False','guid','admin',22,'false')
+
+insert into COM_CostCenterPreferences(CostCenterID,FeatureID,ResourceID,Name,Value,GUID,CreatedBy,CreatedDate,DefaultValue)
+values(129,129,@RId,'IgnoreFieldlevelAttachments','False','guid','admin',22,'false')
+

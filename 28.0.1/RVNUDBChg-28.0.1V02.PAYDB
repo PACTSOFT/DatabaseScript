@@ -1,0 +1,19 @@
+-- SHASHANK
+
+IF NOT EXISTS(SELECT SeqNo FROM PAY_BioMetricConfig WHERE NAME='PickEmployeeFromPact')
+BEGIN
+insert into PAY_BioMetricConfig
+select 'PickEmployeeFromPact','False','ETMConfig','1',CONVERT(float,getdate())
+END
+
+---------- 
+IF NOT EXISTS(SELECT SeqNo FROM PAY_BioMetricConfig WHERE NAME='IsDayWiseURL')
+BEGIN
+insert into PAY_BioMetricConfig
+select 'IsDayWiseURL','False','APTMConfig','1',CONVERT(float,getdate())
+END
+ 
+
+
+
+

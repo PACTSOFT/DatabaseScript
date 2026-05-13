@@ -1,0 +1,51 @@
+-- Ikram
+
+declare @Rid int
+select @Rid=MAX(ResourceID) from COM_LanguageResources 
+SET IDENTITY_INSERT [dbo].[COM_Status] ON
+set @Rid=@Rid+1
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'Close-Rejected',1,'English','Close-Rejected','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'Close-Rejected',2,'Arabic','Close-Rejected','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+INSERT [dbo].[COM_Status] ([StatusID], [CostCenterID], [FeatureID], [Status], [ResourceID], [IsUserDefined], [CompanyGUID], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate]) 
+VALUES (485, 95, 95, N'Close-Rejected', @Rid, 0, N'CompanyGUID', N'1513BA8B-D953441FF0E', N'Close-UnApproved', N'ADMIN', 22, NULL, NULL)
+
+set @Rid=@Rid+1
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'Refund-Rejected',1,'English','Refund-Rejected','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'Refund-Rejected',2,'Arabic','Refund-Rejected','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+INSERT [dbo].[COM_Status] ([StatusID], [CostCenterID], [FeatureID], [Status], [ResourceID], [IsUserDefined], [CompanyGUID], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate]) 
+VALUES (486, 95, 95, N'Refund-Rejected', @Rid, 0, N'CompanyGUID', N'1513BA8B-D953441FF0E', N'Close-UnApproved', N'ADMIN', 22, NULL, NULL)
+
+
+set @Rid=@Rid+1
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'FullRefund-Rejected',1,'English','FullRefund-Rejected','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'FullRefund-Rejected',2,'Arabic','FullRefund-Rejected','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+INSERT [dbo].[COM_Status] ([StatusID], [CostCenterID], [FeatureID], [Status], [ResourceID], [IsUserDefined], [CompanyGUID], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate]) 
+VALUES (487, 95, 95, N'FullRefund-Rejected', @Rid, 0, N'CompanyGUID', N'1513BA8B-D953441FF0E', N'Close-UnApproved', N'ADMIN', 22, NULL, NULL)
+
+set @Rid=@Rid+1
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'Terminate-Rejected',1,'English','Terminate-Rejected','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'Terminate-Rejected',2,'Arabic','Terminate-Rejected','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+INSERT [dbo].[COM_Status] ([StatusID], [CostCenterID], [FeatureID], [Status], [ResourceID], [IsUserDefined], [CompanyGUID], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate]) 
+VALUES (488, 95, 95, N'Terminate-Rejected', @Rid, 0, N'CompanyGUID', N'1513BA8B-D953441FF0E', N'Close-UnApproved', N'ADMIN', 22, NULL, NULL)
+SET IDENTITY_INSERT [dbo].[COM_Status] OFF
+
+
+
+
+

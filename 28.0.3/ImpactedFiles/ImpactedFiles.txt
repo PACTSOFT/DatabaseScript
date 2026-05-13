@@ -1,0 +1,39 @@
+
+
+
+
+
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/CommonController.cs
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/RentalController.cs
+M	RevenUWeb/src/app/common/tree-view-page/tree-view-page.component.ts
+M	RevenUWeb/src/app/dashboard/notification/NotificationViewModel.ts
+M	RevenUWeb/src/app/pages/home/header/PACTHeader.component.html
+A	RevenUWeb/src/app/property/UnitCalender/UnitCalendar.component.ts
+A	RevenUWeb/src/app/property/UnitCalender/UnitCalenderViewModel.ts
+A	RevenUWeb/src/app/property/UnitCalender/unitcalendar.component.html
+A	RevenUWeb/src/app/property/UnitCalender/unitcalendar.component.scss
+M	RevenUWeb/src/app/property/contract/AddEditRenContractViewModel.ts
+M	RevenUWeb/src/app/property/property.module.ts
+M	RevenUWeb/src/app/reports/StaticReports/Pay_Report.ts
+M	RevenUWeb/src/app/services/api/common.service.ts
+M	RevenUWeb/src/app/services/api/rental.service.ts
+M	RevenUWeb/src/app/services/session-manager.service.ts
+M	RevenUWebWhiteTheme/src/app/common/tree-view-page/tree-view-page.component.ts
+M	RevenUWebWhiteTheme/src/app/dashboard/dbview/DBViewViewModel.ts
+M	RevenUWebWhiteTheme/src/app/dashboard/notification/NotificationViewModel.ts
+M	RevenUWebWhiteTheme/src/app/document/add-edit-document/AddEditDocumentViewModel.ts
+M	RevenUWebWhiteTheme/src/app/document/add-edit-document/Document.ts
+M	RevenUWebWhiteTheme/src/app/document/add-edit-document/VoucherGenerator.ts
+M	RevenUWebWhiteTheme/src/app/document/gstposting/GSTPostingViewModel.ts
+M	RevenUWebWhiteTheme/src/app/pages/home/RibbonExtViewModel.ts
+M	RevenUWebWhiteTheme/src/app/property/contract/AddEditRenContractViewModel.ts
+M	RevenUWebWhiteTheme/src/app/property/termination/TerminationViewViewModel.ts
+M	RevenUWebWhiteTheme/src/app/services/api/document.service.ts
+M	RevenUWebWhiteTheme/src/app/services/api/rental.service.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/Fields/PactTextBox.component.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/master-tabs/approve-master/ApproveMasterViewModel.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/master-tabs/approve-master/approve-master.component.html
+M	RevenUWebWhiteTheme/src/app/shared/controls/master-tabs/approve-master/approve-master.component.ts
+M	RevenUWebWhiteTheme/src/app/shared/models/Util.ts
+M	RevenUWebWhiteTheme/src/app/shared/models/controls/PactListBoxData.ts
+M	RevenUWebWhiteTheme/src/app/shared/models/controls/PactTextBoxData.ts
