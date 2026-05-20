@@ -1,0 +1,50 @@
+
+
+
+
+
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/CommonController.cs
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/DocumentController.cs
+M	RevenUWeb/src/app/CostCenters/add-edit-costcenter/AddCostCenterViewModel.ts
+M	RevenUWeb/src/app/common/export/ExportViewModel.ts
+M	RevenUWeb/src/app/document/add-edit-document/AddEditDocumentViewModel.ts
+M	RevenUWeb/src/app/document/batch-number/BatchNumberViewModel.ts
+M	RevenUWeb/src/app/document/gstposting/GSTPostingViewModel.ts
+M	RevenUWeb/src/app/ess/Models/PayrollOtherClasses.ts
+M	RevenUWeb/src/app/ess/add-edit-emp-master/AddEditEmpMasterViewModel.ts
+M	RevenUWeb/src/app/ess/consolidated-monthly-payroll/ConsolidatedMonthlyPayrollViewModel.ts
+M	RevenUWeb/src/app/facility-management/Tickets/ServiceRequests.component.ts
+M	RevenUWeb/src/app/pages/home/RibbonExtViewModel.ts
+M	RevenUWeb/src/app/property/contract/AddEditRenContractViewModel.ts
+M	RevenUWeb/src/app/reports/StaticReports/ACC_BillWiseReports.ts
+M	RevenUWeb/src/app/reports/StaticReports/PAY_Reports.ts
+M	RevenUWeb/src/app/services/api/common.service.ts
+M	RevenUWeb/src/app/services/session-manager.service.ts
+M	RevenUWebWhiteTheme/src/app/CostCenters/add-edit-costcenter/AddCostCenterViewModel.ts
+M	RevenUWebWhiteTheme/src/app/common/tree-view-page/tree-view-page.component.ts
+M	RevenUWebWhiteTheme/src/app/document/add-edit-document/AddEditDocumentViewModel.ts
+M	RevenUWebWhiteTheme/src/app/document/add-edit-document/Document.ts
+M	RevenUWebWhiteTheme/src/app/document/add-edit-document/document.component.html
+M	RevenUWebWhiteTheme/src/app/document/batch-number/BatchNumberViewModel.ts
+M	RevenUWebWhiteTheme/src/app/document/gstposting/GSTPostingViewModel.ts
+M	RevenUWebWhiteTheme/src/app/document/gstposting/gstposting.component.html
+M	RevenUWebWhiteTheme/src/app/document/updatepayterms/UpdatePayTermsViewModel.ts
+M	RevenUWebWhiteTheme/src/app/ess/Models/PayrollOtherClasses.ts
+M	RevenUWebWhiteTheme/src/app/ess/add-edit-emp-master/AddEditEmpMasterViewModel.ts
+M	RevenUWebWhiteTheme/src/app/ess/consolidated-monthly-payroll/ConsolidatedMonthlyPayrollViewModel.ts
+M	RevenUWebWhiteTheme/src/app/facility-management/Tickets/ServiceRequests.component.ts
+M	RevenUWebWhiteTheme/src/app/pages/home/RibbonExtViewModel.ts
+A	RevenUWebWhiteTheme/src/app/property/UnitCalender/UnitCalendar.component.ts
+A	RevenUWebWhiteTheme/src/app/property/UnitCalender/UnitCalenderViewModel.ts
+A	RevenUWebWhiteTheme/src/app/property/UnitCalender/unitcalendar.component.html
+A	RevenUWebWhiteTheme/src/app/property/UnitCalender/unitcalendar.component.scss
+M	RevenUWebWhiteTheme/src/app/property/contract/AddEditRenContractViewModel.ts
+M	RevenUWebWhiteTheme/src/app/property/property.module.ts
+M	RevenUWebWhiteTheme/src/app/reports/StaticReports/ACC_BillWiseReports.ts
+M	RevenUWebWhiteTheme/src/app/reports/StaticReports/PAY_Reports.ts
+M	RevenUWebWhiteTheme/src/app/reports/StaticReports/Pay_Report.ts
+M	RevenUWebWhiteTheme/src/app/reports/report-view/ReportViewModel.ts
+M	RevenUWebWhiteTheme/src/app/services/api/rental.service.ts
+M	RevenUWebWhiteTheme/src/app/services/api/reports.service.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/PactGridView/PactGridView.component.ts
+M	RevenUWebWhiteTheme/src/app/shared/models/ControlGenerator.ts

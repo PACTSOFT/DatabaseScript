@@ -1,0 +1,61 @@
+
+
+
+
+
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/CommonController.cs
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/Views/Shared/_Layout.cshtml
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.COMMON.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.DBHandler.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.MODEL.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.Service.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.VIEWMODEL.Base.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.VIEWMODEL.Crm.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.VIEWMODEL.Payroll.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.VIEWMODEL.Prd.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.VIEWMODEL.Rental.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.VIEWMODEL.Reports.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.VIEWMODEL.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PactRevenUWebapi2.0.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PactRevenUWebapi2.0.pdb
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/WPFToolkit.Extended.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/WPFToolkit.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/PactRevenUWebapi2.0.csproj.CopyComplete
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/PactRevenUWebapi2.0.csproj.CoreCompileInputs.cache
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/PactRevenUWebapi2.0.csproj.FileListAbsolute.txt
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/PactRevenUWebapi2.0.dll
+D	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/PactRevenUWebapi2.0.pdb
+M	RevenUWeb/src/app/admin/mobile-preferences/MobilePreferencesViewModel.ts
+M	RevenUWeb/src/app/admin/mobile-preferences/mobile-preferences-customize/MobilePreferencesCustomize.component.ts
+M	RevenUWeb/src/app/document/add-edit-document/AddEditDocumentViewModel.ts
+M	RevenUWeb/src/app/document/add-edit-document/add-edit-document.component.ts
+M	RevenUWeb/src/app/facility-management/Tickets/NewServiceRequest.component.ts
+M	RevenUWeb/src/app/facility-management/Tickets/ServiceRequestDetails.component.ts
+M	RevenUWeb/src/app/property/contract-final-settlement/ContractFinalSetViewModel.ts
+M	RevenUWeb/src/app/property/contract/AddEditRenContractViewModel.ts
+M	RevenUWeb/src/app/property/termination/TerminationViewViewModel.ts
+M	RevenUWeb/src/app/reports/report-view/ReportViewModel.ts
+M	RevenUWeb/src/app/services/session-manager.service.ts
+M	RevenUWeb/src/app/shared/controls/Editors/DataGridDateTimeColumn.Component.ts
+M	RevenUWeb/src/app/shared/controls/Fields/PactDatePicker.component.ts
+M	RevenUWeb/src/app/shared/controls/Fields/PactExtraFieldDate.component.ts
+M	RevenUWebWhiteTheme/src/app/common/export/ExportViewModel.ts
+M	RevenUWebWhiteTheme/src/app/document/add-edit-document/AddEditDocumentViewModel.ts
+M	RevenUWebWhiteTheme/src/app/document/batch-number/BatchNumberViewModel.ts
+M	RevenUWebWhiteTheme/src/app/document/doc-link/link/LinkDocument.ts
+M	RevenUWebWhiteTheme/src/app/document/gstposting/GSTPostingViewModel.ts
+M	RevenUWebWhiteTheme/src/app/property/contract-final-settlement/ContractFinalSetViewModel.ts
+M	RevenUWebWhiteTheme/src/app/property/contract/AddEditRenContractViewModel.ts
+M	RevenUWebWhiteTheme/src/app/property/termination/TerminationViewViewModel.ts
+M	RevenUWebWhiteTheme/src/app/reports/StaticReports/PAY_Reports.ts
+M	RevenUWebWhiteTheme/src/app/reports/StaticReports/Pay_Report.ts
+M	RevenUWebWhiteTheme/src/app/reports/report-view/ReportViewModel.ts
+M	RevenUWebWhiteTheme/src/app/reports/static-report-filter/StaticReportFilterViewModel.ts
+M	RevenUWebWhiteTheme/src/app/services/api/admin.service.ts
+M	RevenUWebWhiteTheme/src/app/services/api/common.service.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/Editors/DataGridDateTimeColumn.Component.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/Editors/PactTextbox.Editor.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/Fields/PactDatePicker.component.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/Fields/PactExtraFieldDate.component.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/master-tabs/Assign/add-ccmap/AddCCMapViewModel.ts
+M	RevenUWebWhiteTheme/src/main.ts

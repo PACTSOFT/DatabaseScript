@@ -1,0 +1,11 @@
+-- SHASHANK
+
+/****** Object:  Index [PAY_DocNumData_InvDocDetailsID_Index]    Script Date: 19-05-2026 12:17:16 ******/
+IF  EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[PAY_DocNumData]') AND name = N'PAY_DocNumData_InvDocDetailsID_Index')
+DROP INDEX [PAY_DocNumData_InvDocDetailsID_Index] ON [dbo].[PAY_DocNumData]
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[PAY_DocNumData]') AND name = N'PAY_DocNumData_InvDocDetailsID_Index')
+CREATE NONCLUSTERED INDEX [PAY_DocNumData_InvDocDetailsID_Index] ON [dbo].[PAY_DocNumData]
+(
+	[InvDocDetailsID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]

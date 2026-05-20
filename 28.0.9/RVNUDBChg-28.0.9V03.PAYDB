@@ -1,0 +1,33 @@
+-- SHASHANK
+
+/****** Object:  Index [PAY_EmpPay_EmployeeID_Index]    Script Date: 20-05-2026 11:06:08 ******/
+IF  EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[PAY_EmpPay]') AND name = N'PAY_EmpPay_EmployeeID_Index')
+DROP INDEX [PAY_EmpPay_EmployeeID_Index] ON [dbo].[PAY_EmpPay]
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[PAY_EmpPay]') AND name = N'PAY_EmpPay_EmployeeID_Index')
+CREATE NONCLUSTERED INDEX [PAY_EmpPay_EmployeeID_Index] ON [dbo].[PAY_EmpPay]
+(
+	[EmployeeID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+
+
+/****** Object:  Index [PAY_EmpDetail_EmployeeID_Index]    Script Date: 20-05-2026 11:06:08 ******/
+IF  EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[PAY_EmpDetail]') AND name = N'PAY_EmpDetail_EmployeeID_Index')
+DROP INDEX [PAY_EmpDetail_EmployeeID_Index] ON [dbo].[PAY_EmpDetail]
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[PAY_EmpDetail]') AND name = N'PAY_EmpDetail_EmployeeID_Index')
+CREATE NONCLUSTERED INDEX [PAY_EmpDetail_EmployeeID_Index] ON [dbo].[PAY_EmpDetail]
+(
+	[EmployeeID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+
+
+/****** Object:  Index [COM_CC50054_GradeID_Index]    Script Date: 20-05-2026 11:06:08 ******/
+IF  EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[COM_CC50054]') AND name = N'COM_CC50054_GradeID_Index')
+DROP INDEX [COM_CC50054_GradeID_Index] ON [dbo].[COM_CC50054]
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'[dbo].[COM_CC50054]') AND name = N'COM_CC50054_GradeID_Index')
+CREATE NONCLUSTERED INDEX [COM_CC50054_GradeID_Index] ON [dbo].[COM_CC50054]
+(
+	[GradeID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]

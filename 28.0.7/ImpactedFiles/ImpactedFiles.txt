@@ -1,0 +1,28 @@
+
+
+
+
+
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/AdminController.cs
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/CommonController.cs
+M	RevenUNestAPI/src/PACTAPI/Controllers/Admin/admin.controller.ts
+M	RevenUNestAPI/src/PACTAPI/Controllers/CRM/CRM.controller.ts
+M	RevenUNestAPI/src/PACTAPI/Controllers/Document/document.controller.ts
+M	RevenUNestAPI/src/PACTAPI/Services/Admin/admin.service.ts
+M	RevenUNestAPI/src/PACTAPI/Services/Rental/Rental.service.ts
+M	RevenUNestAPI/src/common/DBHandler.ts
+M	RevenUWeb/node_modules/@slickgrid-universal/common/dist/esm/core/slickGrid.js
+M	RevenUWeb/src/app/document/add-edit-document/AddEditDocumentViewModel.ts
+M	RevenUWeb/src/app/document/batch-number/BatchNumberViewModel.ts
+M	RevenUWeb/src/app/document/doc-link/link/LinkDocument.ts
+M	RevenUWeb/src/app/reports/StaticReports/PAY_Reports.ts
+M	RevenUWeb/src/app/reports/StaticReports/Pay_Report.ts
+M	RevenUWeb/src/app/reports/report-view/ReportViewModel.ts
+M	RevenUWeb/src/app/reports/static-report-filter/StaticReportFilterViewModel.ts
+M	RevenUWeb/src/app/services/api/admin.service.ts
+M	RevenUWeb/src/app/services/session-manager.service.ts
+M	RevenUWeb/src/app/shared/controls/Editors/PactTextbox.Editor.ts
+M	RevenUWeb/src/app/shared/controls/master-tabs/Assign/add-ccmap/AddCCMapViewModel.ts
+M	RevenUWeb/src/assets/i18n/en.json
+M	RevenUWeb/src/assets/i18n/fa.json
+M	RevenUWeb/src/assets/i18n/it.json
