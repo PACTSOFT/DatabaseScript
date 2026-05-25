@@ -1,0 +1,60 @@
+
+
+
+
+
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/PactRequestTokenController.cs
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/ReportController.cs
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/PactRevenUWebapi2.0.csproj
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/bin/PACT.COMMON.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/bin/PACT.DBHandler.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/bin/PACT.Globalization.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/bin/PACT.MODEL.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/bin/PACT.Service.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/bin/PACT.VIEWMODEL.Base.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/bin/PACT.VIEWMODEL.Crm.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/bin/PACT.VIEWMODEL.Payroll.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/bin/PACT.VIEWMODEL.Prd.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/bin/PACT.VIEWMODEL.Rental.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/bin/PACT.VIEWMODEL.Reports.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/bin/PACT.VIEWMODEL.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.COMMON.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.DBHandler.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.MODEL.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.Service.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.VIEWMODEL.Base.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.VIEWMODEL.Crm.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.VIEWMODEL.Payroll.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.VIEWMODEL.Prd.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.VIEWMODEL.Rental.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.VIEWMODEL.Reports.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PACT.VIEWMODEL.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PactRevenUWebapi2.0.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/PactRevenUWebapi2.0.pdb
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/WPFToolkit.Extended.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/Package/PackageTmp/bin/WPFToolkit.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/PactRevenUWebapi2.0.csproj.CoreCompileInputs.cache
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/PactRevenUWebapi2.0.csproj.FileListAbsolute.txt
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/PactRevenUWebapi2.0.dll
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/obj/Release/PactRevenUWebapi2.0.pdb
+M	RevenUWeb/src/app/assetmanagement/models/Asset.ts
+M	RevenUWeb/src/app/assetmanagement/post-depreciation/PostDepreciationViewModel.ts
+M	RevenUWeb/src/app/dashboard/widget-view/WidgetViewModel.ts
+M	RevenUWeb/src/app/document/add-edit-document/add-edit-document.component.ts
+M	RevenUWeb/src/app/pages/login-screen/LoginScreenViewModel.ts
+M	RevenUWeb/src/app/reports/StaticReports/ACC_GeneralLedger.ts
+M	RevenUWeb/src/app/reports/StaticReports/PAY_Reports.ts
+M	RevenUWeb/src/app/reports/report-view/IPrefetchFilter.ts
+M	RevenUWeb/src/app/reports/report-view/ReportViewModel.ts
+M	RevenUWeb/src/app/reports/static-report-filter/StaticReportFilterViewModel.ts
+M	RevenUWeb/src/app/services/api/reports.service.ts
+M	RevenUWeb/src/app/services/session-manager.service.ts
+M	RevenUWeb/src/app/shared/controls/quick-docs-view/QuickDocumentView.ts
+M	RevenUWeb/src/app/shared/models/controls/PactGridViewModel.ts
+M	RevenUWeb/src/assets/i18n/en.json
+M	RevenUWeb/src/assets/i18n/fa.json
+M	RevenUWeb/src/assets/i18n/it.json
+M	RevenUWebWhiteTheme/src/app/document/documents-list/DocumentsListViewModel.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/Fields/PListView.component.html
+M	RevenUWebWhiteTheme/src/app/shared/controls/Fields/PactCodeNameListBox.component.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/quick-docs-view/QuickDocumentView.ts
