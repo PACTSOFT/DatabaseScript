@@ -1,0 +1,59 @@
+--waseem	
+	DECLARE @I INT,@CNT INT
+	DECLARE @RID BIGINT,@CostCenterID BIGINT,@TableName NVARCHAR(50),@FID INT
+	DECLARE @Tab Table(ID INT IDENTITY(1,1),CCID BigINT)	
+	INSERT INTO @Tab select FeatureID from ADM_Features WITH(NOLOCK) where 
+	IsEnabled=1 and FeatureID  in (92,93,94)
+	SET @I=1
+	declare @CCID BigINT
+	select CCID from @Tab
+	SELECT @CNT=COUNT(*) FROM @Tab
+	WHILE(@I<=@CNT)
+	BEGIN
+	 SELECT @CCID=isnull(CCID,null) from @Tab where ID=@I 			
+	 SELECT @RID=MAX([ResourceID])+1 FROM COM_LanguageResources WITH(NOLOCK) 	
+
+	IF NOT EXISTS(SELECT Name FROM COM_CostCenterPreferences WITH(NOLOCK) WHERE CostCenterID=@CCID AND Name='DontAllowCodemodify')
+	BEGIN
+
+	    INSERT INTO COM_LanguageResources (ResourceID, ResourceName, LanguageID, LanguageName, ResourceData,FEATURE)
+		VALUES (@RID, 'DontAllowCodemodify',
+1,'English','Do not Allow Code modify if used' ,'')
+
+		INSERT INTO COM_LanguageResources (ResourceID, ResourceName, LanguageID, LanguageName, ResourceData,FEATURE)
+		VALUES (@RID,'DontAllowCodemodify',
+2,'Arabic', 'Do not Allow Code modify if used','')
+
+		INSERT INTO COM_LanguageResources (ResourceID, ResourceName, LanguageID, LanguageName, ResourceData,FEATURE)
+		VALUES (@RID,'DontAllowCodemodify',
+3,'Italian', 'Do not Allow Code modify if used','')
+
+		INSERT INTO COM_CostCenterPreferences
+		SELECT @CCID,@CCID,@RID,'DontAllowCodemodify','False','False','','GUID','','ADMIN',CONVERT(FLOAT,GETDATE()),'ADMIN',CONVERT(FLOAT,GETDATE())
+	END
+
+	set @RID=@RID+1 
+ 
+	IF NOT EXISTS(SELECT Name FROM COM_CostCenterPreferences WITH(NOLOCK) WHERE CostCenterID=@CCID AND Name='DontAllowNamemodify')
+	BEGIN
+
+		INSERT INTO COM_LanguageResources (ResourceID, ResourceName, LanguageID, LanguageName, ResourceData,FEATURE)
+		VALUES (@RID, 'DontAllowNamemodify',
+1,'English','Do not Allow Name modify if used' ,'')
+	
+	    INSERT INTO COM_LanguageResources (ResourceID, ResourceName, LanguageID, LanguageName, ResourceData,FEATURE)
+		VALUES (@RID,'DontAllowNamemodify',
+2,'Arabic', 'Do not Allow Name modify if used','')
+
+		INSERT INTO COM_LanguageResources (ResourceID, ResourceName, LanguageID, LanguageName, ResourceData,FEATURE)
+		VALUES (@RID,'DontAllowNamemodify',
+3,'Italian', 'Do not Allow Name modify if used','')
+
+		INSERT INTO COM_CostCenterPreferences
+		SELECT @CCID,@CCID,@RID,'DontAllowNamemodify','False','False','','GUID','','ADMIN',CONVERT(FLOAT,GETDATE()),'ADMIN',CONVERT(FLOAT,GETDATE())
+	END		
+
+	SET @I=@I+1
+	END
+
+
