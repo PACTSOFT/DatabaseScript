@@ -1,0 +1,36 @@
+
+
+
+
+
+M	PactRevenUWebapi2.0/.vs/PactRevenUWebapi2.0/v15/.suo
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/CommonController.cs
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/DocumentController.cs
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/PactRequestTokenController.cs
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/ReportController.cs
+M	RevenUWeb/src/app/document/add-edit-document/AddEditDocumentViewModel.ts
+M	RevenUWeb/src/app/document/add-edit-document/VoucherGenerator.ts
+M	RevenUWeb/src/app/document/budget/BudgetCheck.ts
+M	RevenUWeb/src/app/document/doc-link/link/LinkDocument.ts
+M	RevenUWeb/src/app/document/gstposting/gstposting.component.html
+M	RevenUWeb/src/app/ess/add-edit-appraisal/add-edit-appraisal.component.html
+M	RevenUWeb/src/app/facility-management/Tickets/NewServiceRequest.component.html
+M	RevenUWeb/src/app/facility-management/Tickets/NewServiceRequest.component.scss
+M	RevenUWeb/src/app/facility-management/Tickets/NewServiceRequest.component.ts
+M	RevenUWeb/src/app/facility-management/Tickets/ServiceRequestDetails.component.html
+A	RevenUWeb/src/app/facility-management/Tickets/ServiceRequestDetails.component.scss
+M	RevenUWeb/src/app/facility-management/Tickets/ServiceRequestDetails.component.ts
+M	RevenUWeb/src/app/facility-management/Tickets/ServiceRequests.component.html
+M	RevenUWeb/src/app/facility-management/Tickets/ServiceRequests.component.ts
+M	RevenUWeb/src/app/facility-management/supervisor/SupervisorDashboard.component.html
+A	RevenUWeb/src/app/facility-management/supervisor/SupervisorDashboard.component.scss
+M	RevenUWeb/src/app/facility-management/supervisor/SupervisorDashboard.component.ts
+M	RevenUWeb/src/app/facility-management/technician/TechnicianDashboard.component.html
+A	RevenUWeb/src/app/facility-management/technician/TechnicianDashboard.component.scss
+M	RevenUWeb/src/app/facility-management/technician/TechnicianDashboard.component.ts
+M	RevenUWeb/src/app/reports/StaticReports/PAY_Reports.ts
+M	RevenUWeb/src/app/reports/report-view/IPrefetchFilter.ts
+M	RevenUWeb/src/app/reports/static-report-filter/ReportFilterDialog.ts
+M	RevenUWeb/src/app/services/api/document.service.ts
+M	RevenUWeb/src/app/services/session-manager.service.ts
+M	RevenUWeb/src/app/shared/controls/Fields/PactAttachment.component.ts

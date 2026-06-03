@@ -1,0 +1,20 @@
+
+--Wajid
+
+
+declare @Rid int
+select @Rid=MAX(ResourceID) from COM_LanguageResources 
+
+if not exists( select top 1 [Name]  from COM_CostCenterPreferences with(nolock) where [Name] ='Docusign' and FeatureID = 95)
+Begin
+	set @Rid=@Rid+1
+
+	INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid,'Docusign',1,'English','Docusign','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+	INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid,'Docusign',2,'Arabic','Docusign-AR','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+	insert into COM_CostCenterPreferences(CostCenterID,FeatureID,ResourceID,Name,Value,GUID,CreatedBy,CreatedDate,DefaultValue)
+	values(95,95,@Rid,'Docusign','False','guid','admin',22,'False')
+End

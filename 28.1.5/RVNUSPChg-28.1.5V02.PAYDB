@@ -1,0 +1,389 @@
+-- SHASHANK
+
+/****** Object:  StoredProcedure [dbo].[spPAY_RptGetDailyAttendanceCalendarStatic]    Script Date: 29-05-2026 14:52:40 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spPAY_RptGetDailyAttendanceCalendarStatic]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spPAY_RptGetDailyAttendanceCalendarStatic]
+GO
+/****** Object:  StoredProcedure [dbo].[spPAY_RptGetAttendanceCalendar]    Script Date: 29-05-2026 14:52:40 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spPAY_RptGetAttendanceCalendar]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spPAY_RptGetAttendanceCalendar]
+GO
+/****** Object:  StoredProcedure [dbo].[spPAY_RptGetAttendanceCalendar]    Script Date: 29-05-2026 14:52:40 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spPAY_RptGetAttendanceCalendar]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'CREATE procedure [dbo].[spPAY_RptGetAttendanceCalendar]
+(
+	@EmpWhere NVARCHAR(MAX)=NULL,
+	@FromDate DATETIME,
+	@ToDate DATETIME,
+	@CCWhere NVARCHAR(MAX)=NULL
+)
+AS
+SET NOCOUNT ON
+
+DECLARE @DT1 DATETIME,@DT2 DATETIME
+DECLARE @CNT INT,@I INT,@NODEID INT,@TDATYPE NVARCHAR(100),@StartTime NVARCHAR(100),@EndTime NVARCHAR(100),@TotMins float,@ActTotMins float
+DECLARE @TAB TABLE(ID INT IDENTITY(1,1) PRIMARY KEY,NODEID INT,CODE NVARCHAR(MAX),NAME NVARCHAR(MAX))
+DECLARE @TEMP TABLE(ID INT IDENTITY(1,1) PRIMARY KEY,NODEID INT,CODE NVARCHAR(MAX),NAME NVARCHAR(MAX),DADATE DATETIME,DATYPE NVARCHAR(MAX),StartTime NVARCHAR(100),EndTime NVARCHAR(100),IsWH nvarchar(100))
+
+SET @DT1=@FromDate
+SET @DT2=@ToDate
+
+DECLARE @S1 NVARCHAR(MAX)
+SET @S1=''''
+
+SET @S1=''
+
+SELECT C51.NODEID,C51.CODE,C51.NAME FROM 
+COM_CC50051 C51 WITH(NOLOCK) 
+LEFT JOIN COM_CCCCDATA CC WITH (NOLOCK) ON CC.NodeID=C51.NodeID AND CC.CostCenterID=50051
+WHERE C51.IsGroup=0 AND C51.NodeID>1 AND C51.StatusID NOT IN (251,300,301)
+AND (ISNULL(CONVERT(DATETIME,C51.DORelieve),''''01-JAN-1990'''')>=''''''+CONVERT(NVARCHAR,@ToDate)+'''''' OR CONVERT(DATETIME,C51.DORelieve) BETWEEN ''''''+CONVERT(NVARCHAR,@FromDate)+'''''' AND ''''''+CONVERT(NVARCHAR,@ToDate)+'''''' OR ISNULL(C51.DORelieve,'''''''')='''''''') ''
+
+IF(LEN(@EmpWhere)>0)
+SET @S1=@S1 +'' AND C51.NodeID IN('' +@EmpWhere+'') ''
+
+IF(LEN(@CCWhere)>0)
+SET @S1=@S1 +@CCWhere
+
+print @S1
+
+INSERT INTO @TAB
+EXEC sp_executesql @S1
+
+SELECT @CNT=COUNT(*) FROM @TAB
+SET @I=1
+
+SELECT DCALPHA1,DCALPHA3,DCCCNID51,dcAlpha2,dcAlpha4,ID.STATUSID,dcAlpha35,dcAlpha37,dcAlpha39,DATEDIFF(minute,''00:00:00'',cast(ccalpha20 as time))+DATEDIFF(minute,''00:00:00'',cast(ccalpha21 as time)) ActTotMins,case when isnull(dcAlpha5,'''')='''' then 0 else (FLOOR(cast(dcAlpha5 as float))*60)+ROUND((cast(dcAlpha5 as float)-FLOOR(cast(dcAlpha5 as float)))*100,0) end TotMins INTO #T1 
+FROM INV_DOCDETAILS ID WITH(NOLOCK)
+JOIN COM_DOCCCDATA CC WITH(NOLOCK) ON CC.INVDOCDETAILSID=ID.INVDOCDETAILSID 
+JOIN COM_DOCTEXTDATA TD WITH(NOLOCK) ON TD.INVDOCDETAILSID=ID.INVDOCDETAILSID
+JOIN COM_CC50073 sh WITH(NOLOCK) ON sh.NodeID=CC.dcCCNID73  
+WHERE td.tCostCenterID=40089 AND ID.STATUSID NOT IN (372,376) 
+AND cc.dcCCNID51 IN(Select NODEID FROM @TAB)
+
+SELECT  CONVERT(DATETIME,dcAlpha4) dcAlpha4,CONVERT(DATETIME,dcAlpha5) dcAlpha5,B.dcCCNID51,dcAlpha6 INTO #T2
+FROM INV_DocDetails a WITH(NOLOCK) 
+JOIN COM_DocCCData b WITH(NOLOCK) ON b.InvDocDetailsID=a.InvDocDetailsID
+JOIN COM_DocTextData d WITH(NOLOCK) ON d.InvDocDetailsID=a.InvDocDetailsID
+WHERE d.tDocumentType=62 and a.StatusID=369 AND LEN(dcAlpha4)=11 AND LEN(dcAlpha5)=11 
+AND ISDATE(ISNULL(dcAlpha4,''''))=1 AND ISDATE(ISNULL(dcAlpha5,''''))=1 
+AND b.dcCCNID51 IN(Select NODEID FROM @TAB)
+
+SELECT CONVERT(DATETIME,dcAlpha2) dcAlpha2,CONVERT(DATETIME,dcAlpha3) dcAlpha3,B.dcCCNID51 INTO #T3
+FROM INV_DocDetails a WITH(NOLOCK) 
+JOIN COM_DocCCData b WITH(NOLOCK) ON b.InvDocDetailsID=a.InvDocDetailsID
+JOIN COM_DocTextData d WITH(NOLOCK) ON d.InvDocDetailsID=a.InvDocDetailsID
+WHERE D.tCostCenterID=40072 and a.StatusID=369 AND LEN(dcAlpha2)=11 AND LEN(dcAlpha3)=11 
+AND ISDATE(ISNULL(dcAlpha2,''''))=1 AND ISDATE(ISNULL(dcAlpha3,''''))=1 
+AND b.dcCCNID51 IN(Select NODEID FROM @TAB)
+
+
+WHILE(@DT1<=@DT2)
+BEGIN
+
+SELECT @CNT=COUNT(*) FROM @TAB
+SET @I=1
+
+WHILE(@I<=@CNT)
+BEGIN
+
+SELECT @NODEID=NODEID FROM @TAB WHERE ID=@I
+
+INSERT INTO @TEMP
+SELECT NODEID,CODE,NAME,@DT1,'''','''','''',''false'' FROM @TAB WHERE ID=@I
+
+IF EXISTS( SELECT * FROM #T1  WITH(NOLOCK) WHERE DCCCNID51=@NODEID AND ISDATE(dcAlpha39)=1 AND CONVERT(DATETIME,dcAlpha39)=CONVERT(DATETIME,@DT1))
+BEGIN
+	SET @StartTime=''''
+	SET @EndTime=''''
+
+	SELECT @StartTime=SUBSTRING(CONVERT(VARCHAR(8), CONVERT(DATETIME,dcAlpha2), 108),1,5),@EndTime=SUBSTRING(CONVERT(VARCHAR(8), CONVERT(DATETIME,dcAlpha4), 108),1,5),@ActTotMins=ActTotMins,@TotMins=TotMins FROM #T1		WHERE DCCCNID51=@NODEID AND ISDATE(dcAlpha39)=1 AND CONVERT(DATETIME,dcAlpha39)=CONVERT(DATETIME,@DT1)
+
+	IF EXISTS(SELECT * FROM #T1 WITH(NOLOCK) WHERE DCCCNID51=@NODEID AND ISNULL(DCALPHA1,'''')<>'''' AND ISNULL(DCALPHA3,'''')<>'''' AND
+	 ISDATE(dcAlpha39)=1 AND CONVERT(DATETIME,dcAlpha39)=CONVERT(DATETIME,@DT1) AND @StartTime!=@EndTime AND STATUSID=369)
+	BEGIN
+		UPDATE @TEMP SET DATYPE=''P'',StartTime=@StartTime,EndTime=@EndTime,IsWH=case when @TotMins<@ActTotMins then ''true'' else ''false'' end WHERE NODEID=@NODEID AND DADATE=@DT1
+	END
+	ELSE IF EXISTS(SELECT * FROM #T1 WITH(NOLOCK) WHERE DCCCNID51=@NODEID AND ISNULL(DCALPHA1,'''')<>'''' AND ISNULL(DCALPHA3,'''')<>'''' AND
+	 ISDATE(dcAlpha39)=1 AND CONVERT(DATETIME,dcAlpha39)=CONVERT(DATETIME,@DT1) AND STATUSID=371 AND (ISNULL(dcAlpha35,'''')<>'''' OR ISNULL(dcAlpha37,'''')<>'''') )
+	BEGIN
+		UPDATE @TEMP SET DATYPE=''R'',StartTime=@StartTime,EndTime=@EndTime WHERE NODEID=@NODEID AND DADATE=@DT1
+	END
+	ELSE IF EXISTS(SELECT * FROM #T1 WITH(NOLOCK) WHERE DCCCNID51=@NODEID AND  ISDATE(dcAlpha39)=1 AND CONVERT(DATETIME,dcAlpha39)=CONVERT(DATETIME,@DT1) AND
+	((ISNULL(DCALPHA1,'''')<>'''')
+	OR
+	(ISNULL(DCALPHA3,'''')<>'''')
+	) AND STATUSID=369)
+	BEGIN
+		UPDATE @TEMP SET DATYPE=''S'',StartTime=@StartTime,EndTime=@EndTime WHERE NODEID=@NODEID AND DADATE=@DT1
+	END
+	ELSE
+	BEGIN
+		UPDATE @TEMP SET DATYPE=''A'' WHERE NODEID=@NODEID AND DADATE=@DT1
+	END
+
+	IF EXISTS(  SELECT * FROM #T2 WITH(NOLOCK) WHERE dcCCNID51=@NODEID AND @DT1 BETWEEN CONVERT(DATETIME,dcAlpha4)AND CONVERT(DATETIME,dcAlpha5))
+	BEGIN
+		UPDATE @TEMP SET DATYPE=DATYPE +''/'' + ''L'' WHERE NODEID=@NODEID AND DADATE=@DT1
+	END
+END
+ELSE IF EXISTS(  SELECT * FROM #T2 WITH(NOLOCK) WHERE dcCCNID51=@NODEID AND @DT1 BETWEEN CONVERT(DATETIME,dcAlpha4)AND CONVERT(DATETIME,dcAlpha5))
+BEGIN
+	IF EXISTS( SELECT * FROM #T2 WHERE dcCCNID51=@NODEID AND @DT1 BETWEEN CONVERT(DATETIME,dcAlpha4)AND CONVERT(DATETIME,dcAlpha5) AND dcAlpha6<>''Both'')
+		UPDATE @TEMP SET DATYPE=''L/A'' WHERE NODEID=@NODEID AND DADATE=@DT1
+	ELSE
+		UPDATE @TEMP SET DATYPE=''L'' WHERE NODEID=@NODEID AND DADATE=@DT1
+END
+ELSE IF EXISTS(  SELECT * FROM #T3 WITH(NOLOCK) WHERE dcCCNID51=@NODEID AND @DT1 BETWEEN CONVERT(DATETIME,dcAlpha2) AND CONVERT(DATETIME,dcAlpha3))
+BEGIN
+	UPDATE @TEMP SET DATYPE=''V'' WHERE NODEID=@NODEID AND DADATE=@DT1
+END
+ELSE
+BEGIN
+	EXEC spPAY_GetWeeklyOffHoliDay @DT1,@NODEID,1,1,@TDATYPE OUTPUT
+
+	IF(ISNULL(@TDATYPE,'''')<>'''')
+		UPDATE @TEMP SET DATYPE=@TDATYPE WHERE NODEID=@NODEID AND DADATE=@DT1
+	ELSE IF(@DT1<=GETDATE())
+		UPDATE @TEMP SET DATYPE=''A'' WHERE NODEID=@NODEID AND DADATE=@DT1
+END
+
+SET @I=@I+1
+END
+
+SET @DT1=DATEADD(D,1,@DT1)
+END
+
+SELECT CODE,NAME,DADATE as AttDate,DATYPE AS AttType,StartTime,EndTime,IsWH FROM @TEMP
+
+DROP TABLE #T1
+DROP TABLE #T2
+DROP TABLE #T3
+
+SET NOCOUNT OFF
+
+' 
+END
+GO
+/****** Object:  StoredProcedure [dbo].[spPAY_RptGetDailyAttendanceCalendarStatic]    Script Date: 29-05-2026 14:52:40 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spPAY_RptGetDailyAttendanceCalendarStatic]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'CREATE procedure [dbo].[spPAY_RptGetDailyAttendanceCalendarStatic]
+(
+	@EmpWhere NVARCHAR(MAX)=NULL,
+	@FromDate DATETIME,
+	@ToDate DATETIME,
+	@CCWhere NVARCHAR(MAX)=NULL,
+	@Include NVARCHAR(500)
+)
+AS
+SET NOCOUNT ON
+
+DECLARE @DT1 DATETIME,@DT2 DATETIME,@IsGradeWiseMP  Varchar(5),@GradewiseVacationPref Varchar(5)
+DECLARE @CNT INT,@I INT,@NODEID INT,@TDATYPE NVARCHAR(100),@StartTime NVARCHAR(100),@EndTime NVARCHAR(100),@OT1 FLOAT,@OT2 FLOAT,@OT3 FLOAT,@OT4 FLOAT,@OT5 FLOAT
+CREATE TABLE #TAB (ID INT IDENTITY(1,1) PRIMARY KEY,EmpSeqNo INT,Code NVARCHAR(MAX),Name NVARCHAR(MAX))
+CREATE TABLE #PayrollStructure(ComponentName NVARCHAR(1000),GradeID BIGINT,CPayrollDate DATETIME,ComponentID BIGINT,IncludeRExclude NVARCHAR(500))
+DECLARE @SysColName NVARCHAR(100),@FType NVARCHAR(100),@AsOnDate DATETIME,@SQL nvarchar(max),@EmpIDs nvarchar(max),@DonotallowAttendancebasedon BIGINT,@STRDonotallowAttendancebasedon NVARCHAR(500)
+
+SELECT @DonotallowAttendancebasedon=Value FROM ADM_GlobalPreferences WITH(NOLOCK) WHERE Name =''DonotallowAttendancebasedon''
+SELECT @IsGradeWiseMP=ISNULL(VALUE,''False'') FROM ADM_GlobalPreferences WITH(NOLOCK) WHERE Name=''GradeWiseMonthlyPayroll''
+SELECT @GradewiseVacationPref=ISNULL(VALUE,''False'') FROM ADM_GlobalPreferences WITH(NOLOCK) WHERE NAME=''GradeWiseVacation''
+
+SET @STRDonotallowAttendancebasedon=''''
+IF(ISNULL(@DonotallowAttendancebasedon,0)>0)
+BEGIN
+SET  @STRDonotallowAttendancebasedon=''dcCCNID''+CONVERT(VARCHAR,@DonotallowAttendancebasedon-50000)
+END
+
+SET @DT1=@FromDate
+SET @DT2=@ToDate
+
+DECLARE @S1 NVARCHAR(MAX)
+SET @S1=''''
+
+SET @S1=''
+
+SELECT C51.NODEID,C51.CODE,C51.NAME FROM 
+COM_CC50051 C51 WITH(NOLOCK) 
+LEFT JOIN COM_CCCCDATA CC WITH (NOLOCK) ON CC.NodeID=C51.NodeID AND CC.CostCenterID=50051
+WHERE C51.IsGroup=0 AND C51.NodeID>1 AND C51.StatusID NOT IN (251,300,301)
+AND (ISNULL(CONVERT(DATETIME,C51.DORelieve),''''01-JAN-1990'''')>=''''''+CONVERT(NVARCHAR,@ToDate)+'''''' OR CONVERT(DATETIME,C51.DORelieve) BETWEEN ''''''+CONVERT(NVARCHAR,@FromDate)+'''''' AND ''''''+CONVERT(NVARCHAR,@ToDate)+'''''' OR ISNULL(C51.DORelieve,'''''''')='''''''') ''
+
+IF(LEN(@EmpWhere)>0)
+SET @S1=@S1 +'' AND C51.NodeID IN('' +@EmpWhere+'') ''
+
+IF(LEN(@CCWhere)>0)
+SET @S1=@S1 +@CCWhere
+
+print @S1
+
+INSERT INTO #TAB
+EXEC sp_executesql @S1
+
+SELECT * FROM #TAB WITH(NOLOCK)
+
+SET @SQL=''''
+SET @SQL=''
+SELECT CONVERT(DATETIME,DCALPHA1) DailyPayrollDate,SUBSTRING(CONVERT(VARCHAR(8), CONVERT(DATETIME,dcAlpha2), 108),1,5) StartTime,SUBSTRING(CONVERT(VARCHAR(8), CONVERT(DATETIME,dcAlpha3), 108),1,5) EndTime,DCCCNID51 EmpSeqNo,N.dcNum1 TotalHours,n.dcNum5 OT1,n.dcNum7 OT2,n.dcNum9 OT3,n.dcNum11 OT4,n.dcNum13 OT5,dcAlpha15 DADayType,(FLOOR(N.dcNum1)*60)+ROUND((N.dcNum1-FLOOR(N.dcNum1))*100,0) TotMins,DATEDIFF(minute,''''00:00:00'''',cast(ccalpha20 as time))+DATEDIFF(minute,''''00:00:00'''',cast(ccalpha21 as time)) ActTotMins''
+
+IF(@STRDonotallowAttendancebasedon IS NOT NULL AND LEN(@STRDonotallowAttendancebasedon)>0)
+	SET @SQL=@SQL+'',''+@STRDonotallowAttendancebasedon
+
+SET @SQL = @SQL + '' FROM INV_DOCDETAILS ID  WITH(NOLOCK) 
+JOIN COM_DOCCCDATA CC  WITH(NOLOCK) ON CC.INVDOCDETAILSID=ID.INVDOCDETAILSID 
+JOIN COM_DOCTEXTDATA TD  WITH(NOLOCK) ON TD.INVDOCDETAILSID=ID.INVDOCDETAILSID  
+JOIN COM_DOCNUMDATA N  WITH(NOLOCK) ON N.INVDOCDETAILSID=ID.INVDOCDETAILSID 
+JOIN COM_CC50073 sh WITH(NOLOCK) ON sh.NodeID=CC.dcCCNID73
+WHERE TD.tDocumentType=67 AND ID.STATUSID NOT IN (372,376)  AND CC.dcCCNID51 IN (SELECT EmpSeqNo FROM #TAB)
+AND CONVERT(DATETIME,DCALPHA1) BETWEEN ''''''+ CONVERT(NVARCHAR,@FromDate) +'''''' AND ''''''+ CONVERT(NVARCHAR,@ToDate) + ''''''''
+
+PRINT @SQL
+EXEC sp_executesql @SQL
+
+SET @SQL=''	
+		INSERT INTO #PayrollStructure
+	SELECT b.Name as ComponentName,a.GradeID,CONVERT(DATETIME,a.PayrollDate) as CPayrollDate,A.ComponentID,A.IncludeRExclude FROM COM_CC50054 a WITH(NOLOCK) 
+	Left Join COM_CC50052 b WITH(NOLOCK) on b.NodeID=a.ComponentID
+	WHERE TYPE=4 AND  GradeID IN(SELECT  DISTINCT HistoryNodeID FROM COM_HistoryDetails WITH(NOLOCK) 
+									WHERE CostCenterID=50051 AND HistoryCCID=50053   
+									AND (CONVERT(DATETIME,FromDate)<=CONVERT(DATETIME,''''''+CONVERT(NVARCHAR,@FromDate)+'''''') OR CONVERT(DATETIME,FromDate) BETWEEN CONVERT(DATETIME,''''''+CONVERT(NVARCHAR,@FromDate)+'''''') AND CONVERT(DATETIME,''''''+CONVERT(NVARCHAR,@ToDate)+'''''')) 
+									AND (CONVERT(DATETIME,ToDate)>=CONVERT(DATETIME,''''''+CONVERT(NVARCHAR,@FromDate)+'''''') OR ToDate IS NULL))
+	and PayrollDate=(SELECT MAX(PAYROLLDATE) FROM COM_CC50054  WITH(NOLOCK) WHERE CONVERT(DATETIME,PAYROLLDATE)<=CONVERT(DATETIME,''''''+CONVERT(NVARCHAR,@FromDate)+'''''') 
+					AND GradeID IN(	SELECT  DISTINCT HistoryNodeID FROM COM_HistoryDetails WITH(NOLOCK) 
+									WHERE CostCenterID=50051 AND HistoryCCID=50053   
+									AND (CONVERT(DATETIME,FromDate)<=CONVERT(DATETIME,''''''+CONVERT(NVARCHAR,@FromDate)+'''''') OR CONVERT(DATETIME,FromDate) BETWEEN CONVERT(DATETIME,''''''+CONVERT(NVARCHAR,@FromDate)+'''''') AND CONVERT(DATETIME,''''''+CONVERT(NVARCHAR,@ToDate)+'''''')) 
+									AND (CONVERT(DATETIME,ToDate)>=CONVERT(DATETIME,''''''+CONVERT(NVARCHAR,@FromDate)+'''''') OR ToDate IS NULL))
+								  ) 
+				   ORDER BY GradeID,Type,SNo  ''
+				
+print @SQL
+EXEC(@SQL)
+
+IF(ISNULL(@Include,'''')<>'''' AND @Include LIKE ''%Leaves%'')
+BEGIN
+	SET @SQL=''SELECT  CONVERT(DATETIME,dcAlpha4) FromDate,CONVERT(DATETIME,dcAlpha5) ToDate,B.dcCCNID51 EmpSeqNo,dcAlpha6 Session ''
+
+	IF (@IsGradeWiseMP=''True'')
+	SET @SQL=@SQL+'',(select MAX(IncludeRExclude) from #PayrollStructure with(nolock) where ComponentID=B.dcCCNID52 and GradeID=DCC.CCNID53) IncludeRExclude''
+ELSE
+	SET @SQL=@SQL+'',(select MAX(IncludeRExclude) from #PayrollStructure with(nolock) where ComponentID=B.dcCCNID52 and GradeID=1) IncludeRExclude''
+
+	SET @SQL=@SQL+'' FROM INV_DocDetails a WITH(NOLOCK) 
+	JOIN COM_DocCCData b WITH(NOLOCK) ON b.InvDocDetailsID=a.InvDocDetailsID
+	JOIN COM_DocTextData d WITH(NOLOCK) ON d.InvDocDetailsID=a.InvDocDetailsID
+	JOIN COM_CC50051 C51 WITH(NOLOCK) ON b.DCCCNID51=C51.NODEID 
+JOIN COM_CCCCDATA DCC WITH (NOLOCK) ON DCC.NodeID=C51.NodeID AND DCC.CostCenterID=50051
+	WHERE D.tDocumentType=62 and a.StatusID=369 AND LEN(dcAlpha4)=11 AND LEN(dcAlpha5)=11 AND ISDATE(ISNULL(dcAlpha4,''''))=1 AND ISDATE(ISNULL(dcAlpha5,''''))=1 
+	AND B.dcCCNID51 IN (SELECT EmpSeqNo FROM #TAB)''
+	EXEC(@SQL)
+END
+ELSE
+	SELECT ''NODATA''
+
+IF(ISNULL(@Include,'''')<>'''' AND @Include LIKE ''%Vacation%'')
+BEGIN
+	SET @SQL=''SELECT CONVERT(DATETIME,dcAlpha2) FromDate,CONVERT(DATETIME,dcAlpha3) ToDate,B.dcCCNID51 EmpSeqNo,CONVERT(DATETIME,ISNULL(d.dcAlpha1,''''Jan 1 1900 12:00AM'''')) as ReJoinDate''
+	
+IF (@GRADEWISEVACATIONPREF=''True'')
+	SET @SQL=@SQL+'',(select MAX(IncludeRExclude) from #PayrollStructure with(nolock) where ComponentID=B.dcCCNID52 and GradeID=DCC.CCNID53) IncludeRExclude''
+ELSE
+	SET @SQL=@SQL+'',(select MAX(IncludeRExclude) from #PayrollStructure with(nolock) where ComponentID=B.dcCCNID52 and GradeID=1) IncludeRExclude''
+
+	SET @SQL=@SQL+'' FROM INV_DocDetails a WITH(NOLOCK) 
+	JOIN COM_DocCCData b WITH(NOLOCK) ON b.InvDocDetailsID=a.InvDocDetailsID
+	JOIN COM_DocTextData d WITH(NOLOCK) ON d.InvDocDetailsID=a.InvDocDetailsID
+	JOIN COM_CC50051 C51 WITH(NOLOCK) ON b.DCCCNID51=C51.NODEID 
+	JOIN COM_CCCCDATA DCC WITH (NOLOCK) ON DCC.NodeID=C51.NodeID AND DCC.CostCenterID=50051
+	WHERE D.tCostCenterID=40072 and a.StatusID=369 AND LEN(dcAlpha2)=11 AND LEN(dcAlpha3)=11 AND ISDATE(ISNULL(dcAlpha2,''''))=1 AND ISDATE(ISNULL(dcAlpha3,''''))=1 
+	AND B.dcCCNID51 IN (SELECT EmpSeqNo FROM #TAB)''
+	EXEC(@SQL)
+END
+ELSE
+	SELECT ''NODATA''
+
+IF(ISNULL(@Include,'''')<>'''' AND @Include LIKE ''%Weekoff%'')
+BEGIN
+	SELECT CONVERT(DATETIME,a.DueDate) as WEFDate,a.DocID as DocID,
+	dcAlpha2 as Week1_W1,dcAlpha3 as Week1_W2,dcAlpha4 as Week2_W1,dcAlpha5 as Week2_W2,dcAlpha6 as Week3_W1,dcAlpha7 as Week3_W2,dcAlpha8 as Week4_W1,dcAlpha9 as Week4_W2,dcAlpha10 as Week5_W1,dcAlpha11 as Week5_W2,b.*
+	FROM INV_DocDetails a WITH(NOLOCK) 
+	JOIN COM_DocCCData b WITH(NOLOCK) ON b.InvDocDetailsID=a.InvDocDetailsID
+	JOIN COM_DocTextData d WITH(NOLOCK) ON d.InvDocDetailsID=a.InvDocDetailsID
+	WHERE d.tCostCenterID=40053 and a.StatusID=369
+	AND ISNULL(dcAlpha1,'''')=''No''
+	ORDER BY CONVERT(DATETIME,a.DueDate) DESC,a.DocID DESC 
+END
+ELSE
+	SELECT ''NODATA''
+
+IF(ISNULL(@Include,'''')<>'''' AND @Include LIKE ''%Holiday%'')
+BEGIN
+	SELECT a.InvDocDetailsID,a.DocID,a.CostCenterID,a.DocumentType,a.VoucherNo,
+	CONVERT(DATETIME,dcAlpha1) as HolidayDate,d.dcAlpha2 as HolidayName,b.*
+	FROM INV_DocDetails a WITH(NOLOCK) 
+	JOIN COM_DocCCData b WITH(NOLOCK) ON b.InvDocDetailsID=a.InvDocDetailsID
+	JOIN COM_DocTextData d WITH(NOLOCK) ON d.InvDocDetailsID=a.InvDocDetailsID
+	WHERE d.tCostCenterID=40051 and a.StatusID=369 AND ISDATE(dcAlpha1)=1 
+END
+ELSE
+	SELECT ''NODATA''
+
+SELECT @EmpIDs=STUFF((SELECT '',''+ convert(nvarchar,EmpSeqNo) FROM #TAB FOR XML PATH('''')),1,1,'''') 
+
+	SET @AsOnDate=@ToDate
+	SET @SQL=''SELECT a.NodeID as dcCCNID51,'''''''' PayrollType ''
+
+	DECLARE CUR CURSOR FOR 
+	Select SysColumnName,
+	Case When (ISNULL(UserProbableValues,'''')=''H'' OR ISNULL(UserProbableValues,'''')=''History'' OR ISNULL(UserProbableValues,'''')=''HP2'') THEN ''HISTORY'' ELSE ''LISTBOX'' END
+	From ADM_CostCenterDef WITH(NOLOCK) Where CostCenterID=50051 and SysColumnName Like ''CCNID%'' and IsColumnInUse=1
+	OPEN CUR
+	FETCH NEXT FROM CUR INTO @SysColName,@FType
+	WHILE @@FETCH_STATUS=0
+	BEGIN
+		IF(LEN(@SQL)>0)
+			SET @SQL=@SQL+'',''
+	
+		IF(@FType=''HISTORY'')
+		BEGIN
+			SET @SQL=@SQL+''
+							ISNULL((SELECT TOP 1 HistoryNodeID FROM COM_HistoryDetails WITH(NOLOCK) 
+							Where CostCenterID=50051 AND NodeID=a.NodeID AND HistoryCCID=''+ CONVERT(NVARCHAR,(50000+ CONVERT(INT,(REPLACE(@SysColName,''CCNID'',''''))))) +'' 
+							AND CONVERT(DATETIME,FromDate)<=CONVERT(DATETIME,''''''+CONVERT(NVARCHAR,@AsOnDate,106)+'''''') 
+							ORDER BY FromDate DESC ),1) as ''+ ''dc''+@SysColName
+		END
+		ELSE
+		BEGIN
+			SET @SQL=@SQL+ ''
+							ISNULL((Select TOP 1 ''+@SysColName+'' FROM COM_CCCCDATA WITH(NOLOCK) WHERE CostCenterID=50051 AND NodeID=a.NodeID Order By ModifiedDate DESC ),1) as ''+ ''dc''+@SysColName 
+		END
+
+	FETCH NEXT FROM CUR INTO @SysColName,@FType
+	END
+	CLOSE CUR
+	DEALLOCATE CUR
+
+	SET @SQL =@SQL+''
+	FROM COM_CC50051 a WITH(NOLOCK)
+	WHERE a.IsGroup=0
+	AND a.NodeID IN(''+@EmpIDs+'')''
+
+	PRINT @SQL
+	EXEC sp_executesql @SQL
+
+DROP TABLE #TAB
+drop table #PayrollStructure
+SET NOCOUNT OFF
+
+
+' 
+END
+GO
