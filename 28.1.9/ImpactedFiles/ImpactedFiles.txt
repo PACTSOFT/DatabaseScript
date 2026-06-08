@@ -1,0 +1,30 @@
+
+
+
+
+
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/RentalController.cs
+M	RevenUWeb/src/app/accounting/add-edit-account/AddEditAccountViewModel.ts
+M	RevenUWeb/src/app/document/add-edit-document/AddEditDocumentViewModel.ts
+M	RevenUWeb/src/app/document/add-edit-document/VoucherGenerator.ts
+M	RevenUWeb/src/app/document/batch-number/BatchNumberViewModel.ts
+M	RevenUWeb/src/app/document/doc-link/link/LinkDocument.ts
+M	RevenUWeb/src/app/facility-management/Tickets/NewServiceRequest.component.ts
+M	RevenUWeb/src/app/property/contract/AddEditRenContractViewModel.ts
+M	RevenUWeb/src/app/reports/report-view/ReportViewModel.ts
+M	RevenUWeb/src/app/services/api/rental.service.ts
+M	RevenUWeb/src/app/services/session-manager.service.ts
+M	RevenUWeb/src/app/shared/controls/Fields/PListView.component.ts
+A	RevenUWeb/src/app/shared/controls/Fields/PactTextBoxWithCombo.component.ts
+M	RevenUWeb/src/app/shared/controls/tree/TreeViewModelNew.ts
+M	RevenUWeb/src/app/shared/directives/field.directive.ts
+M	RevenUWeb/src/app/shared/models/ControlGenerator.ts
+M	RevenUWeb/src/app/shared/shared.module.ts
+M	RevenUWebWhiteTheme/src/app/common/favorites/favorites.component.html
+M	RevenUWebWhiteTheme/src/app/common/favorites/favorites.component.ts
+M	RevenUWebWhiteTheme/src/app/facility-management/Tickets/NewServiceRequest.component.ts
+M	RevenUWebWhiteTheme/src/app/property/generate-cheque/GenerateChequeViewModel.ts
+M	RevenUWebWhiteTheme/src/app/property/generate-cheque/generate-cheque.component.html
+M	RevenUWebWhiteTheme/src/app/reports/report-view/ReportViewModel.ts
+M	RevenUWebWhiteTheme/src/app/shared/models/ControlGenerator.ts
+M	RevenUWebWhiteTheme/src/assets/config.json
