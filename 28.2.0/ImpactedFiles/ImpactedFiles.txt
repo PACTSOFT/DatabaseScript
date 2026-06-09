@@ -1,0 +1,31 @@
+
+
+
+
+
+M	RevenUWeb/node_modules/xlsx/xlsx.mjs
+M	RevenUWeb/src/app/document/add-edit-document/AddEditDocumentViewModel.ts
+M	RevenUWeb/src/app/document/add-edit-document/add-edit-document.component.ts
+M	RevenUWeb/src/app/document/add-edit-document/document.component.html
+M	RevenUWeb/src/app/property/contract/AddEditRenContractViewModel.ts
+M	RevenUWeb/src/app/reports/report-view/ReportViewModel.ts
+M	RevenUWeb/src/app/services/session-manager.service.ts
+M	RevenUWeb/src/app/shared/controls/Fields/PListView.component.html
+M	RevenUWeb/src/app/shared/directives/field.directive.ts
+M	RevenUWebWhiteTheme/src/app/accounting/add-edit-account/AddEditAccountViewModel.ts
+M	RevenUWebWhiteTheme/src/app/dashboard/dbview/DBViewViewModel.ts
+M	RevenUWebWhiteTheme/src/app/document/add-edit-document/AddEditDocumentViewModel.ts
+M	RevenUWebWhiteTheme/src/app/document/add-edit-document/VoucherGenerator.ts
+M	RevenUWebWhiteTheme/src/app/document/add-edit-document/add-edit-document.component.ts
+M	RevenUWebWhiteTheme/src/app/document/batch-number/BatchNumberViewModel.ts
+M	RevenUWebWhiteTheme/src/app/document/doc-link/link/LinkDocument.ts
+M	RevenUWebWhiteTheme/src/app/property/contract/AddEditRenContractViewModel.ts
+M	RevenUWebWhiteTheme/src/app/property/master-tabs/property-deposits/PropertyDepositsViewModel.ts
+M	RevenUWebWhiteTheme/src/app/reports/report-view/ReportViewModel.ts
+M	RevenUWebWhiteTheme/src/app/services/api/rental.service.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/Fields/PListView.component.ts
+A	RevenUWebWhiteTheme/src/app/shared/controls/Fields/PactTextBoxWithCombo.component.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/tree/TreeViewModelNew.ts
+M	RevenUWebWhiteTheme/src/app/shared/directives/field.directive.ts
+M	RevenUWebWhiteTheme/src/app/shared/models/ControlGenerator.ts
+M	RevenUWebWhiteTheme/src/app/shared/shared.module.ts
