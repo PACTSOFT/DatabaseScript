@@ -1,0 +1,13 @@
+--waseem
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('CRM_LEADS') AND name = 'IsClosedWF')
+BEGIN
+    ALTER TABLE CRM_LEADS ADD IsClosedWF INT default(0)
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('CRM_LEADSHistory') AND name = 'IsClosedWF')
+BEGIN
+    ALTER TABLE CRM_LEADSHistory ADD IsClosedWF INT default(0)
+END;
+
+
+

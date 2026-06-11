@@ -1,0 +1,26 @@
+
+
+
+
+
+M	RevenUWeb/src/app/dashboard/Payroll-Widget/payroll-widget.component.html
+M	RevenUWeb/src/app/dashboard/Payroll-Widget/payroll-widget.component.ts
+M	RevenUWeb/src/app/document/add-edit-document/AddEditDocumentViewModel.ts
+M	RevenUWeb/src/app/document/add-edit-document/VoucherGenerator.ts
+M	RevenUWeb/src/app/document/mobile-add-line/MobileAddLine.ts
+M	RevenUWeb/src/app/document/mobile-add-line/mobile-add-line.component.html
+M	RevenUWeb/src/app/document/post-document/PostDocumentViewModel.ts
+M	RevenUWeb/src/app/facility-management/Tenant/TenantDashboard.component.html
+M	RevenUWeb/src/app/facility-management/Tenant/TenantDashboard.component.ts
+M	RevenUWeb/src/app/facility-management/Tickets/ServiceRequestDetails.component.html
+M	RevenUWeb/src/app/pages/home/RibbonExtRental.ts
+A	RevenUWeb/src/app/property/bulk-contract-ext/BulkContExtrViewModel.ts
+A	RevenUWeb/src/app/property/bulk-contract-ext/bulk-contract-ext.component.html
+A	RevenUWeb/src/app/property/bulk-contract-ext/bulk-contract-ext.component.ts
+M	RevenUWeb/src/app/property/property.module.ts
+M	RevenUWeb/src/app/reports/add-edit-filter-field/AddEditFilterFieldViewModel.ts
+M	RevenUWeb/src/app/reports/add-edit-filter-field/add-edit-filter-field.component.html
+M	RevenUWeb/src/app/reports/static-report-filter/StaticReportFilterViewModel.ts
+M	RevenUWeb/src/app/reports/static-report-filter/static-filter.component.html
+M	RevenUWeb/src/app/services/api/rental.service.ts
+M	RevenUWeb/src/app/services/session-manager.service.ts
