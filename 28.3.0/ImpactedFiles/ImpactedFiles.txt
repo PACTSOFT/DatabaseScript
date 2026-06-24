@@ -1,0 +1,47 @@
+
+
+
+
+
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/CommonController.cs
+M	PactRevenUWebapi2.0/PactRevenUWebapi2.0/Controllers/DocumentController.cs
+M	RevenUWeb/src/app/common/addeditcurrency/AddCurrencyViewModel.ts
+M	RevenUWeb/src/app/document/add-edit-document/AddEditDocumentViewModel.ts
+M	RevenUWeb/src/app/document/add-edit-document/VoucherGenerator.ts
+M	RevenUWeb/src/app/document/gstposting/GSTPostingViewModel.ts
+M	RevenUWeb/src/app/document/product-search-catalog/ProductSearchCatalogViewModel.ts
+M	RevenUWeb/src/app/inventory/add-product/AddProductScreenViewModel.ts
+M	RevenUWeb/src/app/production/multi-bomadd-edit/MultiBOMAddEditViewModel.ts
+M	RevenUWeb/src/app/property/contract/AddEditRenContractViewModel.ts
+M	RevenUWeb/src/app/reports/add-edit-filter-field/add-edit-filter-field.component.html
+M	RevenUWeb/src/app/reports/add-edit-filter/AddEditFilterViewModel.ts
+M	RevenUWeb/src/app/reports/report-view/ReportViewModel.ts
+M	RevenUWeb/src/app/services/api/document.service.ts
+M	RevenUWeb/src/app/services/api/reports.service.ts
+M	RevenUWeb/src/app/services/session-manager.service.ts
+A	RevenUWebWhiteTheme/src/app/CostCenters/activate-costcenter/ActivateCostCenterViewModel.ts
+A	RevenUWebWhiteTheme/src/app/CostCenters/activate-costcenter/activate-costcenter.component.html
+A	RevenUWebWhiteTheme/src/app/CostCenters/activate-costcenter/activate-costcenter.component.ts
+M	RevenUWebWhiteTheme/src/app/CostCenters/quick-add-costcenter/QuickAddCostCenterViewModel.ts
+M	RevenUWebWhiteTheme/src/app/assetmanagement/view-transaction-history/ViewTransactionHistory.ts
+M	RevenUWebWhiteTheme/src/app/common/addeditcurrency/AddCurrencyViewModel.ts
+M	RevenUWebWhiteTheme/src/app/common/favorites/FavoritesViewModel.ts
+M	RevenUWebWhiteTheme/src/app/common/pactcommon.module.ts
+M	RevenUWebWhiteTheme/src/app/common/tree-view-page/tree-view-page.component.ts
+M	RevenUWebWhiteTheme/src/app/crm/add-edit-lead/AddEditLeads.ts
+M	RevenUWebWhiteTheme/src/app/document/add-edit-document/AddEditDocumentViewModel.ts
+M	RevenUWebWhiteTheme/src/app/document/add-edit-document/VoucherGenerator.ts
+M	RevenUWebWhiteTheme/src/app/document/gstposting/GSTPostingViewModel.ts
+M	RevenUWebWhiteTheme/src/app/document/product-search-catalog/ProductSearchCatalogViewModel.ts
+M	RevenUWebWhiteTheme/src/app/ess/add-edit-appraisal/AddEditAppraisalViewModel.ts
+M	RevenUWebWhiteTheme/src/app/inventory/add-product/AddProductScreenViewModel.ts
+M	RevenUWebWhiteTheme/src/app/pages/home/RibbonExtViewModel.ts
+M	RevenUWebWhiteTheme/src/app/production/multi-bomadd-edit/MultiBOMAddEditViewModel.ts
+M	RevenUWebWhiteTheme/src/app/reports/add-edit-filter/AddEditFilterViewModel.ts
+M	RevenUWebWhiteTheme/src/app/reports/report-view/ReportViewModel.ts
+M	RevenUWebWhiteTheme/src/app/services/api/common.service.ts
+M	RevenUWebWhiteTheme/src/app/services/api/document.service.ts
+M	RevenUWebWhiteTheme/src/app/services/api/reports.service.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/PactGridView/PactGridView.component.ts
+M	RevenUWebWhiteTheme/src/app/shared/controls/master-tabs/activity/ActivitiesViewModel.ts
+M	RevenUWebWhiteTheme/src/scss/PACTUI/common.scss

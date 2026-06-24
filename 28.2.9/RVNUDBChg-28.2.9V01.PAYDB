@@ -1,0 +1,14 @@
+-- SHASHANK
+
+declare @RId BIGINT
+SELECT @RId=MAX([ResourceID])+1 FROM [Com_LanguageResources] 
+
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@RId,'DefaultNextAppraisalDays',1,'English','Default Next Appraisal Days','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@RId,'DefaultNextAppraisalDays',2,'Arabic','Default Next Appraisal Days-AR','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+Insert into ADM_GlobalPreferences(ResourceID, Name, Value, DefaultValue, GUID, Description, CreatedBy, CreatedDate, ModifiedBy, ModifiedDate, PreferenceTypeName, PrefRowOrder, PrefColOrder, PrefValueType, Version)
+SELECT @RID,'DefaultNextAppraisalDays','0','0','GUID','DESC','ADMIN',44832,'ADMIN',44832,'Payroll',84,0,NULL,NULL
