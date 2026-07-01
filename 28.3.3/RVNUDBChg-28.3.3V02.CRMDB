@@ -1,0 +1,30 @@
+--Wajid
+
+declare @Rid INT,@I INT=1,@Cnt INT,@CostCenterID BIGINT
+DECLARE @TAB TABLE(ID INT IDENTITY(1,1),CostCenterID BIGINT)
+INSERT INTO @TAB
+SELECT FeatureID FROM ADM_Features WITH(NOLOCK) Where  FeatureID IN (73,83,86,89)-- 73 Cases -  83 CRM Customer -- 86 Leads -- 89 Opportunity
+
+
+SELECT @Rid=MAX(ResourceID) from COM_LanguageResources WITH(NOLOCK)
+
+SELECT @Cnt=COUNT(*) FROM @TAB
+
+WHILE(@I<=@Cnt)
+BEGIN	
+	SELECT @CostCenterID=CostCenterID FROM @TAB WHERE ID=@I
+ IF ((SELECT COUNT(*) FROM COM_CostCenterPreferences WITH(NOLOCK) WHERE COSTCENTERID=@CostCenterID and Name='TwoColumnLayout')=0)
+ BEGIN
+	
+	SET @Rid=@Rid+1
+	INSERT INTO [Com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid+1,'TwoColumnLayout',1,'English','Two Column Layout',NULL,NULL,NULL,NULL,NULL,NULL,'')	
+	
+	INSERT INTO [Com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid+1,'TwoColumnLayout',2,'Arabic','Two Column Layout-AR',NULL,NULL,NULL,NULL,NULL,NULL,'')	
+
+	INSERT [dbo].[COM_CostCenterPreferences] ( [CostCenterID], [FeatureID], [ResourceID], [Name], [Value], [DefaultValue], [ProbableValues], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate]) 
+	VALUES (@CostCenterID, @CostCenterID, @Rid+1, N'TwoColumnLayout', N'True', N'True', NULL, N'GUID', N'TwoColumnLayout', N'admin', convert(float,getdate()), N'admin',  convert(float,getdate()))
+ END	
+SET @I=@I+1
+END
