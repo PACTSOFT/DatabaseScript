@@ -1,0 +1,30 @@
+-- Ikram
+
+
+declare @Rid int
+select @Rid=MAX(ResourceID) from COM_LanguageResources
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid+1,'Approved Terminate',1,'English','Approved Terminate','A18AA097-9AFF-22C66D20097A',NULL,'ADMIN',4004,NULL,NULL,'')
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid+2,'Approved Refund',1,'English','Approved Refund','A18AA097-9AFF-22C66D20097A',NULL,'ADMIN',4004,NULL,NULL,'')
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid+3,'Approved Full Refund',1,'English','Approved Full Refund','A18AA097-9AFF-22C66D20097A',NULL,'ADMIN',4004,NULL,NULL,'')
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid+4,'Approved Close',1,'English','Approved Close','A18AA097-9AFF-22C66D20097A',NULL,'ADMIN',4004,NULL,NULL,'')
+
+set identity_insert com_status ON
+insert into com_status(StatusID,CostCenterID,FeatureID,Status,ResourceID,IsUserDefined,CompanyGUID,GUID,Description,CreatedDate,CreatedBy)
+values(489,95,95,'Approved Terminate',@Rid+1,0,'CompanyGUID','1513BA8B-D953441FF0E','Approved Terminate',22,'ADMIN')
+insert into com_status(StatusID,CostCenterID,FeatureID,Status,ResourceID,IsUserDefined,CompanyGUID,GUID,Description,CreatedDate,CreatedBy)
+values(490,95,95,'Approved Refund',@Rid+2,0,'CompanyGUID','1513BA8B-D953441FF0E','Approved Terminate',22,'ADMIN')
+insert into com_status(StatusID,CostCenterID,FeatureID,Status,ResourceID,IsUserDefined,CompanyGUID,GUID,Description,CreatedDate,CreatedBy)
+values(491,95,95,'Approved Full Refund',@Rid+3,0,'CompanyGUID','1513BA8B-D953441FF0E','Approved Terminate',22,'ADMIN')
+insert into com_status(StatusID,CostCenterID,FeatureID,Status,ResourceID,IsUserDefined,CompanyGUID,GUID,Description,CreatedDate,CreatedBy)
+values(492,95,95,'Approved Close',@Rid+4,0,'CompanyGUID','1513BA8B-D953441FF0E','Approved Terminate',22,'ADMIN')
+
+set identity_insert com_status OFF
+

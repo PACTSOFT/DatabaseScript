@@ -1,0 +1,273 @@
+-- SHASHANK
+
+/****** Object:  StoredProcedure [dbo].[spPAY_GetPayrollQuery]    Script Date: 25-06-2026 18:54:30 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spPAY_GetPayrollQuery]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spPAY_GetPayrollQuery]
+GO
+/****** Object:  StoredProcedure [dbo].[spPAY_GetEmpAsOnStatus]    Script Date: 25-06-2026 18:54:30 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spPAY_GetEmpAsOnStatus]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spPAY_GetEmpAsOnStatus]
+GO
+/****** Object:  StoredProcedure [dbo].[spPAY_GetEmpAsOnStatus]    Script Date: 25-06-2026 18:54:30 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spPAY_GetEmpAsOnStatus]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'CREATE PROCEDURE [dbo].[spPAY_GetEmpAsOnStatus]
+	@EmpSeqNo [int],
+	@AsOnDate [datetime],
+	@LangID [int] = 1,
+	@AsOnStatus [nvarchar](500) OUTPUT
+WITH  EXECUTE AS CALLER
+AS
+BEGIN TRY    
+SET NOCOUNT ON;
+--------------------------------------------------------------------------------
+DECLARE @TEmpSeqNo INT,@TAsOnDate DATETIME,@LType NVARCHAR(200)
+SET @TEmpSeqNo=@EmpSeqNo
+SET @TAsOnDate=CONVERT(DATETIME,CONVERT(VARCHAR(11),@AsOnDate,106))
+
+SET @AsOnStatus=''''
+SET @LType=''''
+
+IF EXISTS(Select DOResign From COM_CC50051 WITH(NOLOCK) WHERE NodeID=@TEmpSeqNo AND DOResign IS NOT NULL)
+BEGIN
+	IF EXISTS(Select DORelieve From COM_CC50051  WITH(NOLOCK) WHERE NodeID=@TEmpSeqNo AND DORelieve IS NULL)
+		SET @AsOnStatus=''Pending Relieving''
+	ELSE
+		SET @AsOnStatus=''Relieved''
+END
+ELSE
+BEGIN
+	IF EXISTS(  SELECT TOP 1 *
+				FROM INV_DocDetails a WITH(NOLOCK) 
+				JOIN COM_DocCCData b WITH(NOLOCK) ON b.InvDocDetailsID=a.InvDocDetailsID
+				JOIN COM_DocTextData d WITH(NOLOCK) ON d.InvDocDetailsID=a.InvDocDetailsID
+				WHERE D.tCostCenterID=40072 and a.StatusID=369 AND ISDATE(ISNULL(dcAlpha3,''''))=1  
+				AND b.dcCCNID51=@TEmpSeqNo AND CONVERT(DATETIME,dcAlpha3)< @TAsOnDate
+				AND ( d.dcAlpha1 IS NULL OR dcAlpha1='''')
+				AND d.dcAlpha16<>''Yes''
+				ORDER BY CONVERT(DATETIME,dcAlpha3) DESC )
+				SET @AsOnStatus=''On Vacation - Not Reported''
+	ELSE IF EXISTS(  SELECT TOP 1 *
+				FROM INV_DocDetails a WITH(NOLOCK) 
+				JOIN COM_DocCCData b WITH(NOLOCK) ON b.InvDocDetailsID=a.InvDocDetailsID
+				JOIN COM_DocTextData d WITH(NOLOCK) ON d.InvDocDetailsID=a.InvDocDetailsID
+				WHERE D.TCostCenterID=40072 and a.StatusID=369 
+				AND LEN(dcAlpha2)<=15 AND LEN(dcAlpha3)<=15
+				AND ISDATE(ISNULL(dcAlpha2,''''))=1 AND ISDATE(ISNULL(dcAlpha3,''''))=1  
+				AND b.dcCCNID51=@TEmpSeqNo AND @TAsOnDate BETWEEN CONVERT(DATETIME,dcAlpha2) AND CONVERT(DATETIME,dcAlpha3)
+				AND d.dcAlpha16<>''Yes''
+				ORDER BY CONVERT(DATETIME,dcAlpha2) DESC )
+				SET @AsOnStatus=''On Vacation''
+	ELSE IF EXISTS(	   Select  CC.DCCCNID51
+				From Inv_DocDetails ID with(nolock)
+				Inner Join Com_DocTextData TD with(nolock) on ID.InvDocDetailsID=TD.InvDocDetailsID
+				Inner Join Com_DocCCData CC with(nolock) on ID.InvDocDetailsID=CC.InvDocDetailsID
+				Where   TD.tDocumentType=62  and cc.dcCCNID51=@TEmpSeqNo And Isdate(TD.dcAlpha4)=1 And IsDate(TD.dcAlpha5)=1  and isnull(dcalpha15,'''')='''' AND CONVERT(DATETIME,(TD.dcAlpha5))<@TAsOnDate
+				AND ID.StatusID not in (372,376) AND TD.dcAlpha6=''Both'' and ''Yes''=ISNULL((SELECT ''Yes'' FROM COM_CC50054 a WITH(NOLOCK) 
+					WHERE type=4 and isnull(leaveothfeatures,'''')<>'''' and leaveothfeatures like''%#REJOIN#%'' and ComponentID=cc.dcCCNID52 and GradeID IN(SELECT  DISTINCT HistoryNodeID FROM COM_HistoryDetails WITH(NOLOCK) 
+									WHERE NodeID =CC.DCCCNID51 AND CostCenterID=50051 AND HistoryCCID=50053   
+									AND (CONVERT(DATETIME,FromDate)<=CONVERT(DATETIME,td.dcAlpha4)) 
+									AND (CONVERT(DATETIME,ToDate)>=CONVERT(DATETIME,td.dcAlpha4) OR ToDate IS NULL))
+	and PayrollDate=(SELECT MAX(PAYROLLDATE) FROM COM_CC50054  WITH(NOLOCK) WHERE CONVERT(DATETIME,PAYROLLDATE)<=CONVERT(DATETIME,td.dcAlpha4) 
+					AND GradeID IN(	SELECT  DISTINCT HistoryNodeID FROM COM_HistoryDetails WITH(NOLOCK) 
+									WHERE NodeID =CC.DCCCNID51 AND CostCenterID=50051 AND HistoryCCID=50053   
+									AND (CONVERT(DATETIME,FromDate)<=CONVERT(DATETIME,td.dcAlpha4) ) 
+									AND (CONVERT(DATETIME,ToDate)>=CONVERT(DATETIME,td.dcAlpha4) OR ToDate IS NULL))) ),''No'')
+
+)
+				BEGIN
+				SELECT TOP 1 @LType=PC.Name 
+				From Inv_DocDetails ID with(nolock)
+				Inner Join Com_DocTextData TD with(nolock) on ID.InvDocDetailsID=TD.InvDocDetailsID
+				Inner Join Com_DocCCData CC with(nolock) on ID.InvDocDetailsID=CC.InvDocDetailsID
+				JOIN COM_CC50052 PC WITH(NOLOCK) ON PC.NodeID=CC.dcCCNID52
+				Where   TD.tDocumentType=62  and cc.dcCCNID51=@TEmpSeqNo And Isdate(TD.dcAlpha4)=1 And IsDate(TD.dcAlpha5)=1  and isnull(dcalpha15,'''')='''' AND CONVERT(DATETIME,(TD.dcAlpha5))<@TAsOnDate
+				AND ID.StatusID not in (372,376) AND TD.dcAlpha6=''Both'' and ''Yes''=ISNULL((SELECT ''Yes'' FROM COM_CC50054 a WITH(NOLOCK) 
+					WHERE type=4 and isnull(leaveothfeatures,'''')<>'''' and leaveothfeatures like''%#REJOIN#%'' and ComponentID=cc.dcCCNID52 and GradeID IN(SELECT  DISTINCT HistoryNodeID FROM COM_HistoryDetails WITH(NOLOCK) 
+									WHERE NodeID =CC.DCCCNID51 AND CostCenterID=50051 AND HistoryCCID=50053   
+									AND (CONVERT(DATETIME,FromDate)<=CONVERT(DATETIME,td.dcAlpha4)) 
+									AND (CONVERT(DATETIME,ToDate)>=CONVERT(DATETIME,td.dcAlpha4) OR ToDate IS NULL))
+	and PayrollDate=(SELECT MAX(PAYROLLDATE) FROM COM_CC50054  WITH(NOLOCK) WHERE CONVERT(DATETIME,PAYROLLDATE)<=CONVERT(DATETIME,td.dcAlpha4) 
+					AND GradeID IN(	SELECT  DISTINCT HistoryNodeID FROM COM_HistoryDetails WITH(NOLOCK) 
+									WHERE NodeID =CC.DCCCNID51 AND CostCenterID=50051 AND HistoryCCID=50053   
+									AND (CONVERT(DATETIME,FromDate)<=CONVERT(DATETIME,td.dcAlpha4) ) 
+									AND (CONVERT(DATETIME,ToDate)>=CONVERT(DATETIME,td.dcAlpha4) OR ToDate IS NULL))) ),''No'')
+					SET @AsOnStatus=''On Leave(''+@LType+'') - Not Reported''
+				END
+	ELSE IF EXISTS(  SELECT TOP 1 *
+				FROM INV_DocDetails a WITH(NOLOCK) 
+				JOIN COM_DocCCData b WITH(NOLOCK) ON b.InvDocDetailsID=a.InvDocDetailsID
+				JOIN COM_DocTextData d WITH(NOLOCK) ON d.InvDocDetailsID=a.InvDocDetailsID
+				WHERE D.tDocumentType=62 and a.StatusID=369 AND ISDATE(ISNULL(dcAlpha4,''''))=1 AND ISDATE(ISNULL(dcAlpha5,''''))=1 
+				AND b.dcCCNID51=@TEmpSeqNo AND @TAsOnDate BETWEEN CONVERT(DATETIME,dcAlpha4)AND CONVERT(DATETIME,dcAlpha5)
+				)
+				BEGIN
+					SELECT TOP 1 @LType=PC.Name 
+					FROM INV_DocDetails a WITH(NOLOCK) 
+					JOIN COM_DocCCData b WITH(NOLOCK) ON b.InvDocDetailsID=a.InvDocDetailsID
+					JOIN COM_DocTextData d WITH(NOLOCK) ON d.InvDocDetailsID=a.InvDocDetailsID
+					JOIN COM_CC50052 PC WITH(NOLOCK) ON PC.NodeID=b.dcCCNID52
+					WHERE D.tDocumentType=62 and a.StatusID=369 AND ISDATE(ISNULL(dcAlpha4,''''))=1 AND ISDATE(ISNULL(dcAlpha5,''''))=1 
+					AND b.dcCCNID51=@TEmpSeqNo AND @TAsOnDate BETWEEN CONVERT(DATETIME,dcAlpha4)AND CONVERT(DATETIME,dcAlpha5)
+
+				SET @AsOnStatus=''On Leave - ''+@LType
+				END
+	ELSE 
+		SELECT @AsOnStatus=ISNULL(b.ResourceData,a.Status) From COM_Status a WITH(NOLOCK) 
+							LEFT JOIN COM_LanguageResources b WITH(NOLOCK) on b.LanguageID=1 AND b.ResourceId=a.ResourceID 
+		Where a.CostCenterID IN(1,50051) 
+		AND a.StatusID=(Select StatusID From COM_CC50051 WITH(NOLOCK) Where NodeID=@TEmpSeqNo)
+END
+
+
+--SELECT @AsOnStatus as AsOnStatus
+
+--------------------------------------------------------------------------------
+SET NOCOUNT OFF;  
+RETURN 1  
+END TRY  
+BEGIN CATCH    
+  --Return exception info [Message,Number,ProcedureName,LineNumber]    
+  IF ERROR_NUMBER()=50000  
+  BEGIN  
+   SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(NOLOCK) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID  
+  END  
+  ELSE  
+  BEGIN  
+   SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine  
+   FROM COM_ErrorMessages WITH(NOLOCK) WHERE ErrorNumber=-999 AND LanguageID=@LangID  
+  END   
+SET NOCOUNT OFF    
+RETURN -999     
+END CATCH
+
+----spPAY_GetEmpAsOnStatus 626,''08-May-2019'',1,''''
+' 
+END
+GO
+/****** Object:  StoredProcedure [dbo].[spPAY_GetPayrollQuery]    Script Date: 25-06-2026 18:54:30 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spPAY_GetPayrollQuery]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'CREATE procedure [dbo].[spPAY_GetPayrollQuery]
+@EmpIDs NVARCHAR(MAX),
+@MinDate NVARCHAR(100),
+@MaxDate NVARCHAR(100),
+@UserID INT,  
+@RoleID INT,  
+@LangID INT=1  
+AS
+BEGIN TRY    
+SET NOCOUNT ON;  
+
+DECLARE @SQL NVARCHAR(MAX)
+
+-- TABLE 0 Daily Attendance
+SET @SQL=''
+SELECT dcCCNID51 EmpSeqNo,CONVERT(DATETIME,dcAlpha1) DailyAttendanceDate,CONVERT(DATETIME,dcAlpha2) StartDate,CONVERT(DATETIME,dcAlpha3) EndDate,a.DocID,a.VoucherNo as VoucherNo,a.DocSeqNo as DocSeqNo,ISNULL(dcNum1,0) as dcNum1,ISNULL(dcNum2,0) as dcNum2,ISNULL(dcNum4,0) as dcNum4,
+ISNULL(dcNum5,0) as dcNum5,ISNULL(dcNum7,0) as dcNum7,ISNULL(dcNum9,0) as dcNum9,
+ISNULL(dcNum11,0) as dcNum11,ISNULL(dcNum13,0) as dcNum13
+FROM INV_DocDetails a WITH(NOLOCK) 
+JOIN COM_DocCCData b WITH(NOLOCK) ON b.InvDocDetailsID=a.InvDocDetailsID
+JOIN COM_DocNumData c WITH(NOLOCK) ON c.InvDocDetailsID=a.InvDocDetailsID
+JOIN COM_DocTextData d WITH(NOLOCK) ON d.InvDocDetailsID=a.InvDocDetailsID
+WHERE d.tDocumentType=67 and a.StatusID IN(369,371,441) AND LEN(ISNULL(dcAlpha1,''''''''))<=15 AND ISDATE(dcAlpha1)=1
+AND dcCCNID51 IN(''+@EmpIDs+'') AND CONVERT(DATETIME,dcAlpha1) BETWEEN CONVERT(DateTime,''''''+CONVERT(NVARCHAR,@MinDate)+'''''') AND CONVERT(DateTime,''''''+CONVERT(NVARCHAR,@MaxDate)+'''''')''
+--print @SQL
+EXEC sp_executesql @SQL
+                                                   
+--Table 1 Hours def. Chart
+SET @SQL=''
+SELECT CONVERT(DATETIME,dcAlpha6) WEF,a.InvDocDetailsID InvDocID,a.DocID,a.CostCenterID,a.DocumentType,a.VoucherNo,
+d.dcAlpha1 as NormalHrs,d.dcAlpha2 as BreakHrs,d.dcAlpha3 as MinHalfHrs,d.dcAlpha4 as MinFullHrs,d.dcAlpha5 as MaxHrsPerDay,d.dcAlpha6 as WEF,
+d.dcAlpha8 as OT1,d.dcAlpha9 as OT2,d.dcAlpha10 as OT3,d.dcAlpha11 as OT4,d.dcAlpha12 as OT5,d.dcAlpha13 MinBreakHrs,b.*
+FROM INV_DocDetails a WITH(NOLOCK) 
+JOIN COM_DocCCData b WITH(NOLOCK) ON b.InvDocDetailsID=a.InvDocDetailsID
+JOIN COM_DocNumData c WITH(NOLOCK) ON c.InvDocDetailsID=a.InvDocDetailsID
+JOIN COM_DocTextData d WITH(NOLOCK) ON d.InvDocDetailsID=a.InvDocDetailsID
+WHERE d.tCostCenterID=40066 and a.StatusID=369 AND ISDATE(dcAlpha6)=1
+ORDER BY CONVERT(DATETIME,dcAlpha6) DESC,a.DocID DESC ''
+--print @SQL
+EXEC sp_executesql @SQL
+                        
+--TABLE 2 Payroll Lock Dimension
+SELECT SysColumnName FROM ADM_CostCenterDef WITH(NOLOCK) WHERE CostCenterID=40077 AND SysColumnName LIKE''dcCCNID%'' AND IsColumnInUse=1
+
+--TBALE 3 Payroll Lock
+SELECT A.InvDocDetailsID,A.DocID,A.CostCenterID,A.VoucherNo,CONVERT(DATETIME,A.DocDate) as DocDate,
+d.dcAlpha1 as PayrollMonth,CONVERT(DateTime,d.dcAlpha2) as PayrollMonthStart,CONVERT(DateTime,d.dcAlpha3) as PayrollMonthEnd,d.dcAlpha4 as MPLockStatus,d.dcAlpha5 as DALockStatus,B.*
+FROM INV_DocDetails A WITH(NOLOCK)
+JOIN COM_DocCCData B WITH(NOLOCK) ON B.INVDOCDETAILSID=a.INVDOCDETAILSID
+JOIN COM_DocTextData d WITH(NOLOCK) ON d.INVDOCDETAILSID=a.INVDOCDETAILSID
+WHERE d.tCostCenterID=40077 and a.StatusID=369 AND ISDATE(ISNULL(d.dcAlpha1,''''))=1
+
+--TABLE 4 Late Processing
+SET @SQL=''
+SELECT I.DocID,I.VoucherNo,CONVERT(DATETIME,T.dcAlpha3) dcAlpha3,C.dcCCNID51 FROM INV_DOCDETAILS I WITH(NOLOCK)
+JOIN COM_DOCCCDATA C WITH(NOLOCK) ON C.INVDOCDETAILSID=I.INVDOCDETAILSID
+JOIN COM_DOCTEXTDATA T WITH(NOLOCK) ON T.INVDOCDETAILSID=I.INVDOCDETAILSID
+JOIN COM_DOCNUMDATA N WITH(NOLOCK) ON N.INVDOCDETAILSID=I.INVDOCDETAILSID
+WHERE T.tCostCenterID=40097 AND I.StatusID=369 
+AND C.dcCCNID51 IN(''+@EmpIDs+'') AND CONVERT(DATETIME,dcAlpha3) BETWEEN CONVERT(DateTime,''''''+CONVERT(NVARCHAR,@MinDate)+'''''') AND CONVERT(DateTime,''''''+CONVERT(NVARCHAR,@MaxDate)+'''''')''
+--print @SQL
+EXEC sp_executesql @SQL
+                        
+--TABLE 5 Apply Vacation
+SET @SQL=''
+SELECT ID.DocID,CC.DCCCNID51,Convert(DateTime,TD.dcAlpha2) dcAlpha2,Convert(DateTime,TD.dcAlpha3) dcAlpha3,TD.dcAlpha1,
+CASE WHEN (dcAlpha1 IS NULL OR TD.dcAlpha1='''''''') THEN DATEADD(D,1,CONVERT(DateTime,dcAlpha3)) ELSE DATEADD(D,-1,CONVERT(DateTime,dcAlpha1)) end RejoinDate
+FROM Inv_DocDetails ID with(nolock) join Com_DocTextData TD with(nolock) on ID.InvDocDetailsID=TD.InvDocDetailsID
+JOIN Com_DocCCData CC WITH(NOLOCK) ON ID.InvDocDetailsID=CC.InvDocDetailsID
+WHERE TD.tCOSTCENTERID=40072 AND ID.StatusID=369 AND CC.DCCCNID51 IN (''+@EmpIDs+'') 
+AND isnull(TD.DCALPHA16,'''''''')=''''No'''' And IsDate(TD.dcAlpha3)=1 And IsDate(TD.dcAlpha2)=1  and ISNULL(td.dcAlpha28,''''Both'''')=''''Both''''''
+--print @SQL
+EXEC sp_executesql @SQL
+
+--TABLE 6 Apply Leave
+SET @SQL=''
+Select  ID.DocID,Convert(DateTime,TD.dcAlpha4) dcAlpha4,Convert(DateTime,TD.dcAlpha5) dcAlpha5,CC.DCCCNID51,CC.DCCCNID52,dcAlpha15,
+ISNULL((SELECT ''''Yes'''' FROM COM_CC50054 a WITH(NOLOCK) 
+WHERE type=4 and isnull(leaveothfeatures,'''''''')<>'''''''' and leaveothfeatures like''''%#REJOIN#%'''' and ComponentID=cc.dcCCNID52 and GradeID IN(SELECT  DISTINCT HistoryNodeID FROM COM_HistoryDetails WITH(NOLOCK) 
+WHERE NodeID =CC.DCCCNID51 AND CostCenterID=50051 AND HistoryCCID=50053   
+AND (CONVERT(DATETIME,FromDate)<=CONVERT(DATETIME,td.dcAlpha4)) 
+AND (CONVERT(DATETIME,ToDate)>=CONVERT(DATETIME,td.dcAlpha4) OR ToDate IS NULL))
+and PayrollDate=(SELECT MAX(PAYROLLDATE) FROM COM_CC50054  WITH(NOLOCK) WHERE CONVERT(DATETIME,PAYROLLDATE)<=CONVERT(DATETIME,td.dcAlpha4) 
+AND GradeID IN(	SELECT  DISTINCT HistoryNodeID FROM COM_HistoryDetails WITH(NOLOCK) 
+WHERE NodeID =CC.DCCCNID51 AND CostCenterID=50051 AND HistoryCCID=50053   
+AND (CONVERT(DATETIME,FromDate)<=CONVERT(DATETIME,td.dcAlpha4) ) 
+AND (CONVERT(DATETIME,ToDate)>=CONVERT(DATETIME,td.dcAlpha4) OR ToDate IS NULL))) ),''''No'''') IsReJoin
+From Inv_DocDetails ID with(nolock)
+Inner Join Com_DocTextData TD with(nolock) on ID.InvDocDetailsID=TD.InvDocDetailsID
+Inner Join Com_DocCCData CC with(nolock) on ID.InvDocDetailsID=CC.InvDocDetailsID
+Where   TD.tDocumentType=62 And CC.dcCCnid51 IN (''+@EmpIDs+'') And Isdate(TD.dcAlpha4)=1 And IsDate(TD.dcAlpha5)=1 AND ID.StatusID not in (372,376) AND TD.dcAlpha6=''''Both''''''
+--print @SQL
+EXEC sp_executesql @SQL
+
+SET NOCOUNT OFF;  
+RETURN 1  
+END TRY  
+BEGIN CATCH    
+  --Return exception info [Message,Number,ProcedureName,LineNumber]    
+  IF ERROR_NUMBER()=50000  
+  BEGIN  
+   SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(NOLOCK) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID  
+  END  
+  ELSE  
+  BEGIN  
+   SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine  
+   FROM COM_ErrorMessages WITH(NOLOCK) WHERE ErrorNumber=-999 AND LanguageID=@LangID  
+  END   
+SET NOCOUNT OFF    
+RETURN -999     
+END CATCH
+
+' 
+END
+GO
