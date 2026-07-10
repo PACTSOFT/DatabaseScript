@@ -1,0 +1,30 @@
+--Sajid
+declare @Rid int
+select @Rid=MAX(ResourceID) from COM_LanguageResources WITH(NOLOCK)
+--Sales Contract
+set @Rid=@Rid+1
+IF NOT EXISTS(SELECT Name FROM COM_CostCenterPreferences WITH(NOLOCK) WHERE CostCenterID=95 and  Name='FilterAccountsLocationWise')
+BEGIN
+	INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid,'FilterAccountsLocationWise',1,'English','Filter Accounts Location Wise','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',convert(float,getdate()),NULL,NULL,'')
+
+	INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid,'FilterAccountsLocationWise',2,'Arabic','Filter Accounts Location Wise-AR','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',convert(float,getdate()),NULL,NULL,'')
+
+	insert into COM_CostCenterPreferences(CostCenterID,FeatureID,ResourceID,Name,Value,GUID,CreatedBy,CreatedDate,DefaultValue)
+	values(95,95,@Rid,'FilterAccountsLocationWise','false','guid','admin',convert(float,getdate()),'false')
+END
+
+--Unit Reservation
+set @Rid=@Rid+1
+IF NOT EXISTS(SELECT Name FROM COM_CostCenterPreferences WITH(NOLOCK) WHERE CostCenterID=129 and  Name='FilterAccountsLocationWise')
+BEGIN
+	INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid,'FilterAccountsLocationWise',1,'English','Filter Accounts Location Wise','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',convert(float,getdate()),NULL,NULL,'')
+
+	INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid,'FilterAccountsLocationWise',2,'Arabic','Filter Accounts Location Wise-AR','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',convert(float,getdate()),NULL,NULL,'')
+
+	insert into COM_CostCenterPreferences(CostCenterID,FeatureID,ResourceID,Name,Value,GUID,CreatedBy,CreatedDate,DefaultValue)
+	values(129,129,@Rid,'FilterAccountsLocationWise','false','guid','admin',convert(float,getdate()),'false')
+END
