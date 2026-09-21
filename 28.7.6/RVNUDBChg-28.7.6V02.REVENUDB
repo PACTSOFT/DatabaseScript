@@ -1,0 +1,9 @@
+--Ibrahim
+
+IF NOT EXISTS(SELECT * FROM COM_CostCenterPreferences WHERE CostCenterID=50001 AND Name='AllowChildAtRoot')
+BEGIN
+	INSERT INTO COM_CostCenterPreferences(CostCenterID,FeatureID,ResourceID,Name,Value,DefaultValue,GUID,CreatedBy,CreatedDate)
+	SELECT F.FeatureID,F.FeatureID,CP.ResourceID,CP.Name,'True','True',CP.GUID,CP.CreatedBy,CONVERT(FLOAT,GetDate()) FROM ADM_Features F WITH(NOLOCK) 
+	LEFT JOIN COM_CostCenterPreferences CP WITH(NOLOCK) ON CP.CostCenterID=2 AND CP.Name='AllowChildAtRoot'
+	WHERE F.FeatureID>50000
+END

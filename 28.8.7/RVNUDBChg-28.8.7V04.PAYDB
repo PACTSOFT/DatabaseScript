@@ -1,0 +1,3 @@
+-- SHASHANK
+
+update ADM_CostCenterDef set ColumnCostCenterID=50052,ColumnCCListViewTypeID=1 where CostCenterID=40072 and SysColumnName='dcAlpha20'

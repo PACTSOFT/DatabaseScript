@@ -1,0 +1,15 @@
+-- SHASHANK
+
+DECLARE @RoleID INT
+if exists(SELECT QID FROM ADM_QuickViewDefn WITH(NOLOCK) WHERE QID=-1002)
+BEGIN
+	if exists(SELECT RoleID FROM ADM_PRoles WITH(NOLOCK) where CompanyGUID='HRM-Employee-Role')
+	begin
+		SELECT @RoleID=RoleID FROM ADM_PRoles WITH(NOLOCK) where CompanyGUID='HRM-Employee-Role'
+
+		if not exists(SELECT QID FROM ADM_QuickViewDefnUserMap WITH(NOLOCK) WHERE QID=-1002 AND RoleID=@RoleID)
+		BEGIN
+			INSERT INTO [ADM_QuickViewDefnUserMap] ([QID],[ShowCCID],[UserID],[RoleID],[GroupID])VALUES(-1002,-1,0,@RoleID,0)
+		END
+	end
+END

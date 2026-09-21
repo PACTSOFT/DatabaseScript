@@ -1,0 +1,14 @@
+--Ibrahim
+
+
+INSERT INTO [adm_featureaction] ([Name],[ResourceID],[FeatureID],[FeatureActionTypeID],[ApplicationID],[GridShortCut],[Description],[Status],[CreatedDate],[CreatedBy])
+SELECT 'Edit Reference Documents',F.ResourceID,D.CostCenterID,1,1,NULL,NULL,1,CONVERT(FLOAT,GETDATE()),'Admin' FROM ADM_DocumentTypes D WITH(NOLOCK)
+LEFT JOIN ADM_FeatureAction F WITH(NOLOCK) ON F.FeatureID=D.CostCenterID AND F.Name='Edit Reference Documents'
+WHERE F.FeatureID IS NULL
+
+
+
+INSERT INTO ADM_FeatureActionRoleMap(RoleID, FeatureActionID, Description, Status, CreatedBy, CreatedDate)
+SELECT 1,F.FeatureActionID,NULL,1,'Admin',CONVERT(FLOAT,GETDATE()) FROM ADM_FeatureAction F WITH(NOLOCK)
+LEFT JOIN ADM_FeatureActionRoleMap RM WITH(NOLOCK) ON RM.FeatureActionID=F.FeatureActionID AND RM.RoleID=1
+WHERE F.Name='Edit Reference Documents' AND RM.FeatureActionID IS NULL

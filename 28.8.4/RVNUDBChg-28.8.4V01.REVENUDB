@@ -1,0 +1,6 @@
+--Ikram
+update ADM_FeatureAction
+set featureactiontypeid=383
+where name='Edit Reference Documents'
+ 
+  and  featureactiontypeid=1

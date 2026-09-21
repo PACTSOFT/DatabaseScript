@@ -1,0 +1,3 @@
+-- SHASHANK
+
+update ADM_CostCenterDef set IsValidReportBuilderCol=0 where CostCenterID=50051 and SysColumnName IN('BankAgentCode','BankBranch','BankRoutingCode','BasicMonthly','BasicWeekly','BasicHourly','BasicDaily','NetSalary','AnnualCTC')

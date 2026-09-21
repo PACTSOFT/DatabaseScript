@@ -1,0 +1,33 @@
+-- SHASHANK
+
+declare @tDType table(id int identity(1,1),costcenterid int,documenttype int,DocumentTypeID int)
+declare @costcenterid int,@documenttype int,@DocumentTypeID int,@i int,@cnt int, @RIdL BIGINT,@RIdR bigint
+
+SELECT top 1 @RIdL=ResourceID FROM [COM_DOCUMENTPREFERENCES] WITH(NOLOCK) WHERE  PrefName='LeftButtons'
+SELECT top 1 @RIdR=ResourceID FROM [COM_DOCUMENTPREFERENCES] WITH(NOLOCK) WHERE  PrefName='RightButtons'
+
+INSERT INTO @tDType
+SELECT CostCenterID,DocumentType,DocumentTypeID from ADM_DocumentTypes  WITH(NOLOCK) where DocumentType>=51 and DocumentType<=105 and DocumentType!=104 and DocumentType!=64
+
+SET @i=1
+SELECT @cnt=count(costcenterid) FROM @tDType
+
+WHILE(@i<=@cnt)
+BEGIN
+
+select @CostCenterID=CostCenterID,@DocumentType=DocumentType,@DocumentTypeID=DocumentTypeID FROM @tDType WHERE id=@i
+
+IF NOT EXISTS(SELECT PrefName FROM [COM_DOCUMENTPREFERENCES] WITH(NOLOCK) WHERE  PrefName='LeftButtons' and CostCenterID=@costcenterid)
+BEGIN
+INSERT INTO [com_documentpreferences] ([CostCenterID],[DocumentTypeID],[DocumentType],[ResourceID],[PreferenceTypeID],[PreferenceTypeName],[PrefValueType],[PrefName],[PrefValue],[PrefDefalutValue],[IsPrefValid],[PrefColOrder],[PrefRowOrder],[UnderGroupBox],[CompanyGUID],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate])
+	select @costcenterid,@DocumentTypeID,@DocumentType,@RIdL,1,'STATIC','text','LeftButtons','','',1,1,0,NULL,'guid','guid',NULL,'admin',convert(float,getdate()),'admin',convert(float,getdate())
+end
+
+IF NOT EXISTS(SELECT PrefName FROM [COM_DOCUMENTPREFERENCES] WITH(NOLOCK) WHERE  PrefName='RightButtons' and CostCenterID=@costcenterid)
+BEGIN
+INSERT INTO [com_documentpreferences] ([CostCenterID],[DocumentTypeID],[DocumentType],[ResourceID],[PreferenceTypeID],[PreferenceTypeName],[PrefValueType],[PrefName],[PrefValue],[PrefDefalutValue],[IsPrefValid],[PrefColOrder],[PrefRowOrder],[UnderGroupBox],[CompanyGUID],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate])
+	select @costcenterid,@DocumentTypeID,@DocumentType,@RIdR,1,'STATIC','text','RightButtons','','',1,1,0,NULL,'guid','guid',NULL,'admin',convert(float,getdate()),'admin',convert(float,getdate())
+END
+
+SET @i=@i+1
+END

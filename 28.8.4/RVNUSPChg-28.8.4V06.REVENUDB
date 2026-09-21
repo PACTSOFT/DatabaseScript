@@ -1,0 +1,297 @@
+--KHASIM
+GO
+/****** Object:  StoredProcedure [dbo].[spCOM_ConfigValues]    Script Date: 07-09-2026 12:35:13 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spCOM_ConfigValues]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spCOM_ConfigValues]
+GO
+/****** Object:  StoredProcedure [dbo].[spADM_Delete_User]    Script Date: 07-09-2026 12:35:13 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spADM_Delete_User]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spADM_Delete_User]
+GO
+/****** Object:  StoredProcedure [dbo].[spADM_Delete_User]    Script Date: 07-09-2026 12:35:13 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spADM_Delete_User]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'  --[spADM_Delete_User]  10082,''ahmad.a'',1,1,''admin'',1  
+  --spADM_Delete_User  10105 ,''fayaz.a'' ,1 ,1,''admin'' ,1  
+CREATE procedure [dbo].[spADM_Delete_User]    
+ @DataUserID INT,    
+ @DataUserName NVARCHAR(50),    
+ @RoleID INT,    
+ @LangID INT=1,  
+ @UserName  NVARCHAR(50),  
+ @UserID  INT  
+AS    
+BEGIN TRANSACTION    
+SET NOCOUNT ON    
+BEGIN TRY    
+      
+  --Declaration Section    
+  DECLARE @HasAccess BIT,@RowsDeleted INT, @IsUserdefined BIT    
+  DECLARE @iUserCheckFlag int=0;    
+  --SP Required Parameters Check    
+  IF @DataUserID=0    
+  BEGIN    
+   RAISERROR(''-100'',16,1)    
+  END  
+  --User acces check    
+  SET @HasAccess=dbo.fnCOM_HasAccess(@RoleID,7,4)    
+  IF @HasAccess=0    
+  BEGIN    
+   RAISERROR(''-105'',16,1)    
+  END     
+ --checking for Admin      
+ if(LOWER(@DataUserName)=''admin'')    
+ BEGIN    
+  set @iUserCheckFlag=1;   
+ END     
+ --Fetch IsUserdefined user.    
+  SELECT @IsUserdefined = IsUserdefined     
+  FROM [PACT2C].dbo.ADM_Users WITH(NOLOCK) WHERE UserName =@DataUserName    
+       
+  IF @IsUserdefined IS NULL    
+  BEGIN    
+   RAISERROR(''-100'',16,1)     
+  END    
+  ELSE IF @IsUserdefined = 0    
+   RAISERROR(''-102'',16,1)     
+  
+   --Checking for Master Tables     
+   CREATE TABLE #Tab (ID INT IDENTITY(1,1),FeatureID INT,TableName NVARCHAR(520),iFlag int)  
+ INSERT INTO #Tab   
+ --Dimension Tables Adding  
+ SELECT FeatureID,TableName,0 FROM ADM_FEATURES with(nolock)   
+ where (featureid in (2,3) or FeatureID >50000) and TableName!=''''  
+ --CRM  
+ INSERT INTO #Tab   
+ SELECT distinct FeatureID,TableName,0 FROM ADM_FEATURES with(nolock)   
+ where featureid in (86,89,88,73,65,82,91,40997,145) and TableName!=''''  
+  
+ --Payrol  
+ INSERT INTO #Tab   
+ SELECT distinct FeatureID,TableName,0 FROM ADM_FEATURES with(nolock)   
+ where featureid in (256,258,260,263,262,261,264,141,266,267,44,498) and TableName!=''''  
+  
+ --rental  
+ INSERT INTO #Tab   
+ SELECT distinct FeatureID,TableName,0 FROM ADM_FEATURES with(nolock)   
+ where featureid in (92,93,94,95,103,104) and TableName!=''''  
+  
+ --Document  
+ INSERT INTO #Tab   
+ SELECT distinct FeatureID,TableName,0 FROM ADM_FEATURES with(nolock)   
+ where featureid >=40001 and featureid<=50000 and   TableName!=''''  
+   
+ --Production  
+ INSERT INTO #Tab   
+ SELECT distinct FeatureID,TableName,0 FROM ADM_FEATURES with(nolock)   
+ where featureid in (71,76,78) and TableName!=''''   
+   
+  INSERT INTO #Tab   
+ select 404, name,0 from sys.tables where (name not in (''ADM_Users'',''ADM_UserRoleMap'')) or name not in (select tableName from #Tab)  
+   
+ 
+
+ declare @dynWhere varchar(200)  
+ DECLARE @ICount INT,@CNTtot INT,@ID int, @CCID INT,@CCNAME NVARCHAR(300),@STRQRY NVARCHAR(MAX)    
+ SELECT @ICount=1,@CNTtot=COUNT(*) FROM #Tab      
+ WHILE(@ICount<=@CNTtot)    
+ BEGIN    
+  select @CCID=FeatureID,@CCNAME=TableName,@ID=ID from #Tab where ID=@ICount        
+  set @dynWhere=''''  
+  if exists(select column_name from information_schema.columns where table_name=@CCNAME and column_name=''ModifiedBy'')  
+   set @dynWhere= '' isnull(ModifiedBy,'''''''')  = ''''''+ @DataUserName +'''''' ''  
+  else   
+   set @dynWhere=''''  
+    
+  if exists(select column_name from information_schema.columns where table_name=@CCNAME and column_name=''CreatedBy'')  
+  begin  
+   if(isnull(@dynWhere,'''')<>'''')  
+    set @dynWhere=@dynWhere  +  '' and  isnull(CreatedBy,'''''''') = ''''''+ @DataUserName +''''''''  
+   else  
+    set @dynWhere=@dynWhere  +  ''   isnull(CreatedBy,'''''''') = ''''''+ @DataUserName +''''''''  
+  end   
+  
+  if(@ID>0 and @CCID=404 and isnull(@dynWhere,'''')<>'''')  
+  BEGIN   
+  SET @STRQRY=''if (select count(*) from ''+ @CCNAME +'' with(nolock) WHERE   ''+ @dynWhere +'')>0    
+      
+  begin       
+   update   #Tab  SET iFlag=1 where ID=''''''+ convert(varchar,@ID)+''''''  
+  end   
+  ''  
+  END  
+  ELSE if(@CCID>0 and @CCID<>404 and isnull(@dynWhere,'''')<>'''')  
+   BEGIN   
+  SET @STRQRY=''if (select count(*) from ''+ @CCNAME +'' with(nolock) WHERE   ''+ @dynWhere +'')>0    
+      
+  begin       
+   update   #Tab  SET iFlag=1 where FeatureID=''''''+ convert(varchar,@CCID)+''''''  
+  end   
+  ''  
+  END   
+    print (@STRQRY)    
+  EXEC (@STRQRY)    
+  SET @ICount=@ICount+1     
+  
+ END    
+   
+ if ((select count(*) from #Tab with(nolock) WHERE   iFlag>0)=0  and @iUserCheckFlag=0 )  
+ BEGIN    
+ set @iUserCheckFlag=1;    
+ END    
+  
+   
+ IF(@iUserCheckFlag=1 and LOWER(@DataUserName) !=''admin'')    
+ BEGIN    
+   insert into ADM_UsersHistory    
+    select   UserID,UserName,Password,StatusID,DefaultLanguage,IsUserDeleted,FirstName,MiddleName,LastName    
+      ,Address1,Address2,Address3,City,State,Zip,Country,Phone1,Phone2,Fax,Email1,Email2,Website,GUID    
+      ,Description,@UserName,convert(float,GETDATE()),@UserName,convert(float,GETDATE())    
+      ,Email1Password,Email2Password,DefaultScreenXML,IsPassEncr,CalendarXML,0,TwoStepVerMode,DeviceID,MultipleDevices,TenantID,ClientID,ClientSecret from ADM_Users with(nolock)    
+    WHERE UserID=@DataUserID    
+  
+   DELETE FROM ADM_Users WHERE UserID=@DataUserID   
+   DELETE FROM ADM_UserRoleMap where UserID=@DataUserID    
+   DELETE FROM [PACT2C].dbo.ADM_Users WHERE UserID=@DataUserID    
+   DELETE FROM [PACT2C].dbo.ADM_UserCompanyMap where CreatedBy=@DataUserName  
+   --SELECT ErrorNumber,''User ''+ErrorMessage FROM COM_ERRORMESSAGES WITH(NOLOCK) WHERE ERRORNUMBER=102 AND LANGUAGEID=@LangID  
+   END             
+   ELSE IF(@iUserCheckFlag=0 and LOWER(@DataUserName) !=''admin'')  
+   BEGIN  
+   --Change the status to deleted    
+   UPDATE [PACT2C].dbo.ADM_Users     
+   SET StatusID=2--For Deleted    
+   WHERE UserName = @DataUserName    
+    
+   UPDATE  dbo.ADM_Users     
+   SET IsUserDeleted=1, statusid=10--For Deleted    
+   WHERE UserID=@DataUserID     
+   and UserName = @DataUserName    
+        
+   UPDATE  ADM_UserRoleMap    
+   SET STATUS = 2    
+   WHERE UserID=@DataUserID     
+   and UserName = @DataUserName    
+  END  
+   --SELECT * FROM  #Tab  
+ DROP TABLE #Tab  
+  
+COMMIT TRANSACTION    
+SET NOCOUNT OFF;      
+RETURN 1    
+END TRY    
+BEGIN CATCH      
+ --Return exception info [Message,Number,ProcedureName,LineNumber]      
+ IF ERROR_NUMBER()=50000    
+ BEGIN    
+  SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID    
+ END    
+ ELSE    
+ BEGIN    
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine    
+  FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=-999 AND LanguageID=@LangID    
+ END    
+ROLLBACK TRANSACTION    
+SET NOCOUNT OFF      
+RETURN -999       
+END CATCH 
+' 
+END
+GO
+/****** Object:  StoredProcedure [dbo].[spCOM_ConfigValues]    Script Date: 07-09-2026 12:35:13 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spCOM_ConfigValues]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'CREATE procedure [dbo].[spCOM_ConfigValues]
+@Type INT=0,
+@Param1 NVARCHAR(MAX),
+@Param2 NVARCHAR(MAX)=NULL
+AS  
+BEGIN TRY  
+SET NOCOUNT ON;
+	declare @UserID int,@SQL nvarchar(max)
+	
+	IF @Type=1
+	BEGIN
+		if @Param1=''NotifTime''
+			select Name,convert(datetime,convert(float,Value)) Value, getdate() SysDate from COM_Config with(nolock) where Name in (''NotficatonServiceLastAccessTime'', ''DBBackupTime'')
+		else if @Param1=''LandingDocs''
+		begin
+			--set @Type = (select NodeID from ADM_Assign with(nolock) where CostCenterID=1 and RoleID=@Param2)
+--			select Name,Value from COM_Config with(nolock) where ID=@Type
+		    select Name,Value from COM_Config with(nolock) where ID IN(select NodeID from ADM_Assign with(nolock) where CostCenterID=1 and RoleID=@Param2) and Name not like ''WEBLAND_%''
+			select CostCenterID,DocumentName,IsInventory from ADM_DocumentTypes with(nolock)
+		end
+			else if @Param1=''LandingDocsWhite''
+		begin
+			--set @Type = (select NodeID from ADM_Assign with(nolock) where CostCenterID=1 and RoleID=@Param2)
+--			select Name,Value from COM_Config with(nolock) where ID=@Type
+		    select Name,Value from COM_Config with(nolock) where ID IN(select NodeID from ADM_Assign with(nolock) where CostCenterID=1 and RoleID=@Param2)
+			select CostCenterID,DocumentName,IsInventory from ADM_DocumentTypes with(nolock)
+		end
+		else
+			select Name,Value from COM_Config with(nolock) where Name=@Param1 
+	END
+	ELSE IF @Type=2
+	BEGIN
+		if not exists (select Name from COM_Config with(nolock) where Name=@Param1)
+			insert into COM_Config(Name,Value) values(@Param1,@Param2)
+		else
+			update COM_Config
+			set Value=@Param2
+			where Name=@Param1
+		
+		select 1 Saved
+	END
+	ELSE IF @Type=3
+	BEGIN
+		select Name,Value from COM_Config with(nolock) where Name not like ''WEBLAND_%''
+	END
+	ELSE IF @Type=4
+	BEGIN
+		if not exists (select Name from COM_Config with(nolock) where Name=@Param1)
+			insert into COM_Config(Name,Value) values(@Param1,convert(decimal(18,6),getdate()))
+		else
+			update COM_Config
+			set Value=convert(decimal(18,6),getdate())
+			where Name=@Param1
+	END
+	ELSE IF @Type=5
+	BEGIN
+		select ID,SUBSTRING(Name,9,len(Name)) Name from COM_Config with(nolock) where Name like ''WEBLAND_%''
+		select RoleID,Name from ADM_PRoles with(nolock) where StatusID=434 and IsRoleDeleted=0 order by Name
+	END
+	ELSE IF @Type=6
+	BEGIN
+		select Value from COM_Config with(nolock) where ID=@Param1
+		select RoleID from ADM_Assign with(nolock) where CostCenterID=1 and NodeID=@Param1
+	END
+
+SET NOCOUNT OFF;
+RETURN 1
+END TRY
+BEGIN CATCH  
+		--Return exception info [Message,Number,ProcedureName,LineNumber]  
+		IF ERROR_NUMBER()=50000
+		BEGIN
+			SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(NOLOCK) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=1
+		END
+		ELSE
+		BEGIN
+			SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine
+			FROM COM_ErrorMessages WITH(NOLOCK) WHERE ErrorNumber=-999 AND LanguageID=1
+		END
+SET NOCOUNT OFF  
+RETURN -999   
+END CATCH
+
+' 
+END
+GO

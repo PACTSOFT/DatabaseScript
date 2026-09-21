@@ -1,0 +1,4 @@
+--Subhani
+
+update adm_costcenterdef set ParentCostCenterColSysName='ExchangeRate'
+where costcenterid=12 and SysColumnname='ExchangeRate' and ParentCostCenterColSysName='Exchange Rate'

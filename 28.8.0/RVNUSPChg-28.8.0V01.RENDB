@@ -1,0 +1,265 @@
+--Sajid
+/****** Object:  StoredProcedure [dbo].[spREN_CancelContract]    Script Date: 31-08-2026 15:00:59 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spREN_CancelContract]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spREN_CancelContract]
+GO
+/****** Object:  StoredProcedure [dbo].[spREN_CancelContract]    Script Date: 31-08-2026 15:00:59 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spREN_CancelContract]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'CREATE  PROCEDURE [dbo].[spREN_CancelContract]    
+@ContractID INT,      
+@SCostCenterID INT, 
+@Remarks NVARCHAR(MAX)='''',
+@SysInfo NVARCHAR(500)='''', 
+@AP NVARCHAR(10)='''',  
+@CompanyGUID NVARCHAR(50),      
+@UserName nvarchar(50),    
+@UserID INT=0,
+@RoleID int=0,
+@LangID int=1     
+AS      
+BEGIN TRANSACTION      
+BEGIN TRY        
+SET NOCOUNT ON;     
+    
+    IF (@ContractID is null or @ContractID=0)
+	BEGIN              
+		RAISERROR(''-100'',16,1)              
+	END 
+	
+	DECLARE @Dt float,@XML xml,@CNT INT,@I INT,@return_value int,@AUDITSTATUS NVARCHAR(50),@CancelDOCID INT,@DocDate float
+	DECLARE     @DELETEDOCID INT , @DELETECCID INT , @DELETEISACC BIT,@AuditTrial BIT,@IsAccDoc BIT
+	DECLARE @DELDocPrefix NVARCHAR(50), @DELDocNumber NVARCHAR(500),@CostCenterID int,@stat int
+	SET @Dt=convert(float,getdate())
+
+	SET @AUDITSTATUS= ''SUSPEND''  
+	 
+	SET @AuditTrial=0    
+	SELECT @AuditTrial= CONVERT(BIT,VALUE)  FROM [COM_COSTCENTERPreferences]  WITH(NOLOCK)  
+	WHERE CostCenterID=@SCostCenterID  AND NAME=''AllowAudit'' 
+
+	
+
+	IF (@AuditTrial=1 AND (@SCostCenterID=95 OR @SCostCenterID=104))  
+	BEGIN  
+		IF(@SCostCenterID=95)
+			UPDATE REN_CONTRACT  SET SuspendRemarks=@Remarks WHERE ContractID = @ContractID  or (RefContractID>0 and RefContractID=@ContractID) 
+			
+		EXEC [spCOM_SaveHistory]  
+			@CostCenterID =@SCostCenterID,    
+			@NodeID =@ContractID,
+			@HistoryStatus =@AUDITSTATUS,
+			@UserName=@UserName,
+			@DT=@DT    
+	END 
+	
+	SElect @stat=STATUSID from REN_CONTRACT  WITH(NOLOCK)	
+	WHERE ContractID = @ContractID
+	
+	--Suspend/Cancel Contract External function
+	IF (@ContractID>0)
+	BEGIN
+		DECLARE @tablename NVARCHAR(200)
+		set @tablename=''''
+		select @tablename=SpName from ADM_DocFunctions  WITH(NOLOCK) where CostCenterID=95 and Mode=11
+		if(@tablename<>'''')
+			exec @tablename @SCostCenterID,@ContractID,'''',@UserID,@LangID	
+	END	
+	
+	if(@stat in(428,465))
+	BEGIN			
+		Exec @return_value =[dbo].[spREN_CancelTermination]    
+			@ContractID=@ContractID,      
+			@SCostCenterID=@SCostCenterID,   
+			@SysInfo =@SysInfo, 
+			@AP =@AP,
+			@CompanyGUID=@CompanyGUID,      
+			@UserName=@UserName,    
+			@UserID =@UserID,      
+			@LangID =@LangID   
+			
+	END
+	
+	
+	UPDATE REN_CONTRACT  
+	SET STATUSID = 451 
+	WHERE ContractID = @ContractID  or (RefContractID>0 and RefContractID=@ContractID)
+	
+--------------------------Cancel  POSTINGS --------------------------  
+--Loading Global Preferences
+DECLARE @TblPref AS TABLE(Name nvarchar(100),Value nvarchar(max))
+DECLARE @TblDocPref AS TABLE(PrefName nvarchar(100),PrefValue nvarchar(max),CostCenterID INT)
+DECLARE @DAllowLockData BIT,@AllowLockData BIT,@IsLock bit,@LockCC INT,@DLockCC INT
+
+INSERT INTO @TblPref
+SELECT Name,Value FROM ADM_GlobalPreferences with(nolock) WHERE Name IN (''Lock Data Between'',''LockCostCenters'')  
+SELECT @AllowLockData=CONVERT(BIT,Value) FROM @TblPref where  Name=''Lock Data Between''
+set @IsLock=0
+--         
+
+DECLARE  @tblXML TABLE(ID int identity(1,1),DOCID INT,COSTCENTERID int,IsAccDoc bit)
+INSERT INTO @tblXML       
+select DocID,COSTCENTERID,IsAccDoc from [REN_ContractDocMapping]  with(nolock)
+where  [ContractID]=@ContractID and [Type]>0 and ContractCCID=@SCostCenterID
+	
+set @I=0
+select @CNT=max(ID) from @tblXML
+
+--Loading Document Preferences
+if(@CNT>0)
+begin
+	INSERT INTO @TblDocPref
+	SELECT distinct P.PrefName,P.PrefValue,P.CostCenterID FROM COM_DocumentPreferences P with(nolock),@tblXML T	WHERE P.CostCenterID=T.CostCenterID
+	    	and (P.PrefName=''Lock Data Between'' or P.PrefName=''LockCostCenters'' or P.PrefName=''OverrideLock'')
+end
+
+WHILE(@I <  @CNT)      
+BEGIN                
+	SET @I = @I+1  
+	SELECT @DELETEDOCID = DOCID,@IsAccDoc=IsAccDoc FROM @tblXML WHERE ID = @I      
+        
+    if(@IsAccDoc=1) 
+    BEGIN
+		SELECT @DELDocPrefix = DocPrefix,@CancelDOCID=DocID, @DELDocNumber=  DocNumber , @DELETECCID = COSTCENTERID, @DocDate=DocDate FROM dbo.ACC_DocDetails with(nolock)
+		WHERE DOCID = @DELETEDOCID      
+		IF @DELDocNumber IS NOT NULL
+		BEGIN
+			--Start: Data Lock
+			SELECT @DAllowLockData=CONVERT(BIT,PrefValue) FROM @TblDocPref WHERE   PrefName=''Lock Data Between'' and CostCenterID=@DELETECCID  
+			if((@AllowLockData=1 or @DAllowLockData=1) and dbo.fnCOM_HasAccess(@RoleID,43,193)=0 )
+			BEGIN
+
+				IF exists(select LockID from ADM_LockedDates WITH(NOLOCK) where isEnable=1 
+				and ((@AllowLockData=1 and CONVERT(float,@DocDate) between FromDate and ToDate and CostCenterID=0)
+				or (@DAllowLockData=1 and CONVERT(float,@DocDate) between FromDate and ToDate and CostCenterID=@DELETECCID)))
+					set @IsLock=1
+
+				IF (@DAllowLockData=1 and @IsLock=1)
+				BEGIN	
+					SELECT @DLockCC=CONVERT(INT,PrefValue) FROM @TblDocPref WHERE  PrefName=''LockCostCenters'' and isnumeric(PrefValue)=1 and CostCenterID=@DELETECCID 
+
+					if(@DLockCC is null or @DLockCC=0)
+						RAISERROR(''-125'',16,1)      			
+				END
+
+				IF (@AllowLockData=1 and @IsLock=1 and (SELECT PrefValue FROM @TblDocPref where PrefName=''OverrideLock'' and CostCenterID=@DELETECCID )<>''true'')
+				BEGIN
+					SELECT @LockCC=CONVERT(INT,Value) FROM @TblPref where  Name=''LockCostCenters'' and isnumeric(Value)=1
+
+					if(@LockCC is null or @LockCC=0)
+						RAISERROR(''-125'',16,1)      			
+				END
+			END
+			--End: Data Lock
+
+			EXEC @return_value = [dbo].[spDOC_SuspendAccDocument]  
+			@CostCenterID = @DELETECCID, 
+			@DocID=@CancelDOCID,
+			@DocPrefix = @DELDocPrefix,  
+			@DocNumber = @DELDocNumber, 
+			@Remarks=N'''', 
+			@SysInfo =@SysInfo, 
+			@AP =@AP, 
+			@UserID = @UserID,  
+			@UserName = @UserName,
+			@RoleID=@RoleID,
+			@LangID = @LangID  
+			  
+		END
+	END	
+	ELSE
+	BEGIN
+		SELECT @DELDocPrefix = DocPrefix,@CancelDOCID=DocID, @DELDocNumber=  DocNumber , @DELETECCID = COSTCENTERID, @DocDate=DocDate FROM dbo.INV_DocDetails with(nolock)      
+		WHERE DOCID = @DELETEDOCID      
+		IF @DELDocNumber IS NOT NULL
+		BEGIN
+			--Start: Data Lock
+			SELECT @DAllowLockData=CONVERT(BIT,PrefValue) FROM @TblDocPref WHERE   PrefName=''Lock Data Between'' and CostCenterID=@DELETECCID  	
+			if((@AllowLockData=1 or @DAllowLockData=1) and dbo.fnCOM_HasAccess(@RoleID,43,193)=0 )
+			BEGIN
+
+				IF exists(select LockID from ADM_LockedDates WITH(NOLOCK) where isEnable=1 
+				and ((@AllowLockData=1 and CONVERT(float,@DocDate) between FromDate and ToDate and CostCenterID=0)
+				or (@DAllowLockData=1 and CONVERT(float,@DocDate) between FromDate and ToDate and CostCenterID=@DELETECCID)))
+					set @IsLock=1
+
+				IF (@DAllowLockData=1 and @IsLock=1)
+				BEGIN	
+					SELECT @DLockCC=CONVERT(INT,PrefValue) FROM @TblDocPref WHERE  PrefName=''LockCostCenters'' and isnumeric(PrefValue)=1 and CostCenterID=@DELETECCID 
+
+					if(@DLockCC is null or @DLockCC=0)
+						RAISERROR(''-125'',16,1)      			
+				END
+
+				IF (@AllowLockData=1 and @IsLock=1 and (SELECT PrefValue FROM @TblDocPref where PrefName=''OverrideLock'' and CostCenterID=@DELETECCID )<>''true'')
+				BEGIN
+					SELECT @LockCC=CONVERT(INT,Value) FROM @TblPref where  Name=''LockCostCenters'' and isnumeric(Value)=1
+
+					if(@LockCC is null or @LockCC=0)
+						RAISERROR(''-125'',16,1)      			
+				END
+			END
+			--End: Data Lock
+
+			EXEC @return_value = spDOC_SuspendInvDocument        
+				@CostCenterID = @DELETECCID, 
+				@DocID=@CancelDOCID,
+				@DocPrefix = @DELDocPrefix,  
+				@DocNumber = @DELDocNumber, 
+				@Remarks=N'''', 
+				@SysInfo =@SysInfo, 
+				@AP =@AP, 
+				@UserID = @UserID,  
+				@UserName = @UserName, 
+				@RoleID=@RoleID, 
+				@LangID = @LangID  
+		END
+	END       
+END 
+    
+ 
+   
+COMMIT TRANSACTION       
+     
+SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock)     
+WHERE ErrorNumber=100 AND LanguageID=@LangID    
+SET NOCOUNT OFF;
+RETURN @ContractID        
+END TRY        
+BEGIN CATCH   
+ if(@return_value is null or  @return_value<>-999)     
+ BEGIN          
+IF ERROR_NUMBER()=50000    
+ BEGIN    
+ SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock)     
+  WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID    
+ END    
+ ELSE IF ERROR_NUMBER()=547    
+ BEGIN    
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine FROM COM_ErrorMessages WITH(nolock)    
+  WHERE ErrorNumber=-110 AND LanguageID=@LangID    
+ END    
+ ELSE IF ERROR_NUMBER()=2627    
+ BEGIN    
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine FROM COM_ErrorMessages WITH(nolock)    
+  WHERE ErrorNumber=-116 AND LanguageID=@LangID    
+ END    
+ ELSE    
+ BEGIN    
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine    
+  FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=-999 AND LanguageID=@LangID    
+ END     
+ ROLLBACK TRANSACTION      
+ END  
+ SET NOCOUNT OFF        
+ RETURN -999         
+    
+    
+END CATCH   
+  ' 
+END
+GO

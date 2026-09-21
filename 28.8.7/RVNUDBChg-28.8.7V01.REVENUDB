@@ -1,0 +1,3 @@
+--Ibrahim
+
+update ADM_CostCenterDef set IsMandatory=0 WHERE CostCenterID=72 AND SysColumnName='OwnerID'

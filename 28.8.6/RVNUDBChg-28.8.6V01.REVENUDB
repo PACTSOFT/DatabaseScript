@@ -1,0 +1,16 @@
+--Sajid
+DECLARE @Rid INT
+SELECT @Rid=MAX(ResourceID) from COM_LanguageResources WITH(NOLOCK)
+SET @Rid=@Rid+1
+
+IF NOT EXISTS(SELECT Name FROM [ADM_GlobalPreferences] WITH(NOLOCK) WHERE  Name='SetRefDocSeqnoinLineWiseBillForDeletedDocSeqNo')
+BEGIN
+	INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid,'SetRefDocSeqnoinLineWiseBillForDeletedDocSeqNo',1,'English','Set RefDocSeqno in Linewise Bill For Deleted DocSeqNo','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',convert(float,getdate()),NULL,NULL,'')
+
+	INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@RId,'SetRefDocSeqnoinLineWiseBillForDeletedDocSeqNo',2,'Arabic',N'Set RefDocSeqno in Linewise Bill For Deleted DocSeqNo-AR','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',convert(float,getdate()),NULL,NULL,'')
+
+	INSERT [dbo].[ADM_GlobalPreferences] ( [ResourceID], [Name], [Value], [DefaultValue], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate], [PreferenceTypeName], [PrefRowOrder], [PrefColOrder], [PrefValueType], [Version]) 
+	VALUES (@RId, N'SetRefDocSeqnoinLineWiseBillForDeletedDocSeqNo', N'False', N'False', N'guid', NULL, N'admin', 22, NULL, NULL, N'Transactions', 55, 0, N'CheckBox', NULL)
+END

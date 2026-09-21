@@ -1,0 +1,3 @@
+-- SHASHANK
+
+UPDATE ADM_GlobalPreferences set PreferenceTypeName='Payroll',PrefRowOrder=116,prefvaluetype='CheckBox' where Name='SetPayrollMonthToEndDateMonth'

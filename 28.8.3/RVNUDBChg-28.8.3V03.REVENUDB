@@ -1,0 +1,3 @@
+--Subhani
+
+ALTER TABLE [dbo].[ADM_GridViewColumns] ADD [ColumnCaption] [nvarchar](500) 

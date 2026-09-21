@@ -1,0 +1,19 @@
+--Sameer
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[COM_SurveyAssignments]') AND type in (N'U'))
+BEGIN
+CREATE TABLE [dbo].[COM_SurveyAssignments](
+	[AssignmentID] [int] IDENTITY(1,1) NOT NULL,
+	[CCID] [int] NOT NULL,
+	[NodeID] [int] NOT NULL,
+	[UserID] [int] NOT NULL,
+	[AssignCCID] [int] NOT NULL,
+	[AssignNodeID] [int] NOT NULL,
+	[SurveyDocID] [int] NOT NULL,
+	[Status] [bit] NOT NULL,
+	[CreatedBy] [nvarchar](50) NOT NULL,
+	[CreatedDate] [float] NOT NULL,
+	[ModifiedBy] [nvarchar](50) NULL,
+	[ModifiedDate] [float] NULL,
+) ON [PRIMARY]
+END
+GO

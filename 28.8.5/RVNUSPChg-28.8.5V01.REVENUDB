@@ -1,0 +1,3406 @@
+--Ikram
+GO
+/****** Object:  StoredProcedure [dbo].[spDOC_SuspendInvDocument]    Script Date: 07-09-2026 13:22:56 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spDOC_SuspendInvDocument]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spDOC_SuspendInvDocument]
+GO
+/****** Object:  StoredProcedure [dbo].[spDOC_SuspendAccDocument]    Script Date: 07-09-2026 13:22:56 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spDOC_SuspendAccDocument]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spDOC_SuspendAccDocument]
+GO
+/****** Object:  StoredProcedure [dbo].[spDoc_SetNewRef]    Script Date: 07-09-2026 13:22:56 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spDoc_SetNewRef]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spDoc_SetNewRef]
+GO
+/****** Object:  StoredProcedure [dbo].[spDOC_DeleteInvDocument]    Script Date: 07-09-2026 13:22:56 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spDOC_DeleteInvDocument]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spDOC_DeleteInvDocument]
+GO
+/****** Object:  StoredProcedure [dbo].[spDOC_DeleteAccDocument]    Script Date: 07-09-2026 13:22:56 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spDOC_DeleteAccDocument]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spDOC_DeleteAccDocument]
+GO
+/****** Object:  StoredProcedure [dbo].[spDOC_DeleteAccDocument]    Script Date: 07-09-2026 13:22:56 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spDOC_DeleteAccDocument]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'-- =============================================    
+-- Author:  IKRAM
+-- Create date: 2 Apr 2011    
+-- Description: Delete accounting document    
+-- Example :      
+-- [spDOC_DeleteAccDocument] 40012,'''',''21'',1,1
+-- =============================================    
+CREATE procedure [dbo].[spDOC_DeleteAccDocument]    
+@CostCenterID INT,
+@DocPrefix NVARCHAR(50),
+@DocNumber NVARCHAR(500),
+@DocID INT,
+@LockWhere NVARCHAR(max)='''',
+@sysinfo NVARCHAR(MAX)='''', 
+@AP varchar(10)='''',
+@UserID INT=0, 
+@UserName NVARCHAR(100),
+@LangID int=1,
+@RoleID int=0
+AS    
+BEGIN TRANSACTION      
+BEGIN TRY      
+SET NOCOUNT ON;    
+  --Declaration Section    
+  DECLARE @HasAccess bit,@VoucherNo nvarchar(200),@PrefValue NVARCHAR(500),@NodeID INT ,@DocDate datetime,@PrePayment INT ,@DocType int
+  DECLARE @sql nvarchar(max),@tablename nvarchar(200),@CurrentNo INT,@IsLineWisePDC bit,@CrossDimension bit,@return_value int
+  declare @AccDocID INT,@DELETECCID INT,@delcnt int,@deli int,@DeleteDOcid INT,@CompanyGUID nvarchar(200)		
+  declare @ConvertCurrentNo INT,@temp varchar(100),@Length int,@t int,@RefCCID int,@Series int,@CCID int	
+  declare @ttdel table(id int identity(1,1),docid INT,CCID INT)  
+  
+	--SP Required Parameters Check
+	IF(@CostCenterID<40000 or (@DocNumber='''' and (@DocID is null or @DocID=0)))
+	BEGIN
+		RAISERROR(''-100'',16,1)
+	END
+
+
+	--User acces check
+	SET @HasAccess=dbo.fnCOM_HasAccess(@RoleID,@CostCenterID,4)
+
+	IF @HasAccess=0
+	BEGIN
+		RAISERROR(''-105'',16,1)
+	END
+	if(@DocID>0)
+		SELECT @DocDate=convert(datetime,DocDate),@VoucherNo=VoucherNo,@DocPrefix=DocPrefix,@DocNumber=DocNumber,@DocType=Documenttype FROM [ACC_DocDetails] with(nolock)
+		WHERE CostCenterID=@CostCenterID AND DocID=@DocID 
+	ELSE
+		SELECT @DocDate=convert(datetime,DocDate),@VoucherNo=VoucherNo,@DocID=DocID,@DocType=Documenttype FROM [ACC_DocDetails] with(nolock)
+		WHERE CostCenterID=@CostCenterID AND DocPrefix=@DocPrefix AND DocNumber=@DocNumber
+		
+	IF @VoucherNo IS NULL
+	BEGIN
+		COMMIT TRANSACTION         
+		SET NOCOUNT OFF;  SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) 
+		WHERE ErrorNumber=102 AND LanguageID=@LangID  
+		RETURN 1	
+	END
+
+
+DECLARE @DLockFromDate DATETIME,@DLockToDate DATETIME,@DAllowLockData BIT ,@DLockCC INT  
+ DECLARE @LockFromDate DATETIME,@LockToDate DATETIME,@AllowLockData BIT,@LockCC INT,@LockCCValues nvarchar(max)     
+    
+ SELECT @AllowLockData=CONVERT(BIT,Value) FROM ADM_GlobalPreferences with(nolock) WHERE Name=''Lock Data Between''       
+ SELECT @DAllowLockData=CONVERT(BIT,PrefValue) FROM COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and  PrefName=''Lock Data Between''  
+   
+ if(dbo.fnCOM_HasAccess(@RoleID,43,193)=0 and (SELECT PrefValue FROM COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and  PrefName=''OverrideLock'')<>''true'')  
+ BEGIN  
+  IF (@AllowLockData=1)  
+  BEGIN   
+   SELECT @LockFromDate=CONVERT(DATETIME,Value) FROM ADM_GlobalPreferences with(nolock) WHERE Name=''LockDataFromDate''      
+   SELECT @LockToDate=CONVERT(DATETIME,Value) FROM ADM_GlobalPreferences with(nolock) WHERE Name=''LockDataToDate''      
+   SELECT @LockCC=CONVERT(INT,Value) FROM ADM_GlobalPreferences with(nolock) WHERE Name=''LockCostCenters'' and isnumeric(Value)=1  
+  
+   if(@DocDate BETWEEN @LockFromDate AND @LockToDate)  
+   BEGIN  
+     if(@LockCC is null or @LockCC=0)  
+		RAISERROR(''-125'',16,1)    
+     else if(@LockCC>50000)  
+     BEGIN  
+       SELECT @LockCCValues=CONVERT(INT,Value) FROM ADM_GlobalPreferences with(nolock) WHERE Name=''LockCostCenterNodes''  
+  
+      set @LockCCValues= rtrim(@LockCCValues)  
+      set @LockCCValues=substring(@LockCCValues,0,len(@LockCCValues)- charindex('','',reverse(@LockCCValues))+1)  
+  
+      set @sql =''if exists (select a.AccDocDetailsID FROM  [COM_DocCCData] a  
+      join [ACC_DocDetails] b with(nolock) on a.AccDocDetailsID=b.AccDocDetailsID  
+      WHERE b.CostCenterID=''+convert(nvarchar,@CostCenterID)+'' AND b.docid=''+convert(nvarchar,@DocID)+'' and a.dcccnid''+convert(nvarchar,(@LockCC-50000))+'' in(''+@LockCCValues+''))  
+      RAISERROR(''''-125'''',16,1)  ''  
+      exec(@sql)  
+     END  
+   END      
+  END  
+   ----------------------------------------------------------------------------
+	-- if DownPayment adjusted in other document then the parent document want to delete raise error cannot delete adjusted document. Issue id 72042 -- Wajid
+	if Exists (select DocNo from com_billwisenonacc with(nolock) where RefDocNO<>'''' and RefDocNO IN(select RefDocNo from COM_Billwise with(nolock) where DocNo=@VoucherNo))
+	Begin
+		RAISERROR(''-1221'',16,1)
+	End
+   ----------------------------------------------------------------------------
+
+  if(dbo.fnCOM_HasAccess(@RoleID,43,193)=0 and @LockWhere <>'''')
+  BEGIN
+	  if(@LockWhere like ''<XML%'')
+		BEGIN
+					declare @xml xml
+					set @xml=@LockWhere					
+					select @LockWhere=isnull(X.value(''@where'',''nvarchar(max)''),''''),@LockCCValues=isnull(X.value(''@join'',''nvarchar(max)''),'''')
+					from @xml.nodes(''/XML'') as Data(X)    		         
+					  set @sql =''if exists (select a.CostCenterID from Acc_DocDetails a WITH(NOLOCK)
+					join COM_DocCCData b WITH(NOLOCK) on a.AccDocDetailsID=b.AccDocDetailsID
+					join ADM_DimensionWiseLockData c  WITH(NOLOCK) on a.DocDate between c.fromdate and c.todate and c.isEnable=1 ''+@LockCCValues+''
+					where  a.CostCenterID=''+convert(nvarchar,@CostCenterID)+'' AND a.docid=''+convert(nvarchar,@DocID)+@LockWhere+'')  
+					RAISERROR(''''-125'''',16,1)  ''  
+		END
+		ELSE
+		BEGIN
+		  set @sql =''if exists (select a.CostCenterID from Acc_DocDetails a WITH(NOLOCK)
+				join COM_DocCCData b WITH(NOLOCK) on a.AccDocDetailsID=b.AccDocDetailsID
+				join ADM_DimensionWiseLockData c  WITH(NOLOCK) on a.DocDate between c.fromdate and c.todate and c.isEnable=1 
+				where  a.CostCenterID=''+convert(nvarchar,@CostCenterID)+'' AND a.docid=''+convert(nvarchar,@DocID)+@LockWhere+'')  
+				RAISERROR(''''-125'''',16,1)  '' 
+		END		 
+      exec(@sql)
+  END
+    
+  IF (@DAllowLockData=1)  
+  BEGIN  
+   SELECT @DLockFromDate=CONVERT(DATETIME,PrefValue) FROM COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and  PrefName=''LockDataFromDate''  
+   SELECT @DLockToDate=CONVERT(DATETIME,PrefValue) FROM COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and  PrefName=''LockDataToDate''  
+   SELECT @DLockCC=CONVERT(INT,PrefValue) FROM COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and  PrefName=''LockCostCenters'' and isnumeric(PrefValue)=1  
+    
+   if(@DocDate BETWEEN @DLockFromDate AND @DLockToDate)  
+   BEGIN  
+    if(@DLockCC is null or @DLockCC=0)  
+		RAISERROR(''-125'',16,1)    
+     else if(@DLockCC>50000)  
+     BEGIN  
+		  SELECT @LockCCValues=CONVERT(INT,PrefValue) FROM COM_DocumentPreferences with(nolock) WHERE CostCenterID=@CostCenterID and  PrefName=''LockCostCenterNodes''  
+	  
+		  set @LockCCValues= rtrim(@LockCCValues)  
+		  set @LockCCValues=substring(@LockCCValues,0,len(@LockCCValues)- charindex('','',reverse(@LockCCValues))+1)  
+	  
+		  set @sql =''if exists (select a.AccDocDetailsID FROM  [COM_DocCCData] a with(nolock) 
+		  join [ACC_DocDetails] b with(nolock) on a.AccDocDetailsID=b.AccDocDetailsID  
+		  WHERE b.CostCenterID=''+convert(nvarchar,@CostCenterID)+'' AND b.docid=''+convert(nvarchar,@DocID)+'' and a.dcccnid''+convert(nvarchar,(@DLockCC-50000))+'' in(''+@LockCCValues+''))  
+		  RAISERROR(''''-125'''',16,1)  ''  
+		  exec(@sql)  
+     END   
+   END         
+  END  
+ END  
+--CHECK AUDIT TRIAL ALLOWED AND INSERTING AUDIT TRIAL DATA
+DECLARE @AuditTrial BIT,@dt FLOAT
+SET @AuditTrial=0
+SELECT @AuditTrial=CONVERT(BIT,PrefValue) FROM [COM_DocumentPreferences] with(nolock)
+WHERE CostCenterID=@CostCenterID AND PrefName=''AuditTrial''
+
+SET @dt=CONVERT(FLOAT,GETDATE())
+
+IF (@DocID is not null and @DocID>0)-- AND @AuditTrial=1)
+BEGIN
+	INSERT INTO ACC_DocDetails_History_ATUser(DocType,DocID,VoucherNo,ActionType,ActionTypeID,UserID,CreatedBy,CreatedDate)
+	VALUES(@CostCenterID,@DocID,@VoucherNo,''Delete'',3,@UserID,@UserName,@dt)
+
+	if(@AuditTrial=1)
+	begin
+		declare @ModDate float
+		set @ModDate=convert(float,getdate())
+		EXEC @return_value = [spDOC_SaveHistory]      
+				@DocID =@DocID ,
+				@HistoryStatus=''Delete'',
+				@Ininv =0,
+				@ReviseReason ='''',
+				@LangID =@LangID,
+				@UserName=@UserName,
+				@ModDate=@ModDate,
+				@sysinfo=@sysinfo,
+				@AP=@AP
+	end
+END
+
+
+			insert into @ttdel
+			SELECT distinct b.DocID,b.COSTCENTERID FROM  [ACC_DocDetails] a WITH(NOLOCK)
+			join  [INV_DocDetails] b WITH(NOLOCK) on a.AccDocDetailsID=b.RefNodeid 
+			WHERE a.DocID =@DocID and b.RefCCID=400
+			
+			select @deli=min(id),@delcnt=max(id) from @ttdel
+			while(@deli<=@delcnt)
+			BEGIN				
+				select @DeleteDOcid=docid,@DELETECCID=CCID from @ttdel where id=@deli
+				set @deli=@deli+1	    
+				 EXEC @return_value = [dbo].[spDOC_DeleteInvDocument]  
+				 @CostCenterID = @DELETECCID,  
+				 @DocPrefix = '''',  
+				 @DocNumber = '''',
+				 @DocID=@DeleteDOcid,
+				 @UserID = @UserID,  
+				 @UserName = @UserName,  
+				 @LangID = @LangID,  
+				 @RoleID= @RoleID
+			END
+
+	set @IsLineWisePDC=0
+	select @IsLineWisePDC=isnull(PrefValue,0) from COM_DocumentPreferences WITH(NOLOCK)    
+	where CostCenterID=@CostCenterID and PrefName=''LineWisePDC''   	
+	set @CrossDimension=0
+	select @CrossDimension=isnull(PrefValue,0) from COM_DocumentPreferences WITH(NOLOCK)    
+	where CostCenterID=@CostCenterID and PrefName=''UseasCrossDimension''
+	set @PrePayment=0
+	select @PrePayment=isnull(PrefValue,0) from COM_DocumentPreferences WITH(NOLOCK)    
+	where CostCenterID=@CostCenterID and PrefName=''PrepaymentDoc''
+
+	if(@IsLineWisePDC=1 or @CrossDimension=1 or @PrePayment<>0 or @DocType not in(14,19))	
+	BEGIN
+			if(@IsLineWisePDC=1 and exists (SELECT a.ACCDocDetailsID from ACC_DocDetails a  with(nolock)	 
+			 join ACC_DocDetails B with(nolock) on a.ACCDocDetailsID =b.RefNodeid and b.RefCCID=400  
+			 where a.CostCenterid=@CostCenterID and a.DocID =@DocID and b.Statusid<>370))
+				RAISERROR(''-399'',16,1) 	
+	 
+			delete from @ttdel	
+			insert into @ttdel
+			SELECT distinct b.DocID,b.COSTCENTERID FROM  [ACC_DocDetails] a WITH(NOLOCK)
+			join  [ACC_DocDetails] b WITH(NOLOCK) on a.AccDocDetailsID=b.RefNodeid 
+			WHERE a.DocID =@DocID and b.RefCCID=400
+			
+			select @deli=min(id),@delcnt=max(id) from @ttdel
+			while(@deli<=@delcnt)
+			BEGIN				
+				select @DeleteDOcid=docid,@DELETECCID=CCID from @ttdel where id=@deli
+				set @deli=@deli+1	    
+				 EXEC @return_value = [dbo].[spDOC_DeleteAccDocument]  
+				 @CostCenterID = @DELETECCID,  
+				 @DocPrefix = '''',  
+				 @DocNumber = '''',
+				 @DocID=@DeleteDOcid,
+				 @UserID = @UserID,  
+				 @UserName = @UserName,  
+				 @LangID = @LangID,  
+				 @RoleID= @RoleID
+			END
+	END
+   
+	
+	 
+	 
+		SELECT @CurrentNo=CurrentCodeNumber FROM COM_CostCenterCodeDef with(nolock)
+		WHERE CostCenterID=@CostCenterID AND CodePrefix=@DocPrefix
+
+		if(@CurrentNo=convert(INT,@DocNumber))
+		begin
+			UPDATE cd     
+			SET cd.CurrentCodeNumber=convert(INT,@DocNumber)-1
+			from COM_CostCenterCodeDef cd with(nolock)
+			WHERE cd.CostCenterID=@CostCenterID AND cd.CodePrefix=@DocPrefix  
+		end
+
+		--Reset DocPrefix for ConvertAs Document
+		if(@DocType=14 or @DocType=19)
+		begin
+			SELECT @Series=isnull(Series,0),@CCID=isnull(ConvertAs,0) FROM ADM_DocumentTypes WITH(NOLOCK) WHERE CostCenterID=@CostCenterID  
+			if(@CCID>0 and @Series=1)
+			begin
+				SELECT @DOCNumber=DOCNumber,@DoCPrefix=DocPrefix  from ACC_DocDetails with(nolock) where CostCenterID=@CostCenterID AND DocID=@DocID 
+				SELECT  @ConvertCurrentNo=ISNULL(CurrentCodeNumber,0),@Length=isnull(CodeNumberLength,1)  FROM COM_CostCenterCodeDef WITH(NOLOCK) WHERE CostCenterID=@CCID AND CodePrefix=@DoCPrefix    
+				if(CONVERT(INT,@DOCNumber)>= @ConvertCurrentNo)  
+				begin    					
+					SET @DOCNumber=@ConvertCurrentNo-1    
+					UPDATE COM_CostCenterCodeDef SET CurrentCodeNumber=@DOCNumber WHERE CostCenterID=@CCID AND CodePrefix=@DoCPrefix  
+				end
+			 end
+		end
+
+
+		select @PrefValue=PrefValue from COM_DocumentPreferences with(nolock)
+		where CostCenterID=@CostCenterID and PrefName=''DocumentLinkDimension''
+		
+		if(@PrefValue is not null and @PrefValue<>'''' and ISNUMERIC(@PrefValue)=1)
+		begin
+			declare @Dimesion INT
+			set @Dimesion=0
+			begin try
+				select @Dimesion=convert(INT,@PrefValue)
+			end try
+			begin catch
+				set @Dimesion=0
+			end catch
+			if(@Dimesion>0)
+			begin
+				
+				select @tablename=tablename from ADM_Features with(nolock) where FeatureID=@Dimesion
+				set @sql=''select @NodeID=NodeID from ''+@tablename+'' with(nolock) where Name=''''''+@VoucherNo+''''''''
+				print @sql
+				EXEC sp_executesql @sql,N''@NodeID INT OUTPUT'',@NodeID output
+				 
+				if(@NodeID>1)
+				begin
+					SET @sql=''UPDATE a 
+					SET a.dcCCNID''+CONVERT(NVARCHAR,(@Dimesion-50000))+''=1''
+					+'' from COM_DocCCData a with(nolock) WHERE a.AccDocDetailsID IN (SELECT AccDocDetailsID FROM [ACC_DocDetails] with(nolock) 
+					WHERE COSTCENTERID=''+CONVERT(NVARCHAR,@CostCenterID)+'' AND DOCID=''+CONVERT(NVARCHAR,@DocID)+'')''
+					EXEC(@sql)
+					EXEC	@return_value = [dbo].[spCOM_DeleteCostCenter]
+						@CostCenterID = @Dimesion,
+						@NodeID = @NodeID,
+						@RoleID=1,
+						@UserID = @UserID,
+						@LangID = @LangID
+				end
+			end
+		end	
+		
+		if exists (SELECT 1 FROM COM_DocumentPreferences WITH(NOLOCK) WHERE PrefName=''UseAsDownPmt'' AND PrefValue=''True'')
+		begin
+			EXEC [spDOC_DownPaymentFlow]
+			@CostCenterID =@CostCenterID,
+			@DocID =@DocID,
+			@isINV =0,
+			@StatusID=448,
+			@UserID =@UserID,
+			@LangID =@LangID
+		end
+		--ondelete External function
+		set @tablename=''''
+		select @tablename=SpName from ADM_DocFunctions a WITH(NOLOCK) where CostCenterID=@CostCenterID and Mode=8
+		if(@tablename<>'''')
+			exec @tablename @CostCenterID,@DocID,'''',@UserID,@LangID
+		
+		if exists (SELECT a.ACCDocDetailsID from ACC_DocDetails a  with(nolock)	 
+		 join ACC_DocDetails B with(nolock) on a.ACCDocDetailsID =b.RefNodeid and b.RefCCID=400  
+		 where a.CostCenterid=@CostCenterID and a.DocID =@DocID)
+		 begin
+			if exists(select ACCDocDetailsID from ACC_DocDetails with(nolock) where DocID =@DocID and StatusID=369)
+				RAISERROR(''-370'',16,1)  
+			else if exists(select ACCDocDetailsID from ACC_DocDetails with(nolock) where DocID =@DocID and StatusID=447)
+				RAISERROR(''-398'',16,1) 	
+			else if exists(select ACCDocDetailsID from ACC_DocDetails with(nolock) where DocID =@DocID and StatusID=429)
+				RAISERROR(''-371'',16,1)  
+		 end
+		 
+		 if exists (SELECT a.ACCDocDetailsID from ACC_DocDetails a with(nolock)	 
+		 join ACC_DocDetails B with(nolock) on a.ACCDocDetailsID =b.RefNodeid and b.RefCCID=109  
+		 where a.CostCenterid=@CostCenterID and a.DocID =@DocID )
+		 begin		
+				RAISERROR(''-110'',16,1)  
+		 end
+		 
+		 IF EXISTS (SELECT * FROM SYS.TABLES WITH(NOLOCK) WHERE NAME=''REN_ContractDocMapping'')
+		 BEGIN
+			 SET @sql=''if exists (SELECT a.ACCDocDetailsID from ACC_DocDetails a with(nolock)	 
+			 join REN_ContractDocMapping B with(nolock) on a.DocID =b.DocID
+			 where a.CostCenterid=''+CONVERT(NVARCHAR,@CostCenterID)+'' and a.DocID =''+CONVERT(NVARCHAR,@DocID)+'' and B.JVVoucherNo is not null and B.JVVoucherNo<>'''''''')
+			 begin		
+					RAISERROR(''''-563'''',16,1)  
+			 end''
+			 EXEC sp_executesql @sql
+		 END
+
+		 IF EXISTS(SELECT * FROM SYS.TABLES WITH(NOLOCK) WHERE NAME=''PAY_FinancePostings'')
+		 BEGIN
+			DECLARE @XML1 XML,@PayrollFP NVARCHAR(MAX),@sWhere NVARCHAR(MAX),@sUpd NVARCHAR(MAX)
+			CREATE TABLE #TEMPFP(ID INT IDENTITY(1,1),Provision NVARCHAR(500),Type NVARCHAR(100),ReportID NVARCHAR(500),ReportColID NVARCHAR(500))
+
+			SELECT @PayrollFP=Value FROM ADM_GlobalPreferences WITH(NOLOCK) WHERE Name=''PayrollFinancialPostingXml''
+			SET @XML1=@PayrollFP
+			
+			INSERT INTO #TEMPFP
+			SELECT X.value(''@Provision'',''Nvarchar(500)''),X.value(''@Type'',''Nvarchar(100)''),X.value(''@ReportID'',''Nvarchar(500)''),X.value(''@ReportColID'',''Nvarchar(500)'') FROM @XML1.nodes(''/XML/Row'') as Data(X)
+
+			SET @sWhere=''''
+			SELECT @sWhere=STUFF((SELECT '' OR ''+ Provision + '' = '''''' +@VoucherNo +'''''''' FROM #TEMPFP  WITH(NOLOCK) WHERE ISNULL(ReportID,0)>0 FOR XML PATH('''')),1,3,'''') 
+
+			SET @sUpd=''''
+			SELECT @sUpd=STUFF((select ''  UPDATE PAY_FinancePostings SET ''+Provision+'' = '''''''' WHERE 1=1 AND ''+Provision+'' = ''''''+@VoucherNo+''''''''  from #TEMPFP WITH(NOLOCK) where ISNULL(ReportID,0)>0  FOR XML PATH('''')),1,0,'''') 
+			
+			IF(ISNULL(@sUpd,'''')='''' OR LEN(@sUpd)=0)
+				SET @sUpd=''PRINT 1''
+	
+			IF(ISNULL(@sWhere,'''')<>'''' and LEN(@sWhere)>0)
+			BEGIN
+				SET @sql=''if exists (SELECT ID from PAY_FinancePostings with(nolock) where 1=1  and  (''+@sWhere+''))
+				 begin		
+						''+@sUpd+'' 
+				 end''
+				 print @sql
+				 EXEC sp_executesql @sql
+			END
+		 END
+
+		DELETE a FROM  [COM_DocCCData] a with(nolock)
+		JOIN [ACC_DocDetails] b with(nolock) on a.AccDocDetailsID =b.AccDocDetailsID
+		WHERE CostCenterID=@CostCenterID AND DocID=@DocID
+		
+		DELETE a FROM  [COM_DocNumData] a with(nolock)
+		JOIN [ACC_DocDetails] b with(nolock) on a.AccDocDetailsID =b.AccDocDetailsID
+		WHERE CostCenterID=@CostCenterID AND DocID=@DocID
+		
+		DELETE a FROM  [COM_DocTextData] a with(nolock)
+		JOIN [ACC_DocDetails] b with(nolock) on a.AccDocDetailsID =b.AccDocDetailsID
+		WHERE CostCenterID=@CostCenterID AND DocID=@DocID
+	
+		DELETE a FROM COM_Billwise a with(nolock)
+		WHERE DocNo=@VoucherNo
+		
+		DELETE a FROM COM_LCBills a with(nolock)
+		WHERE DocNo=@VoucherNo
+
+		DELETE a FROM COM_BillWiseNonAcc a with(nolock)
+		WHERE DocNo=@VoucherNo
+
+		DELETE a FROM COM_ChequeReturn a with(nolock)
+		WHERE DocNo=@VoucherNo
+		
+		update a 
+		set IsNewReference=1,RefDocNo=null,RefDocSeqNo=null,RefDocDate=null,RefDocDueDate=null
+		from COM_LCBills a with(nolock)		
+		WHERE RefDocNo=@VoucherNo
+		
+		EXEC @return_value = dbo.[spDoc_SetNewRef]
+							@DocNo = @VoucherNo,
+							@UserID = @UserID,
+							@LangID = @LangID
+	
+
+		DELETE a  FROM  COM_Notes a with(nolock)		
+		WHERE FeatureID=@CostCenterID AND FeaturePK=@DocID	
+		
+		DELETE a FROM  COM_Files a with(nolock)		
+		WHERE FeatureID=@CostCenterID AND FeaturePK=@DocID	
+		
+		DELETE a FROM ACC_CorporateDetails a with(nolock)
+		WHERE DOCID=@DocID
+
+		DELETE a FROM COM_DocDenominations a with(nolock)
+		WHERE DOCID=@DocID
+
+		DELETE a FROM [COM_DocID] a with(nolock) 
+		WHERE ID=@DocID
+		
+		DELETE a FROM COM_DocDenominations a with(nolock)
+		WHERE DOCID=@DocID
+		
+		DELETE a FROM [ACC_DocDetails] a with(nolock)
+		WHERE CostCenterID=@CostCenterID AND DocID=@DocID 
+		
+		DELETE a FROM com_approvals a with(nolock) 
+		WHERE CCID=@CostCenterID AND CCNODEID=@DocID
+		
+		if exists (select * from sys.tables with(nolock) where name=''CRM_Activities'')
+		begin
+			SET @sql=''DELETE a FROM  CRM_Activities a with(nolock)
+			WHERE CostCenterID=''+CONVERT(NVARCHAR,@CostCenterID)+'' AND NodeID=''+CONVERT(NVARCHAR,@DocID) 
+			exec (@sql)
+		end
+		
+		update a
+		set PostedVoucherNo=null,StatusID=1
+		from com_schevents a with(nolock)
+		where PostedVoucherNo=@VoucherNo
+		
+		
+		
+COMMIT TRANSACTION         
+SET NOCOUNT OFF;  SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) 
+WHERE ErrorNumber=102 AND LanguageID=@LangID  
+RETURN 1
+END TRY
+BEGIN CATCH  
+	--Return exception info [Message,Number,ProcedureName,LineNumber]  
+	IF ERROR_NUMBER()=50000
+	BEGIN
+		if(ERROR_MESSAGE()=-1221)
+		begin			
+			SELECT ''Adjusted document cannot be deleted.'' as ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=-127 AND LanguageID=@LangID
+		end
+		else
+			SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID
+	END
+	ELSE IF ERROR_NUMBER()=547
+	BEGIN
+		SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine FROM COM_ErrorMessages WITH(nolock)
+		WHERE ErrorNumber=-110 AND LanguageID=@LangID
+	END
+	ELSE
+	BEGIN
+		SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine
+		FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=-999 AND LanguageID=@LangID
+	END
+ROLLBACK TRANSACTION
+
+--Remove if any Delete notification
+delete from COM_SchEvents Where CostCenterID=@CostCenterID and NodeID=@DocID and StatusID=1 and FilterXML like ''<XML><FilePath>%''
+
+SET NOCOUNT OFF  
+RETURN -999   
+END CATCH
+' 
+END
+GO
+/****** Object:  StoredProcedure [dbo].[spDOC_DeleteInvDocument]    Script Date: 07-09-2026 13:22:56 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spDOC_DeleteInvDocument]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'-- =============================================    
+-- Author:  IKRAM
+-- Create date: 2 Apr 2011    
+-- Description: Delete accounting document    
+-- Example :      
+-- [spDOC_DeleteInvDocument] 40011,'''','''',14696,'''',1,''admin'',1,1
+-- =============================================    
+CREATE PROCEDURE [dbo].[spDOC_DeleteInvDocument]    
+@CostCenterID INT,
+@DocPrefix NVARCHAR(50),    
+@DocNumber NVARCHAR(500),
+@DocID INT,
+@LockWhere NVARCHAR(max)='''',
+@sysinfo NVARCHAR(MAX)='''', 
+@AP varchar(10)='''',
+@UserID INT=0,
+@UserName NVARCHAR(100),
+@LangID int=1,
+@RoleID int=0
+AS    
+BEGIN TRANSACTION      
+BEGIN TRY      
+SET NOCOUNT ON;    
+	--Declaration Section    
+	DECLARE @HasAccess bit,@VoucherNo nvarchar(200),@PrefValue NVARCHAR(500),@NodeID INT,@Dimesion INT
+	DECLARE @sql nvarchar(max),@tablename nvarchar(200),@CurrentNo INT,@return_value int,@AUTOCCID int
+	declare @AccDocID INT,@DELETECCID INT ,@DocumentType int,@CompanyGUID nvarchar(200),@DeleteDocID INT
+	declare @bi int,@bcnt int,@VoucherType int,@InvDocDetailsID INT ,@DocDate datetime  ,@NID INT,@hldbins bit,@varnodexml xml	
+	DECLARE @ConsolidatedBatches nvarchar(50),@Tot float,@BatchID INT,@WHERE nvarchar(max),@totRet float,@ResINVID int
+	declare @BinDimesion int,@BinDimesionNodeID int,@ProductID int,@ProductName nvarchar(250)
+	DECLARE @TblPref AS TABLE(Name nvarchar(100),Value nvarchar(max))
+	INSERT INTO @TblPref
+	SELECT Name,Value FROM ADM_GlobalPreferences with(nolock)
+	WHERE Name IN (''DW Batches'',''LW Batches'',''Maintain Dimensionwise Batches'',''EnableLocationWise'',''ConsiderUnAppInHold'',''EnableDivisionWise'')
+	
+	--SP Required Parameters Check
+	IF(@CostCenterID<40000 or (@DocNumber='''' and (@DocID is null or @DocID=0)))
+	BEGIN
+		RAISERROR(''-100'',16,1)
+	END
+
+
+	--User acces check
+	SET @HasAccess=dbo.fnCOM_HasAccess(@RoleID,@CostCenterID,4)
+
+	IF @HasAccess=0
+	BEGIN
+		RAISERROR(''-105'',16,1)
+	END
+	
+	if(@DocID>0)
+		SELECT @DocDate=convert(datetime,DocDate),@VoucherNo=VoucherNo,@DocPrefix=DocPrefix,@DocNumber=DocNumber,@DocumentType=DocumentType,@VoucherType=VoucherType 
+		FROM [INV_DocDetails] with(nolock)
+		WHERE CostCenterID=@CostCenterID AND DocID=@DocID 
+	ELSE
+		SELECT @DocDate=convert(datetime,DocDate),@VoucherNo=VoucherNo,@DocID=DocID,@DocumentType=DocumentType,@VoucherType=VoucherType  
+		FROM [INV_DocDetails] with(nolock)
+		WHERE CostCenterID=@CostCenterID AND DocPrefix=@DocPrefix AND DocNumber=@DocNumber
+	
+	IF @DocID IS NULL
+	BEGIN
+		COMMIT TRANSACTION         
+		SET NOCOUNT OFF; 
+		SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) 
+		WHERE ErrorNumber=102 AND LanguageID=@LangID  
+		RETURN 1	
+	END	
+	
+	if exists(select costcenterid from [COM_CostCenterPreferences] with(nolock)
+	where Name=''ExcludeHoldBins'' and costcenterid=3 and Value=''true'')
+		set @hldbins=1
+	else
+		set @hldbins=0	
+
+	DECLARE @DLockFromDate DATETIME,@DLockToDate DATETIME,@DAllowLockData BIT ,@DLockCC INT  
+	DECLARE @LockFromDate DATETIME,@LockToDate DATETIME,@AllowLockData BIT,@LockCC INT,@LockCCValues nvarchar(max)     
+	declare @caseTab table(id int identity(1,1),CaseID INT,fldName nvarchar(50))
+	declare @CaseID INT,@iUNIQ int,@UNIQUECNT int
+	declare @tbloldBins table(binid int,invid int,qty float,PID int)
+	
+	SELECT @AllowLockData=CONVERT(BIT,Value) FROM ADM_GlobalPreferences with(nolock) WHERE Name=''Lock Data Between''       
+	SELECT @DAllowLockData=CONVERT(BIT,PrefValue) FROM COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and  PrefName=''Lock Data Between''  
+   
+ if(dbo.fnCOM_HasAccess(@RoleID,43,193)=0 and (SELECT PrefValue FROM COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and  PrefName=''OverrideLock'')<>''true'')  
+ BEGIN  
+  IF (@AllowLockData=1)  
+  BEGIN   
+   SELECT @LockFromDate=CONVERT(DATETIME,Value) FROM ADM_GlobalPreferences with(nolock) WHERE Name=''LockDataFromDate''      
+   SELECT @LockToDate=CONVERT(DATETIME,Value) FROM ADM_GlobalPreferences with(nolock) WHERE Name=''LockDataToDate''      
+   SELECT @LockCC=CONVERT(INT,Value) FROM ADM_GlobalPreferences with(nolock) WHERE Name=''LockCostCenters'' and isnumeric(Value)=1  
+  
+   if(@DocDate BETWEEN @LockFromDate AND @LockToDate)  
+   BEGIN  
+     if(@LockCC is null or @LockCC=0)  
+		RAISERROR(''-125'',16,1)    
+     else if(@LockCC>50000)  
+     BEGIN  
+		  SELECT @LockCCValues=CONVERT(INT,Value) FROM ADM_GlobalPreferences with(nolock) WHERE Name=''LockCostCenterNodes''  
+	  
+		  set @LockCCValues= rtrim(@LockCCValues)  
+		  set @LockCCValues=substring(@LockCCValues,0,len(@LockCCValues)- charindex('','',reverse(@LockCCValues))+1)  
+	  
+		  set @sql =''if exists (select a.InvDocDetailsID FROM  [COM_DocCCData] a with(nolock)  
+		  join [Inv_DocDetails] b with(nolock) on a.InvDocDetailsID=b.InvDocDetailsID  
+		  WHERE b.CostCenterID=''+convert(nvarchar,@CostCenterID)+'' AND b.docid=''+convert(nvarchar,@DocID)+'' and a.dcccnid''+convert(nvarchar,(@LockCC-50000))+'' in(''+@LockCCValues+''))  
+		  RAISERROR(''''-125'''',16,1)  ''  
+		  EXEC sp_executesql @SQL
+     END  
+   END      
+  END  
+   ----------------------------------------------------------------------------
+	-- if DownPayment adjusted in other document then the parent document want to delete raise error cannot delete adjusted document. Issue id 72042 -- Wajid
+	if Exists (select DocNo from com_billwisenonacc with(nolock) where RefDocNO IN(@VoucherNo))
+	Begin
+		RAISERROR(''-1221'',16,1)
+	End
+  ----------------------------------------------------------------------------
+  if(dbo.fnCOM_HasAccess(@RoleID,43,193)=0 and @LockWhere <>'''')
+  BEGIN
+	if(@LockWhere like ''<XML%'')
+		BEGIN
+			declare @xml xml
+			set @xml=@LockWhere					
+			select @LockWhere=isnull(X.value(''@where'',''nvarchar(max)''),''''),@LockCCValues=isnull(X.value(''@join'',''nvarchar(max)''),'''')
+			from @xml.nodes(''/XML'') as Data(X)  
+			 set @sql =''if exists (select a.CostCenterID from INV_DocDetails a WITH(NOLOCK)
+			join COM_DocCCData b WITH(NOLOCK) on a.InvDocDetailsID=b.InvDocDetailsID
+			join ADM_DimensionWiseLockData c  WITH(NOLOCK) on a.DocDate between c.fromdate and c.todate and c.isEnable=1 ''+@LockCCValues+''
+			where  a.CostCenterID=''+convert(nvarchar,@CostCenterID)+'' AND a.docid=''+convert(nvarchar,@DocID)+@LockWhere+'')  
+			RAISERROR(''''-125'''',16,1)  ''  
+	END
+	ELSE
+	BEGIN	
+	  set @sql =''if exists (select a.CostCenterID from INV_DocDetails a WITH(NOLOCK)
+			join COM_DocCCData b WITH(NOLOCK) on a.InvDocDetailsID=b.InvDocDetailsID
+			join ADM_DimensionWiseLockData c  WITH(NOLOCK) on a.DocDate between c.fromdate and c.todate and c.isEnable=1 
+			where  a.CostCenterID=''+convert(nvarchar,@CostCenterID)+'' AND a.docid=''+convert(nvarchar,@DocID)+@LockWhere+'')  
+			RAISERROR(''''-125'''',16,1)  ''  
+	END		
+      EXEC sp_executesql @SQL
+  END  
+    
+  IF (@DAllowLockData=1)  
+  BEGIN  
+   SELECT @DLockFromDate=CONVERT(DATETIME,PrefValue) FROM COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and  PrefName=''LockDataFromDate''  
+   SELECT @DLockToDate=CONVERT(DATETIME,PrefValue) FROM COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and  PrefName=''LockDataToDate''  
+   SELECT @DLockCC=CONVERT(INT,PrefValue) FROM COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and  PrefName=''LockCostCenters'' and isnumeric(PrefValue)=1  
+    
+   if(@DocDate BETWEEN @DLockFromDate AND @DLockToDate)  
+   BEGIN  
+    if(@DLockCC is null or @DLockCC=0)  
+		RAISERROR(''-125'',16,1)    
+     else if(@DLockCC>50000)  
+     BEGIN  
+		  SELECT @LockCCValues=CONVERT(INT,PrefValue) FROM COM_DocumentPreferences with(nolock) WHERE CostCenterID=@CostCenterID and  PrefName=''LockCostCenterNodes''  
+	  
+		  set @LockCCValues= rtrim(@LockCCValues)  
+		  set @LockCCValues=substring(@LockCCValues,0,len(@LockCCValues)- charindex('','',reverse(@LockCCValues))+1)  
+	  
+		  set @sql =''if exists (select a.InvDocDetailsID FROM  [COM_DocCCData] a with(nolock)  
+		  join [INV_DocDetails] b with(nolock) on a.InvDocDetailsID=b.InvDocDetailsID  
+		  WHERE b.CostCenterID=''+convert(nvarchar,@CostCenterID)+'' AND b.docid=''+convert(nvarchar,@DocID)+'' and a.dcccnid''+convert(nvarchar,(@DLockCC-50000))+'' in(''+@LockCCValues+''))  
+		  RAISERROR(''''-125'''',16,1)  ''  
+		  
+		  EXEC sp_executesql @SQL
+     END   
+   END         
+  END  
+ END  
+	
+	select @PrefValue=Value from ADM_GlobalPreferences with(nolock) where Name=''Check for -Ve Stock''  	
+  
+	if(@PrefValue is not null and @PrefValue=''true'' and @DocID>0 and (@VoucherType=1 or @DocumentType in(5,30)))
+	BEGIN
+		select @PrefValue=PrefValue from COM_DocumentPreferences with(nolock) where CostCenterID=@CostCenterID and PrefName=''DonotupdateInventory''    
+		if(@PrefValue is not null and @PrefValue=''false'')
+		BEGIN		
+			select @HasAccess=Value from @TblPref where Name=''ConsiderUnAppInHold''    
+
+			EXEC @return_value = [spDOC_Validate]      
+				@InvDocXML ='''', 
+				@DocID =@DocID,
+				@DocDate =@DocDate,
+				@IsDel=1,
+				@ActivityXML='''',
+				@docType=@DocumentType,
+				@ConsiderUnAppInHold=@HasAccess,
+				@UserName =@UserName,
+				@LangID =@LangID
+		END			
+	END
+	
+	set @NodeID=0	
+	select @NodeID=isnull(LabID,0) from [INV_DocDetails] a with(nolock) 
+	join [INV_DocExtraDetails] b with(nolock)  on a.InvDocDetailsID=b.InvDocDetailsID
+	WHERE a.CostCenterID=@CostCenterID AND a.DocID=@DocID and b.Type=15
+	
+	if (@NodeID>0)
+	begin	
+		SELECT @Dimesion=CONVERT(INT,Value) FROM COM_CostCenterPreferences WITH(NOLOCK) WHERE Name=''JobDimension'' 
+		
+		EXEC @return_value = [dbo].[spCOM_DeleteCostCenter]
+						@CostCenterID = @Dimesion,
+						@NodeID = @NodeID,
+						@RoleID=1,
+						@UserID = 1,
+						@LangID = @LangID
+	END
+	
+	if exists(select b.DocID from INV_DocDetails a WITH(NOLOCK) 
+	join INV_DocDetails b WITH(NOLOCK) on A.InvDocDetailsId=b.refnodeid and b.refccid=300
+	where a.CostCenterID=@CostCenterID AND a.DocID=@DocID)
+	begin
+	
+		select @DeleteDocID=b.DocID,@DELETECCID = b.CostCenterID from INV_DocDetails a WITH(NOLOCK) 
+		join INV_DocDetails b WITH(NOLOCK) on A.InvDocDetailsId=b.refnodeid and b.refccid=300
+		where a.CostCenterID=@CostCenterID AND a.DocID=@DocID
+		  
+	     
+	    WHILE(@DeleteDocID>0)
+		BEGIN 
+		    
+			 EXEC @return_value = [spDOC_DeleteInvDocument]      
+			@CostCenterID = @DELETECCID,      
+			@DocPrefix = '''',      
+			@DocNumber = '''', 
+			@DocID=@DeleteDocID,     
+			@UserID = @UserID,      
+			@UserName = @UserName,      
+			@LangID = @LangID ,
+			@RoleID=@RoleID
+			
+			set @DeleteDocID=0
+			
+			select @DeleteDocID=b.DocID,@DELETECCID = b.CostCenterID from INV_DocDetails a WITH(NOLOCK) 
+			join INV_DocDetails b WITH(NOLOCK) on A.InvDocDetailsId=b.refnodeid and b.refccid=300
+			where a.CostCenterID=@CostCenterID AND a.DocID=@DocID
+		END	
+	end	
+	
+	if (@DocumentType<>32 and exists(select a.LinkedInvDocDetailsID from [INV_DocDetails] a with(nolock) 
+	join [INV_DocDetails] b with(nolock)  on a.InvDocDetailsID=b.LinkedInvDocDetailsID
+	WHERE a.CostCenterID=@CostCenterID AND a.DocID=@DocID))
+	begin			
+		RAISERROR(''-127'',16,1)
+	end
+
+	if exists(select a.LinkedInvDocDetailsID from [INV_DocDetails] a with(nolock) 
+	join [INV_DocExtraDetails] b with(nolock)  on a.InvDocDetailsID=b.RefID
+	WHERE a.CostCenterID=@CostCenterID AND a.DocID=@DocID and b.Type=1)
+	begin	
+			select @VoucherNo=c.Voucherno from [INV_DocDetails] a with(nolock) 
+			join [INV_DocExtraDetails] b with(nolock)  on a.InvDocDetailsID=b.RefID
+			join [INV_DocDetails] c with(nolock)  on b.InvDocDetailsID=c.InvDocDetailsID
+			WHERE a.CostCenterID=@CostCenterID AND a.DocID=@DocID and b.Type=1
+			
+			RAISERROR(''-566'',16,1)
+	end
+
+	IF exists(select PrefValue from COM_DocumentPreferences with(nolock) where CostCenterID=@CostCenterID and  PrefName=''UpdateAssetValue'' and PrefValue=''True'')
+	BEGIN
+			DECLARE @AssetChangeDate FLOAT,@RefNodeID int,@Msg NVARCHAR(1000)
+			SELECT @AssetChangeDate=DocDate,@RefNodeID=RefNodeID	FROM [INV_DocDetails] with(nolock)	WHERE CostCenterID=@CostCenterID AND DocID=@DocID 
+			IF EXISTS (select acc.DocID from ACC_DocDetails acc with(nolock) where @AssetChangeDate>=acc.DocDate and acc.RefCCID=72 and acc.RefNodeid=@RefNodeID)
+			BEGIN
+				SET @Msg=''Can not Delete Referenced Document''
+				RAISERROR(@Msg,16,1)
+			END
+			DELETE FROM ACC_AssetChanges WHERE AssetID=@RefNodeID AND ISNULL(Description,'''') = @VoucherNo
+	END
+	
+	if exists(select PrefValue from COM_DocumentPreferences with(nolock) where CostCenterID=@CostCenterID and  PrefName=''BackTrack'' and PrefValue=''True'')
+	BEGIN
+			update c
+			set LinkedFieldValue=c.LinkedFieldValue+b.[Quantity]
+			from INV_DocDetails a WITH(NOLOCK)    
+			join INV_DocExtraDetails b WITH(NOLOCK)    on a.InvDocDetailsID=b.[RefID]
+			join INV_DocDetails  c WITH(NOLOCK)  on b.InvDocDetailsID=c.InvDocDetailsID
+			where b.type=10 and a.CostCenterID=@CostCenterID AND a.DocID=@DocID
+	END
+	
+	if(@DocumentType=32)
+	BEGIN
+		update INV_DocDetails
+		set StatusID=443
+		from (select LinkedInvDocDetailsID id from INV_DocDetails WITH(NOLOCK) 
+		where CostCenterID=@CostCenterID AND DocID=@DocID) as t
+		where InvDocDetailsID=t.id
+		
+	END
+	
+	--CHECK AUDIT TRIAL ALLOWED AND INSERTING AUDIT TRIAL DATA    
+	DECLARE @AuditTrial BIT,@dt FLOAT
+	SET @AuditTrial=0    
+	SELECT @AuditTrial=CONVERT(BIT,PrefValue)  FROM [COM_DocumentPreferences] with(nolock)    
+	WHERE CostCenterID=@CostCenterID AND PrefName=''AuditTrial''    
+	    
+    SET @dt=CONVERT(FLOAT,GETDATE())
+
+	IF (@DocID is not null and @DocID>0)-- and @AuditTrial=1)  
+	BEGIN
+		INSERT INTO INV_DocDetails_History_ATUser(DocType,DocID,VoucherNo,ActionType,ActionTypeID,UserID,CreatedBy,CreatedDate)
+		VALUES(@CostCenterID,@DocID,@VoucherNo,''Delete'',3,@UserID,@UserName,@dt)			
+		
+		if(@AuditTrial=1)
+		begin
+			declare @ModDate float
+			set @ModDate=convert(float,getdate())
+			EXEC @return_value = [spDOC_SaveHistory]      
+				@DocID =@DocID ,
+				@HistoryStatus=''Delete'',
+				@Ininv =1,
+				@ReviseReason ='''',
+				@LangID =@LangID,
+				@UserName=@UserName,
+				@ModDate=@ModDate,
+				@CCID=@CostCenterID,
+				@sysinfo=@sysinfo,
+				@AP=@AP
+		end
+	END    
+	     
+	
+	if exists(select AccDocDetailsID from acc_docdetails with(nolock) where refccid=300 and refnodeid=@DocID)
+	begin
+			 
+		SELECT @DeleteDocID=DocID , @DELETECCID = COSTCENTERID FROM ACC_DocDetails with(nolock)   
+		where refccid=300 and refnodeid=@DocID	
+		
+		while(@DeleteDocID>0)
+		BEGIN	    
+			
+			 EXEC @return_value = [dbo].[spDOC_DeleteAccDocument]  
+			 @CostCenterID = @DELETECCID,  
+			 @DocPrefix = '''',  
+			 @DocNumber = '''',  
+			 @DOCID=@DeleteDocID,
+			 @UserID = @UserID,  
+			 @UserName = @UserName,  
+			 @LangID = @LangID,
+			 @RoleID=@RoleID
+			 
+			 set @DeleteDocID=0
+			 
+			 SELECT @DeleteDocID=DocID , @DELETECCID = COSTCENTERID FROM ACC_DocDetails with(nolock)   
+			where refccid=300 and refnodeid=@DocID	
+			 
+		END	 		 
+	end	
+	
+	if (@documenttype=5 and exists(SELECT PrefValue FROM COM_DocumentPreferences WITH(NOLOCK) 
+	where CostCenterID=@COSTCENTERID and PrefName=''IsBudgetDocument'' and (PrefValue=''1'' or PrefValue=''true'')))
+	begin		
+	
+		select @CompanyGUID=CompanyGUID FROM [COM_DocID] WITH(NOLOCK) WHERE ID=@DocID
+		
+		exec [spDoc_UpdateBudget] @CostCenterID,@DOCID,@CompanyGUID,@UserName,1
+	END
+	
+	
+	--ondelete External function
+	set @tablename=''''
+	select @tablename=SpName from ADM_DocFunctions a WITH(NOLOCK) where CostCenterID=@CostCenterID and Mode=8
+	if(@tablename<>'''')
+		exec @tablename @CostCenterID,@DocID,'''',@UserID,@LangID
+	
+	 
+	SELECT @CurrentNo=CurrentCodeNumber   FROM COM_CostCenterCodeDef with(nolock)
+	WHERE CostCenterID=@CostCenterID AND CodePrefix=@DocPrefix
+
+	if(@CurrentNo=convert(INT,@DocNumber))
+	begin
+		UPDATE cd     
+		SET cd.CurrentCodeNumber=convert(INT,@DocNumber)-1
+		from COM_CostCenterCodeDef cd with(nolock)
+		WHERE cd.CostCenterID=@CostCenterID AND cd.CodePrefix=@DocPrefix  
+	end
+	
+	select @PrefValue=PrefValue from COM_DocumentPreferences with(nolock)
+	where CostCenterID=@CostCenterID and PrefName=''DocumentLinkDimension''
+	
+	if(@PrefValue is not null and @PrefValue<>'''' and ISNUMERIC(@PrefValue)=1)
+	begin
+		 
+		set @Dimesion=0
+		begin try
+			select @Dimesion=convert(INT,@PrefValue)
+		end try
+		begin catch
+			set @Dimesion=0
+		end catch
+		
+		if(@Dimesion>0)
+		begin 
+			if exists(select PrefValue from COM_DocumentPreferences with(nolock)
+			where CostCenterID=@CostCenterID and PrefName=''GenerateSeq'' and PrefValue=''true'')
+			BEGIN
+				SET @sql=''select a.dcCCNID''+CONVERT(NVARCHAR,(@Dimesion-50000))+'' from COM_DocCCData a with(nolock)
+					join Inv_DocDetails b with(nolock) on a.InvDocDetailsID =b.InvDocDetailsID
+					WHERE b.COSTCENTERID=''+CONVERT(NVARCHAR,@CostCenterID)+'' AND b.DOCID=''+CONVERT(NVARCHAR,@DocID)
+				
+				delete from @caseTab
+				INSERT INTO @caseTab(CaseID)
+				EXEC sp_executesql @SQL
+				
+				delete from @caseTab
+				where CaseID=1
+				
+				SET @sql=''UPDATE a 
+				SET a.dcCCNID''+CONVERT(NVARCHAR,(@Dimesion-50000))+''=1''
+				+'' from COM_DocCCData a with(nolock) WHERE a.InvDocDetailsID IN (SELECT InvDocDetailsID FROM Inv_DocDetails with(nolock) 
+				WHERE COSTCENTERID=''+CONVERT(NVARCHAR,@CostCenterID)+'' AND DOCID=''+CONVERT(NVARCHAR,@DocID)+'')''
+				
+				EXEC sp_executesql @SQL
+				
+				select @iUNIQ=MIN(id),@UNIQUECNT=MAX(id) FROM @caseTab
+		
+				WHILE(@iUNIQ <= @UNIQUECNT)
+				BEGIN
+					SELECT @CaseID=CaseID FROM @caseTab WHERE id=@iUNIQ
+					
+					 EXEC @return_value = [dbo].[spCOM_DeleteCostCenter]
+						@CostCenterID = @Dimesion,
+						@NodeID = @CaseID,
+						@RoleID=1,
+						@UserID = 1,
+						@LangID = @LangID
+					 
+					SET @iUNIQ=@iUNIQ+1
+				END
+				
+			END
+			ELSE
+			BEGIN
+				select @tablename=tablename from ADM_Features where FeatureID=@Dimesion
+				set @sql=''select @NodeID=NodeID from ''+@tablename+'' with(nolock) where Name=''''''+@VoucherNo+''''''''
+				print @sql
+				EXEC sp_executesql @sql,N''@NodeID INT OUTPUT'',@NodeID output
+				 
+				if(@NodeID>1)
+				begin
+						 
+					SET @sql=''UPDATE a 
+					SET a.dcCCNID''+CONVERT(NVARCHAR,(@Dimesion-50000))+''=1''
+					+'' from COM_DocCCData a with(nolock) WHERE a.InvDocDetailsID IN (SELECT InvDocDetailsID FROM Inv_DocDetails with(nolock) 
+					WHERE COSTCENTERID=''+CONVERT(NVARCHAR,@CostCenterID)+'' AND DOCID=''+CONVERT(NVARCHAR,@DocID)+'')''
+					
+					EXEC sp_executesql @SQL
+					
+					EXEC @return_value = [dbo].[spCOM_DeleteCostCenter]
+						@CostCenterID = @Dimesion,
+						@NodeID = @NodeID,
+						@RoleID=1,
+						@UserID = 1,
+						@LangID = @LangID
+				end
+			END	
+		end
+	end	
+		
+	delete from @caseTab
+	INSERT INTO @caseTab(CaseID)
+	SELECT RefDimensionNodeID FROM COM_DocBridge with(nolock)
+	WHERE InvDocID=@DocID AND RefDimensionID=72
+					
+	select @iUNIQ=MIN(id),@UNIQUECNT=MAX(id) FROM @caseTab
+
+	WHILE(@iUNIQ <= @UNIQUECNT)
+	BEGIN
+		SELECT @CaseID=CaseID FROM @caseTab WHERE id=@iUNIQ
+		
+		EXEC @return_value = dbo.spACC_DeleteAsset
+			@AssetID =@CaseID,
+			@UserID =@UserID,
+			@RoleID=@RoleID,
+			@LangID =@LangID
+		
+		SET @iUNIQ=@iUNIQ+1
+	end
+	
+	delete a FROM COM_DocBridge a with(nolock)
+	WHERE a.InvDocID=@DocID AND a.RefDimensionID=72
+	
+	IF(@CostCenterID=40054) -- MONTHLY PAYROLL
+	BEGIN
+	
+		DECLARE @EmpSeqNo BIGINT,@PayrollMonth DATETIME,@PayrollStart DATETIME,@PayrollEnd DATETIME,@WhereCond NVARCHAR(MAX)
+		SET @sql=''DECLARE @HCCID INT,@CCType NVARCHAR(50)
+		DECLARE @HBOnH TABLE (HCCID INT)  
+		SET @WhereCond =''''''''
+
+		SELECT @EmpSeqNo=b.dcCCNID51,@PayrollMonth=CONVERT(DATETIME,a.DueDate),@PayrollStart=CONVERT(DATETIME,T.dcAlpha17),@PayrollEnd=CONVERT(DATETIME,T.dcAlpha18)
+		FROM INV_DocDetails a WITH(NOLOCK)
+		JOIN COM_DocCCData b WITH(NOLOCK) ON b.InvDocDetailsID=a.InvDocDetailsID
+		JOIN COM_DocTextData T WITH(NOLOCK) ON T.InvDocDetailsID=a.InvDocDetailsID
+		WHERE T.TCostCenterID=40054 AND DOCID=''+CONVERT(NVARCHAR,@DOCID)+''
+
+
+		INSERT INTO @HBOnH
+SELECT ColumnCostCenterID FROM ADM_CostCenterDef WITH(NOLOCK) WHERE CostCenterID=40077 AND SysColumnName LIKE''''dcCCNID%'''' AND IsColumnInUse=1
+
+DECLARE CUR CURSOR FOR SELECT HCCID FROM @HBOnH
+		OPEN CUR
+		FETCH NEXT FROM CUR INTO @HCCID
+		WHILE @@FETCH_STATUS=0
+		BEGIN
+			IF EXISTS(SELECT CostCenterColID FROM ADM_COSTCENTERDEF WITH(NOLOCK) WHERE CostCenterID=50051 AND ColumnCostCenterID=@HCCID AND IsColumnInUse=1)
+			BEGIN
+				SELECT @CCType= ISNULL(UserProbableValues,'''''''') FROM ADM_COSTCENTERDEF WITH(NOLOCK) WHERE CostCenterID=50051 AND ColumnCostCenterID=@HCCID AND IsColumnInUse=1  
+				IF(@CCType='''''''')
+				BEGIN
+					SET @WhereCond=@WhereCond+'''' 
+												AND ( c.dcCCNID''''+CONVERT(NVARCHAR,(@HCCID-50000)) +'''' IN ( Select CCNID''''+CONVERT(NVARCHAR,(@HCCID-50000))+'''' FROM COM_CCCCData WITH(NOLOCK) WHERE CostCenterID=50051 AND NodeID IN(''''+convert(nvarchar,@EmpSeqNo)+''''))) ''''
+				END
+				ELSE
+				BEGIN
+					SET @WhereCond=@WhereCond+'''' 
+												AND ( c.dcCCNID''''+CONVERT(NVARCHAR,(@HCCID-50000)) +'''' IN ( ISNULL((SELECT DISTINCT HistoryNodeID FROM COM_HistoryDetails WITH(NOLOCK) 
+												WHERE NodeID IN(''''+convert(nvarchar,@EmpSeqNo)+'''') AND CostCenterID=50051 AND HistoryCCID=''''+CONVERT(NVARCHAR,@HCCID)+''''   
+												AND (CONVERT(DATETIME,FromDate)<=CONVERT(DATETIME,''''''''''''+CONVERT(NVARCHAR,@PayrollMonth)+'''''''''''') OR 
+													CONVERT(DATETIME,FromDate) BETWEEN CONVERT(DATETIME,''''''''''''+CONVERT(NVARCHAR,@PayrollStart)+'''''''''''') AND CONVERT(DATETIME,''''''''''''+CONVERT(NVARCHAR,@PayrollEnd)+'''''''''''')) 
+												AND (CONVERT(DATETIME,ToDate)>=CONVERT(DATETIME,''''''''''''+CONVERT(NVARCHAR,@PayrollMonth)+'''''''''''') OR ToDate IS NULL) ),1)) ) ''''
+				END
+			END
+		FETCH NEXT FROM CUR INTO @HCCID
+		END
+		CLOSE CUR
+		DEALLOCATE CUR
+
+		''
+
+		--PRINT @SQL
+		EXEC sp_executesql @SQL,N''@EmpSeqNo BIGINT OUTPUT,@PayrollMonth DATETIME OUTPUT,@PayrollStart DATETIME OUTPUT,@PayrollEnd DATETIME OUTPUT,@WhereCond NVARCHAR(MAX) OUTPUT'',@EmpSeqNo OUTPUT,@PayrollMonth OUTPUT,@PayrollStart OUTPUT,@PayrollEnd OUTPUT,@WhereCond  OUTPUT
+
+		IF(ISNULL(@WhereCond,'''')<>'''')
+		BEGIN
+		SET @SQL=''
+		
+			if exists(SELECT A.InvDocDetailsID
+			FROM INV_DocDetails A WITH(NOLOCK)
+			JOIN COM_DocCCData C WITH(NOLOCK) ON C.INVDOCDETAILSID=a.INVDOCDETAILSID
+			JOIN COM_DocTextData d WITH(NOLOCK) ON d.INVDOCDETAILSID=a.INVDOCDETAILSID
+			WHERE d.tCostCenterID=40077 and a.StatusID=369 AND ISDATE(ISNULL(d.dcAlpha1,''''''''))=1 AND ISNULL(d.dcAlpha4,'''''''')=''''Locked'''' AND CONVERT(DATETIME,d.dcAlpha1)=CONVERT(DATETIME,''''''+CONVERT(NVARCHAR,@PayrollMonth)+'''''') ''+@WhereCond+'')
+
+			begin
+				RAISERROR(''''Payroll Locked Cannot Delete '''',16,1)
+			end
+			''
+			--PRINT @SQL
+		EXEC sp_executesql @SQL,N''@WhereCond NVARCHAR(MAX),@EmpSeqNo BIGINT,@PayrollMonth DATETIME'',@WhereCond ,@EmpSeqNo,@PayrollMonth
+		END
+
+		
+
+		SET @SQL=''	DELETE a FROM PAY_EmpMonthlyArrears a with(nolock) WHERE a.EmpSeqNo=@EmpSeqNo AND a.PayrollMonth=@PayrollMonth
+		DELETE a FROM PAY_EmpMonthlyAdjustments a with(nolock) WHERE a.EmpSeqNo=@EmpSeqNo AND a.PayrollMonth=@PayrollMonth
+		DELETE a FROM PAY_EmpMonthlyDues a with(nolock) WHERE a.EmpSeqNo=@EmpSeqNo AND a.PayrollMonth=@PayrollMonth
+		DELETE a FROM PAY_EmpMonthlyArrAdjDetails a with(nolock) WHERE a.EmpSeqNo=@EmpSeqNo AND a.PayrollMonth=@PayrollMonth''
+		--PRINT @SQL
+		EXEC sp_executesql @SQL,N''@EmpSeqNo BIGINT,@PayrollMonth DATETIME'' ,@EmpSeqNo,@PayrollMonth
+		
+		IF EXISTS(SELECT * FROM SYS.TABLES WITH(NOLOCK) WHERE NAME=''PAY_FinancePostings'')
+		BEGIN
+				DECLARE @XML2 XML,@PayrollFP1 NVARCHAR(MAX),@sWhere1 NVARCHAR(MAX)
+				CREATE TABLE #TEMPFP1(ID INT IDENTITY(1,1),Provision NVARCHAR(500),Type NVARCHAR(100),ReportID NVARCHAR(500),ReportColID NVARCHAR(500))
+
+				SELECT @PayrollFP1=Value FROM ADM_GlobalPreferences WITH(NOLOCK) WHERE Name=''PayrollFinancialPostingXml''
+				SET @XML2=@PayrollFP1
+			
+				INSERT INTO #TEMPFP1
+				SELECT X.value(''@Provision'',''Nvarchar(500)''),X.value(''@Type'',''Nvarchar(100)''),X.value(''@ReportID'',''Nvarchar(500)''),X.value(''@ReportColID'',''Nvarchar(500)'') FROM @XML2.nodes(''/XML/Row'') as Data(X)
+
+				set @sWhere1=''''
+					SELECT @sWhere1=STUFF((SELECT '' OR ISNULL(''+ Provision + '','''''''') != '''''''''' FROM #TEMPFP1 WHERE ISNULL(ReportID,0)>0 and Type=''Payroll'' FOR XML PATH('''')),1,3,'''')
+
+				if exists(SELECT * FROM #TEMPFP1 WITH(NOLOCK) WHERE TYPE=''Payroll'' and ReportID>0)
+				begin
+					SET @sql=''
+					DECLARE @EmpSeqNo INT,@PayrollMonth DATETIME
+					SELECT @EmpSeqNo=b.dcCCNID51,@PayrollMonth=CONVERT(DATETIME,a.DueDate)
+					FROM INV_DocDetails a WITH(NOLOCK)
+					JOIN COM_DocCCData b WITH(NOLOCK) ON b.InvDocDetailsID=a.InvDocDetailsID
+					WHERE a.CostCenterID=40054 AND DOCID=''+CONVERT(NVARCHAR,@DocID)+''
+
+					if exists(SELECT ID from PAY_FinancePostings with(nolock) where type=''''Payroll'''' and EmployeeID=@EmpSeqNo and PayrollMonth=@PayrollMonth AND (''+@sWhere1+''))
+					begin
+					RAISERROR(''''-563'''',16,1)
+					end''
+					--print @SQL
+					EXEC sp_executesql @SQL
+				end
+		END
+
+	END
+	IF(@CostCenterID=40065) -- join FromVacation
+	BEGIN
+		SET @sql=''Declare @FrmDt Datetime,@ToDt Datetime,@Emp INT
+		IF((SELECT COUNT(*) FROM INV_DOCDETAILS WITH(NOLOCK) WHERE DOCID=@DOCID AND STATUSID=369)>0)
+		BEGIN
+			IF((SELECT CostCenterID FROM INV_DocDetails WITH(NOLOCK) WHERE InvDocDetailsID=(SELECT LinkedInvDocDetailsID FROM INV_DOCDETAILS WITH(NOLOCK) WHERE DOCID=@DOCID))=40072)
+			BEGIN
+				SELECT @FrmDt=CONVERT(DATETIME,TD.DCALPHA1),@ToDt=CONVERT(DATETIME,TD.DCALPHA2),@Emp=Dcccnid51 
+				FROM COM_DOCTEXTDATA TD with(nolock) 
+				INNER JOIN INV_DOCDETAILS ID with(nolock) ON TD.INVDOCDETAILSID=ID.INVDOCDETAILSID AND ID.DOCID=@DOCID
+				Inner Join com_DocccData cc with(nolock) on cc.invDocdetailsid=ID.invDocdetailsid 
+				Where CostcenterID=40065
+				
+				UPDATE TD SET TD.dcAlpha1='''''''' FROM COM_DOCTEXTDATA TD with(nolock) 
+				INNER JOIN COM_DOCCCDATA CC with(nolock) ON TD.INVDOCDETAILSID=CC.INVDOCDETAILSID AND CC.dcCCNID51=@Emp
+				INNER JOIN INV_DOCDETAILS ID with(nolock) ON TD.INVDOCDETAILSID=ID.INVDOCDETAILSID 
+				WHERE ID.CostCenterId=40072 AND ISDATE(TD.DCALPHA2)=1 AND ISDATE(TD.DCALPHA3)=1 
+				AND CONVERT(DATETIME,TD.DCALPHA2)=CONVERT(DATETIME,@FrmDt) AND CONVERT(DATETIME,TD.DCALPHA3)=CONVERT(DATETIME,@ToDt)
+			END
+			ELSE
+			BEGIN
+				SELECT @FrmDt=CONVERT(DATETIME,TD.DCALPHA1),@ToDt=CONVERT(DATETIME,TD.DCALPHA2),@Emp=Dcccnid51 
+				FROM COM_DOCTEXTDATA TD with(nolock) 
+				INNER JOIN INV_DOCDETAILS ID with(nolock) ON TD.INVDOCDETAILSID=ID.INVDOCDETAILSID AND ID.DOCID=@DOCID
+				Inner Join com_DocccData cc with(nolock) on cc.invDocdetailsid=ID.invDocdetailsid 
+				Where CostcenterID=40065
+				
+				UPDATE TD SET TD.dcAlpha15='''''''' FROM COM_DOCTEXTDATA TD with(nolock) 
+				INNER JOIN COM_DOCCCDATA CC with(nolock) ON TD.INVDOCDETAILSID=CC.INVDOCDETAILSID AND CC.dcCCNID51=@Emp
+				INNER JOIN INV_DOCDETAILS ID with(nolock) ON TD.INVDOCDETAILSID=ID.INVDOCDETAILSID 
+				WHERE ID.CostCenterId=40062 AND ISDATE(TD.DCALPHA4)=1 AND ISDATE(TD.DCALPHA5)=1
+				AND CONVERT(DATETIME,TD.DCALPHA4)=CONVERT(DATETIME,@FrmDt) AND CONVERT(DATETIME,TD.DCALPHA5)=CONVERT(DATETIME,@ToDt)
+			END
+		END''
+		EXEC  sp_executesql @sql,N''@DOCID INT'',@DOCID
+		print @sql
+	END
+	IF(@CostCenterID=40069) -- Apply Resignation
+	BEGIN
+		
+		IF((SELECT COUNT(*) FROM INV_DOCDETAILS WITH(NOLOCK) WHERE DOCID=@DOCID)>0)
+		BEGIN
+			Declare @EmplRes INT,@DocFinalSettlement nvarchar(max),@EmpRelDate INT		
+			SET @sql=''SELECT @EmplRes=cc.dcccnid51,@EmpRelDate=CONVERT(INT,CONVERT(DATETIME,TD.dcAlpha4)) 
+			FROM COM_DOCTEXTDATA TD with(nolock) 
+			INNER JOIN INV_DOCDETAILS ID with(nolock) ON TD.INVDOCDETAILSID=ID.INVDOCDETAILSID AND ID.DOCID=@DOCID
+			Inner Join com_DocccData cc with(nolock) on cc.invDocdetailsid=ID.invDocdetailsid 
+			Where CostcenterID=40069
+			IF((SELECT COUNT(*) FROM PAY_FinalSettlement WITH(NOLOCK) WHERE EmpSeqNo=@EmplRes)>0)
+			BEGIN
+				Select @DocFinalSettlement=Convert(nvarchar,DocNo) FROM PAY_FinalSettlement WITH(NOLOCK) WHERE EmpSeqNo=@EmplRes
+				RAISERROR(''''-577'''',16,1)
+			END
+			ELSE
+			BEGIN
+				UPDATE T SET  T.RESIGNREMARKS=NULL,T.RESIGNTYPE=NULL,T.RESIGNSTATUS=NULL,T.DORESIGN=NULL, T.DOTENTRELIEVE=NULL, T.DORELIEVE=NULL 
+				FROM COM_CC50051 T WITH(NOLOCK) WHERE T.NODEID=@EmplRes
+
+				DECLARE @UpdateEmployeeStatus BIT
+				SELECT @UpdateEmployeeStatus=CONVERT(BIT,Value) FROM ADM_GlobalPreferences WITH(NOLOCK) WHERE Name=''''UpdateEmployeeStatusafterRelievingautomatically''''
+
+				IF(ISNULL(@UpdateEmployeeStatus,0)=1)
+				BEGIN
+					UPDATE T SET  T.StatusID=250 FROM COM_CC50051 T WITH(NOLOCK) WHERE T.NODEID=@EmplRes
+				END
+			END''
+			
+			EXEC sp_executesql @sql,N''@DOCID INT,@EmplRes INT OUTPUT,@DocFinalSettlement nvarchar(max) OUTPUT,@EmpRelDate INT OUTPUT'',@DOCID,@EmplRes OUTPUT,@DocFinalSettlement OUTPUT,@EmpRelDate OUTPUT
+			
+			--deleting the entry in user status
+			DECLARE @EmpUserID INT
+			SET @sql=''SELECT @EmpUserID=ISNULL(UserID,0) From ADM_Users WITH(NOLOCK) Where UserName=(Select Code FROM COM_CC50051 WITH(NOLOCK) WHERE NodeID=''+ CONVERT(NVARCHAR,@EmplRes)+'')''
+			EXEC sp_executesql @sql,N''@EmpUserID INT OUTPUT'',@EmpUserID OUTPUT
+			IF(@EmpUserID IS NOT NULL AND @EmpUserID<>0)
+			BEGIN
+				DELETE T FROM [COM_CostCenterStatusMap] T WITH(NOLOCK) 
+				WHERE T.CostCenterID=7 AND T.NodeID=@EmpUserID AND T.Status=2 AND T.FromDate=CONVERT(int,DATEADD(day,1,@EmpRelDate)) AND T.ToDate IS NULL
+			END
+
+	   END
+	END
+	IF(@CostCenterID=40099) -- Regularization of Attendance
+	BEGIN
+		DECLARE @TABEMP TABLE (ID INT IDENTITY(1,1),VNo NVARCHAR(600),DocSeqNo NVARCHAR(500),DailyAttDate NVARCHAR(100),EmpNodeID INT)
+		DECLARE @I INT,@CNT INT
+		
+		SET @SQL=''SELECT T.DCALPHA1,T.DCALPHA2,T.DCALPHA3,CC.dcCCNID51 FROM INV_DocDetails I WITH(NOLOCK)
+		JOIN COM_DocTextData T WITH(NOLOCK) ON T.InvDocDetailsID=I.InvDocDetailsID
+		JOIN COM_DocCCData CC WITH(NOLOCK) ON CC.InvDocDetailsID=I.InvDocDetailsID
+		WHERE I.costcenterid=''+convert(nvarchar,@CostCenterID)+'' AND I.STATUSID=369 AND T.DCALPHA12=''''True'''' AND I.DOCID=''+CONVERT(NVARCHAR,@DocID)
+		INSERT INTO @TABEMP
+		EXEC sp_executesql @SQL
+
+
+		SELECT @CNT=COUNT(*) FROM @TABEMP
+		SET @I=1
+		WHILE(@I<=@CNT)
+		BEGIN
+			SELECT @SQL=''
+			UPDATE T SET dcAlpha2=dcAlpha16,dcAlpha3=dcAlpha17 FROM INV_DocDetails I with(nolock)
+			JOIN COM_DocTextData T with(nolock) ON T.InvDocDetailsID=I.InvDocDetailsID
+			JOIN COM_DocCCData C with(nolock) ON C.InvDocDetailsID=I.InvDocDetailsID
+			WHERE I.DocumentType=67 AND I.VoucherNo=''''''+VNo+'''''' AND I.DocSeqNo=''''''+DocSeqNo+'''''' AND C.dcCCNID51=''+CONVERT(NVARCHAR,EmpNodeID)+'' AND ISDATE(T.DCALPHA1)=1
+			AND CONVERT(DATETIME,T.DCALPHA1)=CONVERT(DATETIME,''''''+DailyAttDate+'''''')
+
+			UPDATE T SET dcAlpha16=NULL,dcAlpha17=NULL FROM INV_DocDetails I with(nolock)
+			JOIN COM_DocTextData T with(nolock) ON T.InvDocDetailsID=I.InvDocDetailsID
+			JOIN COM_DocCCData C with(nolock) ON C.InvDocDetailsID=I.InvDocDetailsID
+			WHERE I.DocumentType=67 AND I.VoucherNo=''''''+VNo+'''''' AND I.DocSeqNo=''''''+DocSeqNo+'''''' AND C.dcCCNID51=''+CONVERT(NVARCHAR,EmpNodeID)+'' AND ISDATE(T.DCALPHA1)=1
+			AND CONVERT(DATETIME,T.DCALPHA1)=CONVERT(DATETIME,''''''+DailyAttDate+'''''')'' FROM @TABEMP WHERE ID=@I 
+			
+			EXEC sp_executesql @SQL
+			
+			SET @I=@I+1
+		END
+	END
+	IF(@CostCenterID=40072) -- Apply Vacation
+	BEGIN
+	
+		SET @sql=''DELETE a FROM PAY_EmpDetail a WITH(NOLOCK) WHERE a.DTYPE=-72000 AND a.Field1=''+CONVERT(NVARCHAR(max),@DocID)
+		
+		EXEC sp_executesql @SQL
+		
+	END
+	IF(@CostCenterID=40095)
+	BEGIN
+		DECLARE @CNT1 INT,@J INT,@TDOCID INT,@InactivateEmployeeandUserafterfinalsettlement nvarchar(100)
+		CREATE TABLE #TAB(ID INT IDENTITY(1,1),DocID int)
+		SET @sql=''DECLARE @T1 TABLE(ID INT IDENTITY(1,1),EmpNode INT,PayrollMonth Datetime)
+		INSERT INTO @T1
+		SELECT CC.dcCCNID51,CONVERT(DATETIME,dcAlpha11) FROM INV_DocDetails I WITH(NOLOCK)
+		JOIN COM_DocCCData CC WITH(NOLOCK) ON CC.InvDocDetailsID=I.InvDocDetailsID
+		JOIN COM_DocTextData T WITH(NOLOCK) ON T.InvDocDetailsID=I.InvDocDetailsID
+		WHERE T.tCostCenterID=40095 AND I.DocID=''+CONVERT(NVARCHAR,@DocID)+'' 
+		AND ISNUMERIC(dcAlpha1)=1 AND dcAlpha1 IN (3,4)
+
+		insert into #TAB
+		SELECT DISTINCT DocID FROM INV_DocDetails I WITH(NOLOCK)
+		JOIN COM_DocCCData CC WITH(NOLOCK) ON CC.InvDocDetailsID=I.InvDocDetailsID
+		JOIN @T1 T ON T.EmpNode=CC.dcCCNID51
+		WHERE I.CostCenterID=40054 AND T.PayrollMonth=CONVERT(DATETIME,DUEDATE)''
+
+		EXEC sp_executesql @SQL
+
+		SET @J=1
+		SELECT @CNT1=COUNT(*) FROM #TAB WITH(NOLOCK)
+		
+		WHILE(@J<=@CNT1)
+		BEGIN
+		
+		SELECT @TDOCID=DocID FROM #TAB WITH(NOLOCK) WHERE ID=@J
+		
+			EXEC @return_value = [dbo].spDOC_DeleteInvDocument    
+		   @CostCenterID = 40054,    
+		   @DocPrefix = '''',    
+		   @DocNumber = '''',    
+		   @DOCID=@TDOCID,  
+		   @SysInfo =@SysInfo, 
+		   @AP =@AP, 
+		   @UserID = @UserID,    
+		   @UserName = @UserName,    
+		   @LangID = @LangID,  
+		   @RoleID=@RoleID
+		   
+		SET @J=@J+1
+		END
+
+		SELECT @InactivateEmployeeandUserafterfinalsettlement=ISNULL(VALUE,'''') FROM ADM_GlobalPreferences WITH(NOLOCK) WHERE NAME=''InactivateEmployeeandUserafterfinalsettlement''
+		IF(ISNULL(@InactivateEmployeeandUserafterfinalsettlement,''false'')=''True'') --Final Settlement
+		BEGIN
+			DECLARE @FSType NVARCHAR(50),@FSEmp INT,@LoginUserID NVARCHAR(250)
+		
+			SET @SQL=''SELECT @FSType=ISNULL(t.dcAlpha10,''''''''),@FSEmp=dcCCNID51,@LoginUserID=C51.LoginUserID
+			FROM INV_DocDetails a WITH(NOLOCK) 
+			JOIN COM_DocTextData t WITH(NOLOCK) on t.InvDocDetailsID=a.InvDocDetailsID
+			JOIN COM_DocCCData c WITH(NOLOCK) on c.InvDocDetailsID=a.InvDocDetailsID
+			JOIN COM_CC50051 C51 WITH(NOLOCK) ON C51.NODEID=dcCCNID51
+			WHERE DocID=''+CONVERT(NVARCHAR,@DocID) 
+		
+			EXEC sp_executesql @SQL,N''@FSType NVARCHAR(50) OUTPUT,@FSEmp INT OUTPUT,@LoginUserID NVARCHAR(250) OUTPUT'',@FSType OUTPUT,@FSEmp OUTPUT,@LoginUserID OUTPUT
+
+			if(@FSType=''Final'')
+			BEGIN
+			SET @SQL=''UPDATE COM_CC50051 SET StatusID=250 WHERE NodeID=''+CONVERT(NVARCHAR,@FSEmp)+''
+		
+			UPDATE ADM_USERS SET StatusID= 1 WHERE USERNAME=''''''+CONVERT(NVARCHAR,@LoginUserID)+''''''		
+			UPDATE [PACT2C].dbo.ADM_Users SET StatusID=1 WHERE USERNAME=''''''+CONVERT(NVARCHAR,@LoginUserID)+''''''
+			''
+			PRINT @SQL
+			EXEC sp_executesql @SQL
+		
+			END
+		END
+	END
+
+	if(@CostCenterID=40072 or @CostCenterID=40056 or @CostCenterID=40095)
+	begin
+		IF EXISTS(SELECT * FROM SYS.TABLES WITH(NOLOCK) WHERE NAME=''PAY_FinancePostings'')
+			 BEGIN
+				DECLARE @XML1 XML,@PayrollFP NVARCHAR(MAX),@sType NVARCHAR(100),@sWhere nvarchar(max)
+				CREATE TABLE #TEMPFP(ID INT IDENTITY(1,1),Provision NVARCHAR(500),Type NVARCHAR(100),ReportID NVARCHAR(500),ReportColID NVARCHAR(500))
+
+				SELECT @PayrollFP=Value FROM ADM_GlobalPreferences WITH(NOLOCK) WHERE Name=''PayrollFinancialPostingXml''
+				SET @XML1=@PayrollFP
+			
+				INSERT INTO #TEMPFP
+				SELECT X.value(''@Provision'',''Nvarchar(500)''),X.value(''@Type'',''Nvarchar(100)''),X.value(''@ReportID'',''Nvarchar(500)''),X.value(''@ReportColID'',''Nvarchar(500)'') FROM @XML1.nodes(''/XML/Row'') as Data(X)
+
+				if(@CostCenterID=40072)
+					set @sType=''Vacation''
+				else if(@CostCenterID=40056)
+					set @sType=''Loan''
+				else if(@CostCenterID=40095)
+					set @sType=''Finalsettlement'' 
+
+					set @sWhere=''''
+					SELECT @sWhere=STUFF((SELECT '' OR ISNULL(''+ Provision + '','''''''') != '''''''''' FROM #TEMPFP WHERE ISNULL(ReportID,0)>0 and Type=@sType FOR XML PATH('''')),1,3,'''')
+					
+				if exists(SELECT * FROM #TEMPFP WITH(NOLOCK) WHERE TYPE=@sType and ReportID>0)
+				begin
+					SET @sql=''if exists(SELECT ID from PAY_FinancePostings with(nolock) where type=''''''+@sType+'''''' and parentref=''''''+@voucherno+'''''' AND (''+@sWhere+''))
+					begin
+					RAISERROR(''''-563'''',16,1)
+					end''
+					--print @SQL
+					EXEC sp_executesql @SQL
+				end
+
+		END
+	end
+
+	if(@DocumentType=5)
+	begin
+		if exists (SELECT * FROM COM_DocBridge with(nolock) where CostCenterID=@CostCenterID and NodeID=@DocID and RefDimensionID=132)
+			RAISERROR(''-138'',16,1)
+	end
+	
+	if exists (select PrefValue from COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and PrefName=''IsBudgetDocument'' and PrefValue=''1'')
+	begin
+		declare @BudgetID INT
+		SELECT @BudgetID=RefDimensionNodeID FROM COM_DocBridge with(nolock) where CostCenterID=@CostCenterID and NodeID=@DocID and RefDimensionID=101
+		if @BudgetID is not null
+			exec @return_value=[spADM_DeleteBudgetDetails] @BudgetID,1,@DocID,@UserID,@LangID
+		else
+		begin
+			set @BudgetID=(select top 1 b.BudgetDefID FROM COM_BudgetAlloc B with(nolock),Inv_docDetails i with(nolock)  
+							where i.invdocdetailsid=b.invdocdetailsid and i.CostCenterID=@CostCenterID and i.docid=@DocID)
+			if @BudgetID is not null
+				exec @return_value=[spADM_DeleteBudgetDetails] @BudgetID,1,@DocID,@UserID,@LangID
+		end	
+	end
+	
+	set @sql=''SELECT a.InvDocDetailsID,a.BatchID,a.LinkedInvDocDetailsID,t.dcccnid2,t.dcccnid1,''
+	set @PrefValue=''''      
+	select @PrefValue= isnull(Value,'''') from @TblPref where Name=''Maintain Dimensionwise Batches''        
+	if(@PrefValue is not null and @PrefValue<>'''' and convert(INT,@PrefValue)>0)        	
+		set @sql=@sql+''t.dcCCNID''+convert(nvarchar,(convert(INT,@PrefValue)-50000)) 
+	else
+		set @sql=@sql+''0''
+		
+	set @sql=@sql+'' FROM [INV_DocDetails] a with(nolock)
+			join COM_DocCCData t with(nolock) on t.InvDocDetailsID=a.InvDocDetailsID
+			WHERE a.CostCenterID=''+convert(nvarchar(20),@CostCenterID)+'' AND a.DocID=''+convert(nvarchar(20),@DocID )
+			
+			       
+	DECLARE @TblDeleteRows AS Table(idid INT identity(1,1), ID INT,BatchID INT,linkinv INT,loc INT,div INT,DIM INT)
+	
+	insert into  @TblDeleteRows
+	exec(@sql)
+	
+	set @AUTOCCID=0
+	SELECT @AUTOCCID=PrefValue FROM COM_DocumentPreferences WITH(NOLOCK) 
+	where CostCenterID=@CostCenterID and  PrefName=''ResDocForRet'' and PrefValue is not null 
+	and PrefValue<>'''' and PrefValue<>''0'' and isnumeric(PrefValue)=1
+	
+	select @bi=0,@bcnt=COUNT(id) from @TblDeleteRows
+	while(@bi<@bcnt)		
+	BEGIN  		
+		set @bi=@bi+1	
+		SELECT  @InvDocDetailsID=Id from @TblDeleteRows where idid=@bi	
+		
+		set @ResINVID=0
+		select @ResINVID=InvDocDetailsID from INV_DocExtraDetails WITH(NOLOCK)
+		where RefID=@InvDocDetailsID and type=-10 
+
+		if(@ResINVID>0)
+		BEGIN
+			set @totRet=0
+			select @totRet=isnull(sum([Quantity]),0) from INV_DocExtraDetails WITH(NOLOCK)
+			where InvDocDetailsID=@ResINVID and type=-10 and RefID<>@InvDocDetailsID
+
+			update a
+			set ReserveQuantity=Quantity-@totRet
+			from INV_DocDetails a WITH(NOLOCK)
+			where InvDocDetailsID=@ResINVID
+		END
+	END
+
+	DELETE T FROM COM_DocCCData t with(nolock)
+	join @TblDeleteRows a on t.InvDocDetailsID=a.ID		
+
+	--DELETE DOCUMENT EXTRA NUMERIC FEILD DETAILS      
+	DELETE T FROM [COM_DocNumData] t with(nolock)
+	join @TblDeleteRows a on t.InvDocDetailsID=a.ID
+	
+	if(@CostCenterID=40054)
+	BEGIN
+		set @sql=''DELETE T FROM PAY_DocNumData t with(nolock)
+		join [INV_DocDetails] a on t.InvDocDetailsID=a.InvDocDetailsID
+		WHERE a.CostCenterID=''+convert(nvarchar(Max),@CostCenterID)+'' AND a.DocID= ''+convert(nvarchar(Max),@DocID)
+		EXEC sp_executesql @SQL
+	END
+	
+	--DELETE DOCUMENT EXTRA TEXT FEILD DETAILS      
+	DELETE T FROM [COM_DocTextData] T with(nolock)
+	join @TblDeleteRows a on t.InvDocDetailsID=a.ID
+
+	--DELETE Accounts DocDetails      
+	DELETE T FROM [ACC_DocDetails] T with(nolock)
+	join @TblDeleteRows a on t.InvDocDetailsID=a.ID 
+	
+
+	if(@vouchertype=1 or @DocumentType=5)
+	BEGIN
+		insert into @tbloldBins
+		select binid,t.InvDocDetailsID,t.quantity,c.ProductID	FROM INV_BinDetails T WITH(NOLOCK)
+		join @TblDeleteRows a on t.InvDocDetailsID=a.ID
+		join [INV_DocDetails] c with(nolock)  on a.ID=c.InvDocDetailsID
+		where c.VoucherType=1 and c.IsQtyIgnored=0
+	END
+
+	DELETE T FROM INV_BinDetails T with(nolock)
+	join @TblDeleteRows a on t.InvDocDetailsID=a.ID
+   
+	DELETE T FROM INV_DocExtraDetails T with(nolock)
+	join @TblDeleteRows a on t.InvDocDetailsID=a.ID 
+
+	DELETE T FROM INV_DocExtraDetails T with(nolock)
+	join @TblDeleteRows a on t.REFID=a.ID 
+	where t.type in(10,-10)
+	
+	--to delete stock codes
+	if exists(select PrefValue from COM_DocumentPreferences with(nolock)
+	where CostCenterID=@CostCenterID and PrefName=''DumpStockCodes'' and PrefValue=''true'')    
+	BEGIN
+		set @tablename=''''
+		select @tablename=b.TableName from ADM_GlobalPreferences a WITH(NOLOCK) 
+		join ADM_Features b WITH(NOLOCK) on a.Value=b.FeatureID
+		where a.Name=''POSItemCodeDimension''
+		if(@tablename<>'''')
+		BEGIN
+			set @SQL=''delete T FROM ''+@tablename+'' T with(nolock)
+			join Inv_DocDetails b with(nolock) on T.InvDocDetailsID =b.InvDocDetailsID
+			WHERE b.COSTCENTERID=''+CONVERT(NVARCHAR,@CostCenterID)+'' AND b.DOCID=''+CONVERT(NVARCHAR,@DocID)
+				
+			exec(@SQL)
+		END	
+	END
+
+
+	if exists(select [InvDocDetailsID] from [INV_SerialStockProduct] T with(nolock)
+	join @TblDeleteRows a on t.InvDocDetailsID=a.ID)
+	BEGIN	
+	
+		if(@VoucherType=1)
+		BEGIN
+			if exists(select [SerialNumber]  from [INV_SerialStockProduct] t with(nolock)
+			 join @TblDeleteRows a on t.RefInvDocDetailsID=a.ID)
+			BEGIN			
+				RAISERROR(''-508'',16,1)
+			END	
+		END
+		ELSE if(@VoucherType=-1)
+		BEGIN		
+			 UPDATE [INV_SerialStockProduct]      
+			 SET [StatusID]=157      
+			 ,IsAvailable=1 
+			  from ( select [SerialNumber] sno ,SerialGUID sguid,[RefInvDocDetailsID] refinvID,[ProductID] PID from [INV_SerialStockProduct]  t with(nolock)    
+			 join @TblDeleteRows a on t.InvDocDetailsID=a.ID) as t
+			  where [ProductID]=PID and [SerialNumber]=sno and SerialGUID=sguid and [InvDocDetailsID]=refinvID
+		END
+		
+		DELETE T FROM  [INV_SerialStockProduct]  T with(nolock)
+		join @TblDeleteRows a on t.InvDocDetailsID=a.ID	 
+	END	
+
+	UPDATE [INV_SerialStockProduct]      
+	SET ReserveID=null
+	from @TblDeleteRows
+	where ReserveID=id
+		
+	DELETE T FROM COM_DocFlow T with(nolock) 
+	WHERE T.DocID=@DocID
+	
+	DELETE T FROM COM_Billwise T with(nolock) 
+	WHERE T.DocNo=@VoucherNo
+	
+	DELETE T FROM COM_LCBills T with(nolock) 
+	WHERE T.DocNo=@VoucherNo
+	
+	DELETE T FROM Com_BillwiseNonAcc T with(nolock) 
+	WHERE T.DocNo=@VoucherNo
+
+	DELETE T FROM COM_ChequeReturn T with(nolock) 
+	WHERE T.DocNo=@VoucherNo
+	
+
+	
+
+	EXEC @return_value = dbo.[spDoc_SetNewRef]
+							@DocNo = @VoucherNo,
+							@UserID = @UserID,
+							@LangID = @LangID
+
+	
+	DELETE T FROM COM_Notes T with(nolock) 
+	WHERE T.FeatureID=@CostCenterID AND T.FeaturePK=@DocID
+
+	DELETE T FROM COM_DocQtyAdjustments T with(nolock)
+	WHERE T.DocID=@DocID
+	
+	DELETE T FROM  COM_Files T with(nolock) 
+	WHERE T.FeatureID=@CostCenterID AND T.FeaturePK=@DocID
+	
+	DELETE T FROM INV_TempInfo T with(nolock)
+	join @TblDeleteRows a on t.InvDocDetailsID=a.ID	 
+	
+	DELETE T FROM ACC_CorporateDetails T with(nolock)
+	WHERE T.DOCID=@DocID
+
+	DELETE T FROM COM_DocDenominations T with(nolock) 
+	WHERE T.DOCID=@DocID
+	
+	DELETE T FROM [COM_DocID] T with(nolock) WHERE T.ID=@DocID
+
+	DELETE T FROM [INV_DocDetails] T with(nolock) 
+	WHERE T.CostCenterID=@CostCenterID AND T.DocID=@DocID
+	
+	DELETE T FROM com_approvals T with(nolock) 
+	WHERE T.CCID=@CostCenterID AND T.CCNODEID=@DocID
+
+	DELETE T FROM COM_CCPrices T with(nolock) 
+	WHERE T.ProfileName=@VoucherNo
+
+	DELETE T FROM COM_CCPricesDefn T with(nolock) 
+	WHERE T.ProfileName=@VoucherNo
+
+	set @AUTOCCID=0
+	select @AUTOCCID=ScheduleID from COM_CCSchedules WITH(NOLOCK)
+	where CostCenterID=@CostCenterID and NodeID=@DocID
+			
+	if(@AUTOCCID>0)
+	BEGIN
+		delete from COM_CCSchedules
+		where ScheduleID=@AUTOCCID
+					
+		delete from COM_UserSchedules
+		where ScheduleID=@AUTOCCID
+					
+		delete from COM_SchEvents
+		where ScheduleID=@AUTOCCID
+					
+		delete from COM_Schedules
+		where ScheduleID=@AUTOCCID
+	END
+	
+	IF EXISTS (SELECT * FROM SYS.TABLES WITH(NOLOCK) WHERE NAME=''CRM_Activities'')
+	BEGIN
+		SET @SQL=''DELETE T FROM CRM_Activities T WITH(NOLOCK) 
+		WHERE T.CostCenterID=''+CONVERT(NVARCHAR,@CostCenterID)+'' AND T.NodeID =''+CONVERT(NVARCHAR,@DocID)
+		EXEC sp_executesql @SQL
+	END
+	
+	update T
+	set T.PostedVoucherNo=null,T.StatusID=1
+	FROM com_schevents T WITH(NOLOCK)  
+	where T.PostedVoucherNo=@VoucherNo
+	
+	IF ((@VoucherType=1 and exists(select Batchid from @TblDeleteRows where BatchID>1))
+	or exists(select 1 from @tbloldBins))
+	BEGIN
+		select @bi=0,@bcnt=COUNT(id) from @TblDeleteRows
+		while(@bi<@bcnt)		
+		BEGIN  		
+			set @bi=@bi+1
+			set @BatchID=1
+			SELECT  @BatchID=BatchID,@InvDocDetailsID=Id from @TblDeleteRows where idid=@bi
+			
+			set @varnodexml=(select o.binid as ''@NodeID''
+			from @tbloldBins o
+			where invid =@InvDocDetailsID 
+			for xml path(''Row''),ROOT(''BinsXML''))
+			select @ProductID=pid from @tbloldBins
+			where invid =@InvDocDetailsID
+			
+			EXEC [spDoc_ValidateBins] @BatchID,@ProductID,@DocDate,@varnodexml,@hldbins,@UserID,@RoleID,@BinDimesionNodeID OUT
+						
+			if(@BinDimesionNodeID>0)
+			BEGIN
+				set @PrefValue=''''
+				select @PrefValue=value from com_costcenterpreferences WITH(NOLOCK) where costcenterid=3 
+				and  name=''BinsDimension''  
+				set @BinDimesion=0 
+				if(@PrefValue<>'''')
+				begin    		
+					begin try    
+						select @BinDimesion=convert(INT,@PrefValue)    
+					end try    
+					begin catch    
+						set @BinDimesion=0    
+					end catch 		
+				END 
+					
+				select @PrefValue=TableName from ADM_Features WITH(NOLOCK) where FeatureID=@BinDimesion 
+				set @SQL=''select @ProductName=name from ''+@PrefValue+'' with(NOLOCK) where nodeid=''+CONVERT(nvarchar,@BinDimesionNodeID)
+				EXEC sp_executesql @SQL,N''@ProductName nvarchar(max) OUTPUT'',@ProductName output		 
+					
+				RAISERROR(''-588'',16,1)  
+			End
+						
+
+			if(@BatchID>1)
+			BEGIN
+				select @ConsolidatedBatches=Value from [COM_CostCenterPreferences] with(nolock)
+				where Name=''AllowNegativebatches'' and costcenterid=16  
+				if(@ConsolidatedBatches is null or @ConsolidatedBatches ='''' or @ConsolidatedBatches =''false'')
+				BEGIN
+					select @ConsolidatedBatches=Value from [COM_CostCenterPreferences] with(nolock)
+					where Name=''ConsolidatedBatches'' and costcenterid=16  
+					if(@ConsolidatedBatches is null and @ConsolidatedBatches =''false'')
+					begin     
+						set @Tot=isnull((SELECT sum(BD.ReleaseQuantity)    
+						FROM [INV_DocDetails] AS BD WITH(NOLOCK)                 
+						where BD.vouchertype=1 and BD.IsQtyIgnored=0  and BD.batchid=@BatchID and BD.[InvDocDetailsID]=@InvDocDetailsID),0)  
+
+						set @Tot= @Tot-isnull((SELECT sum(BD.UOMConvertedQty)    
+						FROM [INV_DocDetails] AS BD  with(nolock)                  
+						where BD.vouchertype=-1 and BD.statusid in(369,371,441) and BD.IsQtyIgnored=0  and BD.batchid=@BatchID and BD.RefInvDocDetailsID=@InvDocDetailsID),0)
+						
+						if exists (SELECT BD.UOMConvertedQty FROM [INV_DocDetails] AS BD  with(nolock)                  
+						where BD.vouchertype=-1 and BD.statusid in(369,371,441) and BD.IsQtyIgnored=0  and BD.batchid=@BatchID and BD.RefInvDocDetailsID=@InvDocDetailsID)
+						begin  
+							RAISERROR(''-502'',16,1)      
+						end    
+					end  
+					else  
+					begin  
+						set @WHERE=''''
+						if exists(select value from @TblPref where  Name=''LW Batches'' and Value=''true'')
+							 and exists(select value from @TblPref where  Name=''EnableLocationWise'' and Value=''true'')
+						BEGIN				
+							select @NID=Loc 	from @TblDeleteRows where idid=@bi  
+							set @WHERE =@WHERE+'' and dcCCNID2=''+CONVERT(nvarchar,@NID)        
+						END
+
+						if exists(select value from @TblPref where  Name=''DW Batches'' and Value=''true'')
+						and exists(select value from @TblPref where  Name=''EnableDivisionWise'' and Value=''true'')
+						BEGIN		
+							select @NID=DIV from @TblDeleteRows where idid=@bi		 
+							set @WHERE =@WHERE+'' and dcCCNID1=''+CONVERT(nvarchar,@NID)       
+						END
+						
+						set @PrefValue=''''      
+						select @PrefValue= isnull(Value,'''') from @TblPref where Name=''Maintain Dimensionwise Batches''        
+
+						if(@PrefValue is not null and @PrefValue<>'''' and convert(INT,@PrefValue)>0)        
+						begin 	
+							select @NID=DIM from @TblDeleteRows where idid=@bi		 		 
+							set @WHERE =@WHERE+'' and dcCCNID''+CONVERT(nvarchar,(convert(INT,@PrefValue)-50000))+''=''+CONVERT(nvarchar,@NID)        
+						end 
+							  
+						set @sql=''set @Tot=(SELECT isnull(sum(BD.ReleaseQuantity),0)  
+						FROM [INV_DocDetails] AS BD  WITH(NOLOCK)
+						join COM_DocCCData c with(nolock) on BD.InvDocDetailsID=c.InvDocDetailsID 
+						where vouchertype=1  and statusid=369 and IsQtyIgnored=0 ''+@WHERE+'' and batchid=''+convert(nvarchar,@BatchID)+'')  
+
+						set @Tot= @Tot-(SELECT isnull(sum(BD.UOMConvertedQty),0)
+						FROM [INV_DocDetails] AS BD  WITH(NOLOCK)                  
+						join COM_DocCCData c with(nolock) on BD.InvDocDetailsID=c.InvDocDetailsID  
+						where BD.vouchertype=-1 and BD.statusid in(369,371,441) and BD.IsQtyIgnored=0 ''+@WHERE+'' and BD.batchid=''+convert(nvarchar,@BatchID)+'')''
+						EXEC sp_executesql @sql,N''@Tot float OUTPUT'',@Tot output	
+				
+					end  
+				
+					if(@Tot<-0.001)   
+					begin  
+						RAISERROR(''-502'',16,1)      
+					end 
+					
+					if exists(select PrefValue from COM_DocumentPreferences with(nolock)
+					where CostCenterID=@CostCenterID and PrefName=''SameBatchtoall'' and PrefValue=''true'')
+					BEGIN
+						IF NOT exists(SELECT BatchID FROM INV_DocDetails WITH(NOLOCK) WHERE BatchID=@BatchID and DocID<>@DocID)
+						BEGIN
+							EXEC @return_value = dbo.spINV_DeleteBatch
+							@BatchID = @BatchID,
+							@UserID = 1,
+							@RoleID = 1,
+							@LangID = @LangID
+						END
+					END
+				END	 
+			END 
+		END
+	END  
+	
+	IF EXISTS (SELECT * FROM SYS.TABLES WITH(NOLOCK) WHERE NAME=''CRM_Cases'')
+	BEGIN
+		delete from @caseTab
+		
+		SET @SQL=''select CaseID FROM CRM_Cases with(nolock) where SvcContractID=''+CONVERT(NVARCHAR,@DocID)  
+		INSERT INTO @caseTab(CaseID)
+		EXEC sp_executesql @SQL
+		
+		select @iUNIQ=MIN(id),@UNIQUECNT=MAX(id) FROM @caseTab
+		
+		WHILE(@iUNIQ <= @UNIQUECNT)
+		BEGIN
+			SELECT @CaseID=CaseID FROM @caseTab WHERE id=@iUNIQ
+			--SELECT @CaseID
+			SET @SQL=''exec spCRM_DeleteCase @CASEID=''+CONVERT(NVARCHAR,@CaseID)+'',@USERID=''+CONVERT(NVARCHAR,@UserID)+'',@LangID=''+CONVERT(NVARCHAR,@LangID)+'',@RoleID=''+CONVERT(NVARCHAR,@RoleID)
+			EXEC sp_executesql @SQL	
+			SET @iUNIQ=@iUNIQ+1
+		END
+	END
+		
+		if (@DocumentType=39)
+	    BEGIN
+		 if exists(select a.VoucherType from COM_PosPayModes a WITH(NOLOCK)
+		 join COM_PosPayModes b WITH(NOLOCK) on a.VoucherNodeID=b.VoucherNodeID
+		 where b.VoucherType=-1 and a.DOCID=@DocID)
+		 BEGIN
+				RAISERROR(''-525'',16,1)  
+		 END
+		 
+		     if exists(select a.VoucherType from COM_PosPayModes a WITH(NOLOCK)
+				where DOCID=@DocID and VoucherNodeID>0)
+			  BEGIN
+					delete from @caseTab
+					INSERT INTO @caseTab(CaseID)      
+					SELECT VoucherNodeID FROM COM_PosPayModes with(nolock)
+					where DOCID=@DocID and VoucherNodeID>0
+					
+					
+					delete a from COM_PosPayModes a WITH(NOLOCK) where a.DOCID=@DocID
+		
+					
+					select @iUNIQ=MIN(id),@UNIQUECNT=MAX(id) FROM @caseTab        
+				    
+				    select @PrefValue=Value FROM ADM_GlobalPreferences with(nolock) WHERE Name=''PosCoupons''    
+					set @Dimesion=0
+					if(@PrefValue is not null and @PrefValue<>'''' and ISNUMERIC(@PrefValue)=1)
+					begin						
+						begin try
+							select @Dimesion=convert(INT,@PrefValue)
+						end try
+						begin catch
+							set @Dimesion=0
+						end catch
+					END
+				           
+					WHILE(@iUNIQ <= @UNIQUECNT and @Dimesion>50000)        
+					BEGIN      
+					  SELECT @CaseID=CaseID FROM @caseTab WHERE id=@iUNIQ
+					  
+					  EXEC @return_value = [dbo].[spCOM_DeleteCostCenter]
+						@CostCenterID = @Dimesion,
+						@NodeID = @CaseID,
+						@RoleID=1,
+						@UserID = 1,
+						@LangID = @LangID
+						
+				
+					  set @iUNIQ=@iUNIQ+1
+				    END   
+			  END
+		END
+		
+		set @PrefValue=''''
+		select @PrefValue=PrefValue from COM_DocumentPreferences with(nolock)
+		where CostCenterID=@CostCenterID and PrefName=''BackTrack''
+	
+		select @bi=0,@bcnt=COUNT(id) from @TblDeleteRows
+		while(@bi<@bcnt)		
+		BEGIN  		
+			set @bi=@bi+1			
+			set @InvDocDetailsID=0
+			SELECT  @BatchID=CostCenterID,@InvDocDetailsID=a.linkinv from @TblDeleteRows a
+			join INV_DocDetails b with(nolock) on a.linkinv=b.InvDocDetailsID
+			where idid=@bi
+			
+			if(@InvDocDetailsID is not null and @InvDocDetailsID>0)
+			BEGIN
+				if(@PrefValue=''true'')
+				BEGIN
+					SELECT @Tot=isnull(sum(a.Quantity),0) FROM INV_DocDetails a WITH(NOLOCK)    
+					WHERE  a.LinkedInvDocDetailsID=@InvDocDetailsID and a.Costcenterid=@CostCenterID
+
+					update a    
+					set a.LinkedFieldValue=Quantity-@Tot
+					FROM INV_DocDetails a WITH(NOLOCK)
+					where a.InvDocDetailsID=@InvDocDetailsID
+				END
+				
+				delete from @caseTab
+				
+				insert into @caseTab(CaseID,fldName)
+				select SrcDoc,Fld from COM_DocLinkCloseDetails WITH(NOLOCK)
+				where CostCenterID=@CostCenterID and linkedfrom=@BatchID
+				
+				
+				select @iUNIQ=min(id) ,@UNIQUECNT=max(id) from @caseTab
+				while(@iUNIQ<=@UNIQUECNT)
+				BEGIN
+					SELECT @DELETECCID=CaseID,@tablename=fldName from @caseTab where id=@iUNIQ
+					
+					if(@tablename like ''dcalpha%'')
+					BEGIN
+						set @SQL=''SELECT @LockCCValues=''+@tablename+'' from COM_DocTextData WITH(NOLOCK) where InvDocDetailsID=''+convert(nvarchar,@InvDocDetailsID)				
+						exec sp_executesql @SQL,N''@LockCCValues nvarchar(max) output'',@LockCCValues output
+						
+						set @SQL=''SELECT @Tot=isnull(a.Quantity,0),@DocumentType=a.LinkStatusID from INV_DocDetails a WITH(NOLOCK)
+							join COM_DocTextData b WITH(NOLOCK) on a.InvDocDetailsID=b.InvDocDetailsID 
+							where a.costcenterid=''+CONVERT(nvarchar,@DELETECCID)+'' and ''+@tablename+''=''''''+@LockCCValues+''''''''
+								
+						exec sp_executesql @SQL,N''@Tot float output,@DocumentType int OUTPUT'',@Tot output,@DocumentType OUTPUT
+						
+						if(@DocumentType=445)
+						BEGIN
+							set @dt=0
+							set @SQL=''SELECT @dt=isnull(sum(a.Quantity),0) from INV_DocDetails a WITH(NOLOCK)
+								join COM_DocTextData b WITH(NOLOCK) on a.InvDocDetailsID=b.InvDocDetailsID 
+								where a.statusid<>376 and  a.costcenterid=''+convert(nvarchar,@CostCenterID)+'' and ''+@tablename+''=''''''+@LockCCValues+''''''''
+										
+							exec sp_executesql @SQL,N''@dt float output'',@dt output
+								select @DocumentType,@Tot,@dt,@LockCCValues
+							if(@Tot>@dt and @LockCCValues is not null and @LockCCValues<>'''')
+							BEGIN
+								set @SQL=''update a
+								set a.LinkStatusID=443
+								from INV_DocDetails a WITH(NOLOCK)
+								join COM_DocTextData b WITH(NOLOCK) on a.InvDocDetailsID=b.InvDocDetailsID
+								 where ''+@tablename+''=''''''+@LockCCValues+''''''''
+								
+								EXEC sp_executesql @SQL
+							END
+						END	
+					END
+					set @iUNIQ=@iUNIQ+1
+				END
+			END	
+		END
+		
+		delete a from COM_PosPayModes a WITH(NOLOCK) where a.DOCID=@DocID
+		
+	IF(@DocumentType=220) -- Bid Open
+	BEGIN
+		SET @SQL=''	DELETE FROM COM_BiddingDocs WHERE BODocID=''+CONVERT(NVARCHAR,@DocID) + ''
+					DELETE FROM COM_BidPriceDetails WHERE BODocID=''+CONVERT(NVARCHAR,@DocID)
+		EXEC(@SQL)
+	END
+
+
+COMMIT TRANSACTION         
+--ROLLBACK TRANSACTION         
+SET NOCOUNT OFF;  
+SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) 
+WHERE ErrorNumber=102 AND LanguageID=@LangID  
+RETURN 1
+END TRY
+BEGIN CATCH 	
+
+	if(@return_value=-999)
+		return -999
+	--Return exception info [Message,Number,ProcedureName,LineNumber] 	
+	IF ERROR_NUMBER()=50000
+	BEGIN
+		IF ISNUMERIC(ERROR_MESSAGE())<>1
+		BEGIN
+				SELECT ERROR_MESSAGE() ErrorMessage
+		END
+		else if(ERROR_MESSAGE()=-127)
+		begin
+			set @VoucherNo=(select top 1 VoucherNo from [INV_DocDetails] WITH(NOLOCK) where LinkedInvDocDetailsID in (SELECT InvDocDetailsID FROM [INV_DocDetails] WITH(NOLOCK)
+			WHERE CostCenterID=@CostCenterID AND DocPrefix=@DocPrefix AND DocNumber=@DocNumber))
+			
+			SELECT ErrorMessage+'' ''+@VoucherNo as ErrorMessage,ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine  FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID
+		end
+		else if(ERROR_MESSAGE()=-1221)
+		begin			
+			SELECT ''Adjusted document cannot be deleted.'' as ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=-127 AND LanguageID=@LangID
+		end
+		else if(ERROR_MESSAGE()=-502)
+		begin			
+			SELECT ErrorMessage+'' ''+convert(nvarchar,@bi) as ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID
+		end
+		 else IF (ERROR_MESSAGE() in( ''-538'',''-588'') )    
+		  BEGIN    
+			   SELECT   replace(ErrorMessage,''##BIN##'',@ProductName)+ CONVERT(NVARCHAR, @bi ) ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as     
+			   ProcedureName, ERROR_LINE() AS ErrorLine  FROM COM_ErrorMessages WITH(nolock)      
+			   WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID      
+		  END
+		else if(ERROR_MESSAGE()=-566)
+		begin			
+			SELECT ErrorMessage+'' ''+@VoucherNo as ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID
+		end
+		else if(ERROR_MESSAGE()=-577)
+		begin	
+			SELECT ErrorMessage+'' ''+@DocFinalSettlement as ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID
+		end
+		else
+			SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID
+	END
+	ELSE IF ERROR_NUMBER()=547
+	BEGIN
+		SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine FROM COM_ErrorMessages WITH(nolock)
+		WHERE ErrorNumber=-110 AND LanguageID=@LangID
+	END
+	ELSE
+	BEGIN
+		SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine
+		FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=-999 AND LanguageID=@LangID
+	END
+	
+ROLLBACK TRANSACTION
+	
+--Remove if any Delete notification
+delete t from COM_SchEvents t  WITH(NOLOCK) Where CostCenterID=@CostCenterID and NodeID=@DocID and StatusID=1 and FilterXML like ''<XML><FilePath>%''
+
+SET NOCOUNT OFF  
+RETURN -999   
+END CATCH
+' 
+END
+GO
+/****** Object:  StoredProcedure [dbo].[spDoc_SetNewRef]    Script Date: 07-09-2026 13:22:56 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spDoc_SetNewRef]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'CREATE Proc [dbo].[spDoc_SetNewRef]
+@DocNo NVARCHAR(MAX), 
+@UserID INT,
+@LangID INT
+as
+BEGIN
+	declare @tbl table(id int identity(1,1),vno nvarchar(max),seq int,accountid int)
+	declare @i int,@cnt int,@amt float,@fcamt float,@billid INT,@vno nvarchar(max),@seq int,@accountid int
+	
+	declare @tblDOcs table(vno nvarchar(max))
+	insert into @tblDOcs
+	select distinct docno from COM_Billwise a WITH(NOLOCK)
+	WHERE a.RefDocNo=@DocNo
+
+	update a 
+	set a.IsNewReference=1,a.RefDocNo=null,a.RefDocSeqNo=null,a.RefDocDate=null,a.RefDocDueDate=null
+	from COM_Billwise a WITH(NOLOCK)
+	WHERE a.RefDocNo=@DocNo
+	
+	insert into @tbl
+	select docno,DocSeqNo,accountid from com_billwise a WITH(NOLOCK)
+	join @tblDOcs d on a.docno=d.vno
+	where IsNewReference=1
+	group by docno,DocSeqNo,accountid
+	having count(*)>1
+
+	set @i=0
+	select @cnt=count(id) from @tbl
+
+	while(@i<@cnt)
+	BEGIN
+		set @i=@i+1
+	  
+		select @vno=vno,@seq=seq ,@accountid=accountid from @tbl where id=@i
+
+		select @billid=min(BillwiseID),@amt=sum(AdjAmount),@fcamt=sum(AmountFC) from com_billWise with(nolock)
+		where docno=@vno and DocSeqNo=@seq and accountid=@accountid
+
+		update B
+		set B.AdjAmount=@amt,B.AmountFC=@fcamt
+		FROM com_billWise B 
+		where B.BillwiseID=@billid 
+			
+		delete B from com_billWise B 
+		where BillwiseID<>@billid and docno=@vno and DocSeqNo=@seq and accountid=@accountid
+	
+	END
+END' 
+END
+GO
+/****** Object:  StoredProcedure [dbo].[spDOC_SuspendAccDocument]    Script Date: 07-09-2026 13:22:56 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spDOC_SuspendAccDocument]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'-- =============================================    
+-- Author:  IKRAM
+-- Create date: 2 Apr 2011    
+-- Description: Delete accounting document    
+-- Example :
+-- =============================================    
+CREATE procedure [dbo].[spDOC_SuspendAccDocument]    
+@CostCenterID INT,
+@DocID INT,
+@DocPrefix NVARCHAR(50),    
+@DocNumber NVARCHAR(500),
+@Remarks NVARCHAR(Max),
+@LockWhere NVARCHAR(max)='''',
+@SuspendAll BIT=0,
+@sysinfo NVARCHAR(MAX)='''', 
+@AP varchar(10)='''',
+@UserID INT=0,    
+@UserName NVARCHAR(100),
+@RoleID int=0,
+@LangID int=1    
+AS    
+BEGIN TRANSACTION      
+BEGIN TRY      
+SET NOCOUNT ON;    
+  --Declaration Section    
+  DECLARE @HasAccess bit,@VoucherNo nvarchar(200),@PrefValue NVARCHAR(500),@NodeID INT,@WID INT,@level INT
+  DECLARE @sql nvarchar(max),@tablename nvarchar(200),@CurrentNo INT,@DocDate datetime,@DocType int
+  	declare @ModDate float
+  	DECLARE	@return_value int
+			set @ModDate=convert(float,getdate())
+	--SP Required Parameters Check
+	IF(@CostCenterID<40000)
+	BEGIN
+		RAISERROR(''-100'',16,1)
+	END
+
+
+	--User acces check
+	SET @HasAccess=dbo.fnCOM_HasAccess(@RoleID,@CostCenterID,141)
+
+	IF @HasAccess=0
+	BEGIN
+		RAISERROR(''-105'',16,1)
+	END
+
+	IF (@DocID IS NOT NULL and @DocID>0)
+		SELECT @VoucherNo=VoucherNo,@DocType=Documenttype,@DocPrefix=DocPrefix,@DocNumber=DocNumber,@DocDate=CONVERT(datetime,DocDate),@WID=WorkflowID   FROM [ACC_DocDetails] WITH(nolock)
+		WHERE CostCenterID=@CostCenterID AND @DocID=DocID
+	ELSE
+		SELECT @VoucherNo=VoucherNo,@DocType=Documenttype,@DocID=DocID,@DocDate=CONVERT(datetime,DocDate),@WID=WorkflowID   FROM [ACC_DocDetails] WITH(nolock)
+		WHERE CostCenterID=@CostCenterID AND DocPrefix=@DocPrefix AND DocNumber=@DocNumber
+	
+	IF @DocID IS NULL
+	BEGIN
+		COMMIT TRANSACTION         
+		SET NOCOUNT OFF;  SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) 
+		WHERE ErrorNumber=109 AND LanguageID=@LangID  
+		RETURN 1	
+	END
+	
+	
+DECLARE @DLockFromDate DATETIME,@DLockToDate DATETIME,@DAllowLockData BIT ,@DLockCC INT  
+ DECLARE @LockFromDate DATETIME,@LockToDate DATETIME,@AllowLockData BIT,@LockCC INT,@LockCCValues nvarchar(max)     
+    
+ SELECT @AllowLockData=CONVERT(BIT,Value) FROM ADM_GlobalPreferences with(nolock) WHERE Name=''Lock Data Between''       
+ SELECT @DAllowLockData=CONVERT(BIT,PrefValue) FROM COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and  PrefName=''Lock Data Between''  
+   
+ if(dbo.fnCOM_HasAccess(@RoleID,43,193)=0 and (SELECT PrefValue FROM COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and  PrefName=''OverrideLock'')<>''true'')  
+ BEGIN  
+  IF (@AllowLockData=1)  
+  BEGIN   
+   SELECT @LockFromDate=CONVERT(DATETIME,Value) FROM ADM_GlobalPreferences with(nolock) WHERE Name=''LockDataFromDate''      
+   SELECT @LockToDate=CONVERT(DATETIME,Value) FROM ADM_GlobalPreferences with(nolock) WHERE Name=''LockDataToDate''      
+   SELECT @LockCC=CONVERT(INT,Value) FROM ADM_GlobalPreferences with(nolock) WHERE Name=''LockCostCenters'' and isnumeric(Value)=1  
+  
+   if(@DocDate BETWEEN @LockFromDate AND @LockToDate)  
+   BEGIN  
+     if(@LockCC is null or @LockCC=0)  
+		RAISERROR(''-125'',16,1)    
+     else if(@LockCC>50000)  
+     BEGIN  
+       SELECT @LockCCValues=CONVERT(INT,Value) FROM ADM_GlobalPreferences with(nolock) WHERE Name=''LockCostCenterNodes''  
+  
+      set @LockCCValues= rtrim(@LockCCValues)  
+      set @LockCCValues=substring(@LockCCValues,0,len(@LockCCValues)- charindex('','',reverse(@LockCCValues))+1)  
+  
+      set @sql =''if exists (select a.AccDocDetailsID FROM  [COM_DocCCData] a with(nolock)  
+      join [ACC_DocDetails] b with(nolock) on a.AccDocDetailsID=b.AccDocDetailsID  
+      WHERE b.CostCenterID=''+convert(nvarchar,@CostCenterID)+'' AND b.docid=''+convert(nvarchar,@DocID)+'' and a.dcccnid''+convert(nvarchar,(@LockCC-50000))+'' in(''+@LockCCValues+''))  
+      RAISERROR(''''-125'''',16,1)  ''  
+      exec(@sql)  
+     END  
+   END      
+  END  
+  
+  if(dbo.fnCOM_HasAccess(@RoleID,43,193)=0 and @LockWhere <>'''')
+  BEGIN
+	  set @sql =''if exists (select a.CostCenterID from Acc_DocDetails a WITH(NOLOCK)
+			join COM_DocCCData b WITH(NOLOCK) on a.InvDocDetailsID=b.InvDocDetailsID
+			join ADM_DimensionWiseLockData c  WITH(NOLOCK) on a.DocDate between c.fromdate and c.todate and c.isEnable=1
+			where  a.CostCenterID=''+convert(nvarchar,@CostCenterID)+'' AND a.docid=''+convert(nvarchar,@DocID)+@LockWhere+'')  
+			RAISERROR(''''-125'''',16,1)  ''  
+      exec(@sql)
+  END
+    
+  IF (@DAllowLockData=1)  
+  BEGIN  
+   SELECT @DLockFromDate=CONVERT(DATETIME,PrefValue) FROM COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and  PrefName=''LockDataFromDate''  
+   SELECT @DLockToDate=CONVERT(DATETIME,PrefValue) FROM COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and  PrefName=''LockDataToDate''  
+   SELECT @DLockCC=CONVERT(INT,PrefValue) FROM COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and  PrefName=''LockCostCenters'' and isnumeric(PrefValue)=1  
+    
+   if(@DocDate BETWEEN @DLockFromDate AND @DLockToDate)  
+   BEGIN  
+    if(@DLockCC is null or @DLockCC=0)  
+		RAISERROR(''-125'',16,1)    
+     else if(@DLockCC>50000)  
+     BEGIN  
+		  SELECT @LockCCValues=CONVERT(INT,PrefValue) FROM COM_DocumentPreferences with(nolock) WHERE CostCenterID=@CostCenterID and  PrefName=''LockCostCenterNodes''  
+	  
+		  set @LockCCValues= rtrim(@LockCCValues)  
+		  set @LockCCValues=substring(@LockCCValues,0,len(@LockCCValues)- charindex('','',reverse(@LockCCValues))+1)  
+	  
+		  set @sql =''if exists (select a.AccDocDetailsID FROM  [COM_DocCCData] a with(nolock)  
+		  join [ACC_DocDetails] b with(nolock) on a.AccDocDetailsID=b.AccDocDetailsID  
+		  WHERE b.CostCenterID=''+convert(nvarchar,@CostCenterID)+'' AND b.docid=''+convert(nvarchar,@DocID)+'' and a.dcccnid''+convert(nvarchar,(@DLockCC-50000))+'' in(''+@LockCCValues+''))  
+		  RAISERROR(''''-125'''',16,1)  ''  
+		  exec(@sql)  
+     END   
+   END         
+  END  
+ END  
+ declare @IsLineWisePDC bit,@CrossDimension bit ,@PrePayment INT
+	set @IsLineWisePDC=0
+	select @IsLineWisePDC=isnull(PrefValue,0) from COM_DocumentPreferences WITH(NOLOCK)    
+	where CostCenterID=@CostCenterID and PrefName=''LineWisePDC''   	
+	set @CrossDimension=0
+	select @CrossDimension=isnull(PrefValue,0) from COM_DocumentPreferences WITH(NOLOCK)    
+	where CostCenterID=@CostCenterID and PrefName=''UseasCrossDimension''
+	set @PrePayment=0
+	select @PrePayment=isnull(PrefValue,0) from COM_DocumentPreferences WITH(NOLOCK)    
+	where CostCenterID=@CostCenterID and PrefName=''PrepaymentDoc''
+
+	if(@IsLineWisePDC=1 or @CrossDimension=1 or @PrePayment<>0 or @DocType not in(14,19))	
+	BEGIN
+			if(@IsLineWisePDC=1 and exists (SELECT a.ACCDocDetailsID from ACC_DocDetails a  with(nolock)	 
+			 join ACC_DocDetails B with(nolock) on a.ACCDocDetailsID =b.RefNodeid and b.RefCCID=400  
+			 where a.CostCenterid=@CostCenterID and a.DocID =@DocID and b.Statusid not in (370,372))) --b.Statusid<>370
+				RAISERROR(''-399'',16,1) 				
+	END
+		declare @AccDocID INT,@DELETECCID INT,@delcnt int,@deli int,@DeleteDOcid INT
+		DECLARE @DELDocID INT
+		declare @ttdel table(id int identity(1,1),docid INT,CCID INT)
+		insert into @ttdel
+		SELECT distinct b.DocID,b.COSTCENTERID FROM  [ACC_DocDetails] a WITH(NOLOCK)
+		join  [ACC_DocDetails] b WITH(NOLOCK) on a.AccDocDetailsID=b.RefNodeid 
+		WHERE a.DocID =@DocID and b.RefCCID=400
+		
+		select @deli=0,@delcnt=COUNT(docid) from @ttdel
+		while(@deli<@delcnt)
+		BEGIN
+			set @deli=@deli+1
+			select @DeleteDOcid=docid,@DELETECCID=CCID from @ttdel where id=@deli
+				    
+			 EXEC @return_value = [dbo].[spDOC_DeleteAccDocument]  
+			 @CostCenterID = @DELETECCID,  
+			 @DocPrefix = '''',  
+			 @DocNumber = '''',
+			 @DocID=@DeleteDOcid,
+			 @UserID = @UserID,  
+			 @UserName = @UserName,  
+			 @LangID = @LangID,  
+			 @RoleID= @RoleID
+		END
+		DELETE FROM @ttdel
+		insert into @ttdel
+		SELECT distinct b.DocID,b.COSTCENTERID FROM  [ACC_DocDetails] a WITH(NOLOCK)
+		join  [INV_DocDetails] b WITH(NOLOCK) on a.AccDocDetailsID=b.RefNodeid 
+		WHERE a.DocID =@DocID and b.RefCCID=400
+		
+		select @deli=min(id),@delcnt=max(id) from @ttdel
+		while(@deli<=@delcnt)
+		BEGIN
+			
+			select @DeleteDOcid=docid,@DELETECCID=CCID from @ttdel where id=@deli
+				    
+			 EXEC @return_value = [dbo].[spDOC_DeleteInvDocument]  
+			 @CostCenterID = @DELETECCID,  
+			 @DocPrefix = '''',  
+			 @DocNumber = '''',
+			 @DocID=@DeleteDOcid,
+			 @UserID = @UserID,  
+			 @UserName = @UserName,  
+			 @LangID = @LangID,  
+			 @RoleID= @RoleID
+			 
+			 set @deli=@deli+1
+		END
+ 
+	if exists (SELECT a.ACCDocDetailsID from ACC_DocDetails a 	 WITH(nolock) 
+	 join ACC_DocDetails B WITH(nolock) on a.ACCDocDetailsID =b.RefNodeid and b.RefCCID=400  
+	 where a.CostCenterid=@CostCenterID and a.DocID =@DocID )
+	 begin
+		if exists(select ACCDocDetailsID from ACC_DocDetails WITH(nolock) where DocID =@DocID and StatusID=369)
+			RAISERROR(''-370'',16,1)  
+		else
+			RAISERROR(''-371'',16,1)  
+	 end
+	 
+		
+		select @PrefValue=PrefValue from COM_DocumentPreferences WITH(nolock)
+		where CostCenterID=@CostCenterID and PrefName=''DocumentLinkDimension''
+		
+		if(@PrefValue is not null and @PrefValue<>'''')
+		begin
+			declare @Dimesion INT
+			set @Dimesion=0
+			begin try
+				select @Dimesion=convert(INT,@PrefValue)
+			end try
+			begin catch
+				set @Dimesion=0
+			end catch
+			if(@Dimesion>0)
+			begin
+				
+				select @tablename=tablename from ADM_Features with(nolock) where FeatureID=@Dimesion
+				set @sql=''select @NodeID=NodeID from ''+@tablename+'' WITH(nolock) where Name=''''''+@VoucherNo+''''''''
+				print @sql
+				EXEC sp_executesql @sql,N''@NodeID INT OUTPUT'',@NodeID output
+				 
+				if(@NodeID>1)
+				begin
+					if exists(SELECT PrefValue FROM COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and  PrefName=''Inactiveonsuspend'' and prefvalue=''true'')
+					BEGIN
+						select @sql=tablename from adm_features WITH(NOLOCK) where featureid=@Dimesion
+						set @sql=''update ''+@sql+'' set statusid=1004 where NODEID=''+CONVERT(NVARCHAR,@NodeID)
+						EXEC(@sql)
+					END
+					ELSE
+					BEGIN
+						SET @sql=''UPDATE COM_DocCCData 
+						SET dcCCNID''+CONVERT(NVARCHAR,(@Dimesion-50000))+''=1''
+						+'' WHERE AccDocDetailsID IN (SELECT AccDocDetailsID FROM [ACC_DocDetails] WITH(nolock) 
+						WHERE COSTCENTERID=''+CONVERT(NVARCHAR,@CostCenterID)+'' AND DOCID=''+CONVERT(NVARCHAR,@DocID)+'')''
+						EXEC(@sql)
+						EXEC	@return_value = [dbo].[spCOM_DeleteCostCenter]
+							@CostCenterID = @Dimesion,
+							@NodeID = @NodeID,
+							@RoleID=1,
+							@UserID = 1,
+							@LangID = @LangID
+					END		
+				end
+			end
+		end	
+		
+		set @tablename=''''
+		select @tablename=SpName from ADM_DocFunctions a WITH(NOLOCK) where CostCenterID=@CostCenterID and Mode=11
+		if(@tablename<>'''')
+		exec @tablename @CostCenterID,@DocID,'''',@UserID,@LangID
+		
+		DELETE FROM COM_Billwise 
+		WHERE DocNo=@VoucherNo
+
+		
+		EXEC @return_value = dbo.[spDoc_SetNewRef]
+							@DocNo = @VoucherNo,
+							@UserID = @UserID,
+							@LangID = @LangID
+
+
+		
+		DELETE FROM COM_LCBills 
+		WHERE DocNo=@VoucherNo
+
+		update a 
+		set IsNewReference=1,RefDocNo=null,RefDocSeqNo=null,RefDocDate=null,RefDocDueDate=null
+		from COM_LCBills a with(nolock)		
+		WHERE RefDocNo=@VoucherNo
+
+		DELETE a FROM COM_ChequeReturn a with(nolock)
+		WHERE DocNo=@VoucherNo
+
+	 
+		update [ACC_DocDetails] 
+		set StatusID=376,CancelledRemarks=@Remarks,ModifiedBy=@UserName,ModifiedDate=@ModDate,WorkFlowLevel=null
+		WHERE CostCenterID=@CostCenterID AND DocPrefix=@DocPrefix AND DocNumber=@DocNumber
+		
+		if exists(SELECT * FROM COM_SchEvents with(nolock) WHERE CostCenterID=@CostCenterID AND NodeID=@DocID)
+		BEGIN
+			-- Issue Id 141697
+			UPDATE COM_SchEvents SET StatusID = 3 WHERE CostCenterID=@CostCenterID AND NodeID=@DocID and StatusID = 1
+		End
+
+		DELETE FROM COM_SchEvents WHERE StatusID=1 AND 
+		ScheduleID IN (SELECT DISTINCT ScheduleID FROM COM_CCSchedules with(nolock) WHERE CostCenterID=@CostCenterID AND NodeID=@DocID)
+		
+		UPDATE S SET StatusID=3 FROM COM_Schedules S with(nolock) 
+		INNER JOIN COM_CCSchedules CC with(nolock) ON S.ScheduleID=CC.ScheduleID
+		WHERE CC.CostCenterID=@CostCenterID AND CC.NodeID=@DocID 
+	
+		--Post Notification On Suspend Doc
+		EXEC spCOM_SetNotifEvent 376,@CostCenterID,@DocID,''GUID'',@UserName,@UserID,@RoleID
+		
+		--Audit Trail
+		IF (SELECT CONVERT(BIT,PrefValue) FROM COM_DocumentPreferences with(nolock) where CostCenterID=@CostCenterID and PrefName=''AuditTrial'')=1
+		BEGIN
+		
+			 EXEC @return_value = [spDOC_SaveHistory]      
+				@DocID =@DocID ,
+				@HistoryStatus=''Suspend'',
+				@Ininv =0,
+				@ReviseReason ='''',
+				@LangID =@LangID,
+				@UserName=@UserName,
+				@ModDate=@ModDate,
+				@CCID=@CostCenterID,
+				@sysinfo=@sysinfo,
+				@AP=@AP
+		END	
+		
+		if exists(select * from COM_Approvals WITH(NOLOCK) where CCID=@COSTCENTERID and CCNODEID=@DOCID)
+		BEGIN
+			SELECT @level=LevelID FROM [COM_WorkFlow]   WITH(NOLOCK)   
+			where WorkFlowID=@WID and UserID =@UserID
+			order by LevelID desc
+			
+			if(@level is null)  
+				SELECT @level=LevelID FROM [COM_WorkFlow]  WITH(NOLOCK)    
+				where WorkFlowID=@WID and RoleID =@RoleID
+				order by LevelID desc
+				
+			if(@level is null)       
+				SELECT @level=LevelID FROM [COM_WorkFlow] W WITH(NOLOCK)
+				JOIN COM_Groups G WITH(NOLOCK) on w.GroupID=g.GID     
+				where g.UserID=@UserID and WorkFlowID=@WID
+				order by LevelID desc
+				
+			if(@level is null)  
+				SELECT @level=LevelID FROM [COM_WorkFlow] W WITH(NOLOCK)
+				JOIN COM_Groups G WITH(NOLOCK) on w.GroupID=g.GID     
+				where g.RoleID =@RoleID and WorkFlowID=@WID
+				order by LevelID desc
+			if(@level is null)  
+				set @level=1
+				
+			INSERT INTO COM_Approvals    
+							(CCID,CCNODEID,StatusID,Date,Remarks,UserID,CompanyGUID,GUID,CreatedBy,CreatedDate,WorkFlowLevel,DocDetID)      
+				VALUES(@COSTCENTERID,@DOCID,376,CONVERT(FLOAT,getdate()),@Remarks,@UserID,''''    
+						,newid(),@UserName,CONVERT(FLOAT,getdate()),@level,0)
+		END	
+
+COMMIT TRANSACTION         
+SET NOCOUNT OFF;  
+SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) 
+WHERE ErrorNumber=109 AND LanguageID=@LangID  
+RETURN 1
+END TRY
+BEGIN CATCH  
+	--Return exception info [Message,Number,ProcedureName,LineNumber]  
+	IF ERROR_NUMBER()=50000
+	BEGIN
+	 IF ISNUMERIC(ERROR_MESSAGE())<>1
+	 BEGIN
+		SELECT ERROR_MESSAGE() ErrorMessage,ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine
+	 END
+	 else
+	 BEGIN
+		SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID
+	 END
+	END
+	ELSE IF ERROR_NUMBER()=547
+	BEGIN
+		SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine FROM COM_ErrorMessages WITH(nolock)
+		WHERE ErrorNumber=-110 AND LanguageID=@LangID
+	END
+	ELSE
+	BEGIN
+		SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine
+		FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=-999 AND LanguageID=@LangID
+	END
+ROLLBACK TRANSACTION
+SET NOCOUNT OFF  
+RETURN -999   
+END CATCH
+' 
+END
+GO
+/****** Object:  StoredProcedure [dbo].[spDOC_SuspendInvDocument]    Script Date: 07-09-2026 13:22:56 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spDOC_SuspendInvDocument]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'-- =============================================    
+-- Author:  IKRAM
+-- Create date: 2 Apr 2011    
+-- Description: Delete accounting document    
+-- Example : 
+-- =============================================    
+CREATE PROCEDURE [dbo].[spDOC_SuspendInvDocument]    
+@CostCenterID INT,
+@DocID INT,
+@DocPrefix NVARCHAR(50),    
+@DocNumber NVARCHAR(500),
+@Remarks NVARCHAR(max),
+@LockWhere NVARCHAR(max)='''',
+@SuspendAll BIT=0,
+@sysinfo NVARCHAR(MAX)='''', 
+@AP varchar(10)='''',
+@UserID INT=0,
+@UserName NVARCHAR(100),
+@RoleID int=1,
+@LangID int=1    
+AS    
+BEGIN TRANSACTION      
+BEGIN TRY      
+SET NOCOUNT ON;    
+  --Declaration Section    
+  DECLARE @HasAccess bit,@VoucherNo nvarchar(200),@PrefValue NVARCHAR(500),@NodeID INT,@DocDate datetime,@DelDocID INT,@DELETECCID INT,@tot float,@WID INT,@level INT,@AUTOCCID int,@totRet float
+  DECLARE @sql nvarchar(max),@tablename nvarchar(200),@CurrentNo INT,@return_value int,@CompanyGUID nvarchar(200),@VoucherType int,@DocumentType int,@InvDocDetailsID INT,@ResINVID int
+  declare @ModDate float,@bi int,@bcnt int,@totqty float,@DDocDate datetime,@WHERE nvarchar(max)
+  set @ModDate=convert(float,getdate())
+  declare @tbloldBins table(binid int,invid int,qty float,PID int)
+  declare @BinDimesion int,@BinDimesionNodeID int,@ProductID int,@ProductName nvarchar(250),@varnodexml xml,@hldbins bit
+
+	--SP Required Parameters Check
+	IF(@CostCenterID<40000)
+	BEGIN
+		RAISERROR(''-100'',16,1)
+	END
+
+	if exists(select costcenterid from [COM_CostCenterPreferences] with(nolock)
+	where Name=''ExcludeHoldBins'' and costcenterid=3 and Value=''true'')
+		set @hldbins=1
+	else
+		set @hldbins=0	
+
+	--User acces check
+	SET @HasAccess=dbo.fnCOM_HasAccess(@RoleID,@CostCenterID,141)
+
+	IF @HasAccess=0
+	BEGIN
+		RAISERROR(''-105'',16,1)
+	END
+	
+	if(@DocID is not null and @DocID>0)
+		SELECT  @DocDate=convert(datetime,DocDate),@VoucherType=VoucherType,@DocumentType=DocumentType,
+		@VoucherNo=VoucherNo,@DocPrefix=DocPrefix,@DocNumber=DocNumber,@WID=WorkflowID FROM [INV_DocDetails] WITH(nolock)
+		WHERE CostCenterID=@CostCenterID AND DocID=@DocID 
+	ELSE
+		SELECT  @DocDate=convert(datetime,DocDate),@VoucherNo=VoucherNo,@DocID=DocID,@VoucherType=VoucherType ,@DocumentType=DocumentType,@WID=WorkflowID  FROM [INV_DocDetails] WITH(nolock)
+		WHERE CostCenterID=@CostCenterID AND DocPrefix=@DocPrefix AND DocNumber=@DocNumber
+	
+	IF @DocID IS NULL
+	BEGIN
+		COMMIT TRANSACTION         
+		SET NOCOUNT OFF; 
+		SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) 
+		WHERE ErrorNumber=109 AND LanguageID=@LangID  
+		RETURN 1	
+	END
+	
+	if exists(SELECT LIDD.InvDocDetailsID FROM [INV_DocDetails] IDD WITH(nolock)
+	JOIN [INV_DocDetails] LIDD WITH(nolock) ON LIDD.LinkedInvDocDetailsID=IDD.InvDocDetailsID
+	WHERE IDD.CostCenterID=@CostCenterID AND IDD.DocPrefix=@DocPrefix AND IDD.DocNumber=@DocNumber AND NOT (LIDD.refccid=300 AND LIDD.RefNodeid=IDD.InvDocDetailsID))
+	begin			
+		RAISERROR(''-127'',16,1)
+	end
+	
+	DECLARE @DLockFromDate DATETIME,@DLockToDate DATETIME,@DAllowLockData BIT ,@DLockCC INT  
+	DECLARE @LockFromDate DATETIME,@LockToDate DATETIME,@AllowLockData BIT,@LockCC INT,@LockCCValues nvarchar(max)     
+	
+		
+ SELECT @AllowLockData=CONVERT(BIT,Value) FROM ADM_GlobalPreferences with(nolock) WHERE Name=''Lock Data Between''       
+ SELECT @DAllowLockData=CONVERT(BIT,PrefValue) FROM COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and  PrefName=''Lock Data Between''  
+   
+ if(dbo.fnCOM_HasAccess(@RoleID,43,193)=0 and (SELECT PrefValue FROM COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and  PrefName=''OverrideLock'')<>''true'')  
+ BEGIN  
+  IF (@AllowLockData=1)  
+  BEGIN   
+   SELECT @LockFromDate=CONVERT(DATETIME,Value) FROM ADM_GlobalPreferences with(nolock) WHERE Name=''LockDataFromDate''      
+   SELECT @LockToDate=CONVERT(DATETIME,Value) FROM ADM_GlobalPreferences with(nolock) WHERE Name=''LockDataToDate''      
+   SELECT @LockCC=CONVERT(INT,Value) FROM ADM_GlobalPreferences with(nolock) WHERE Name=''LockCostCenters'' and isnumeric(Value)=1  
+  
+   if(@DocDate BETWEEN @LockFromDate AND @LockToDate)  
+   BEGIN  
+     if(@LockCC is null or @LockCC=0)  
+		RAISERROR(''-125'',16,1)    
+     else if(@LockCC>50000)  
+     BEGIN  
+		  SELECT @LockCCValues=CONVERT(INT,Value) FROM ADM_GlobalPreferences with(nolock) WHERE Name=''LockCostCenterNodes''  
+	  
+		  set @LockCCValues= rtrim(@LockCCValues)  
+		  set @LockCCValues=substring(@LockCCValues,0,len(@LockCCValues)- charindex('','',reverse(@LockCCValues))+1)  
+	  
+		  set @sql =''if exists (select a.InvDocDetailsID FROM  [COM_DocCCData] a with(nolock)  
+		  join [Inv_DocDetails] b with(nolock) on a.InvDocDetailsID=b.InvDocDetailsID  
+		  WHERE b.CostCenterID=''+convert(nvarchar,@CostCenterID)+'' AND b.docid=''+convert(nvarchar,@DocID)+'' and a.dcccnid''+convert(nvarchar,(@LockCC-50000))+'' in(''+@LockCCValues+''))  
+		  RAISERROR(''''-125'''',16,1)  ''  
+		  exec(@sql)  
+     END  
+   END      
+  END  
+  
+  if(dbo.fnCOM_HasAccess(@RoleID,43,193)=0 and @LockWhere <>'''')
+  BEGIN
+	  set @sql =''if exists (select a.CostCenterID from INV_DocDetails a WITH(NOLOCK)
+			join COM_DocCCData b WITH(NOLOCK) on a.InvDocDetailsID=b.InvDocDetailsID
+			join ADM_DimensionWiseLockData c  WITH(NOLOCK) on a.DocDate between c.fromdate and c.todate and c.isEnable=1
+			where  a.CostCenterID=''+convert(nvarchar,@CostCenterID)+'' AND a.docid=''+convert(nvarchar,@DocID)+@LockWhere+'')  
+			RAISERROR(''''-125'''',16,1)  ''  
+      exec(@sql)
+  END  
+    
+  IF (@DAllowLockData=1)  
+  BEGIN  
+   SELECT @DLockFromDate=CONVERT(DATETIME,PrefValue) FROM COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and  PrefName=''LockDataFromDate''  
+   SELECT @DLockToDate=CONVERT(DATETIME,PrefValue) FROM COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and  PrefName=''LockDataToDate''  
+   SELECT @DLockCC=CONVERT(INT,PrefValue) FROM COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and  PrefName=''LockCostCenters'' and isnumeric(PrefValue)=1  
+    
+   if(@DocDate BETWEEN @DLockFromDate AND @DLockToDate)  
+   BEGIN  
+    if(@DLockCC is null or @DLockCC=0)  
+		RAISERROR(''-125'',16,1)    
+     else if(@DLockCC>50000)  
+     BEGIN  
+		  SELECT @LockCCValues=CONVERT(INT,PrefValue) FROM COM_DocumentPreferences with(nolock) WHERE CostCenterID=@CostCenterID and  PrefName=''LockCostCenterNodes''  
+	  
+		  set @LockCCValues= rtrim(@LockCCValues)  
+		  set @LockCCValues=substring(@LockCCValues,0,len(@LockCCValues)- charindex('','',reverse(@LockCCValues))+1)  
+	  
+		  set @sql =''if exists (select a.InvDocDetailsID FROM  [COM_DocCCData] a with(nolock)  
+		  join [INV_DocDetails] b with(nolock) on a.InvDocDetailsID=b.InvDocDetailsID  
+		  WHERE b.CostCenterID=''+convert(nvarchar,@CostCenterID)+'' AND b.docid=''+convert(nvarchar,@DocID)+'' and a.dcccnid''+convert(nvarchar,(@DLockCC-50000))+'' in(''+@LockCCValues+''))  
+		  RAISERROR(''''-125'''',16,1)  ''  
+		  
+		  exec(@sql)  
+     END   
+   END         
+  END  
+ END  
+	
+	set @PrefValue=''''
+	select @PrefValue=Value from ADM_GlobalPreferences with(nolock) where Name=''Check for -Ve Stock''  	
+  
+	if(@PrefValue is not null and @PrefValue=''true'' and @DocID>0 and (@VoucherType=1 or @DocumentType in(5,30)))
+	BEGIN
+		select @PrefValue=PrefValue from COM_DocumentPreferences with(nolock) where CostCenterID=@CostCenterID and PrefName=''DonotupdateInventory''    
+		if(@PrefValue is not null and @PrefValue=''false'')
+		BEGIN		
+			
+			select @HasAccess=Value FROM ADM_GlobalPreferences with(nolock) WHERE Name=''ConsiderUnAppInHold''    
+		
+			EXEC @return_value = [spDOC_Validate]      
+				@InvDocXML ='''', 
+				@DocID =@DocID,
+				@DocDate =@DocDate,
+				@IsDel=1,
+				@ActivityXML='''',
+				@docType=@DocumentType,
+				@ConsiderUnAppInHold=@HasAccess,
+				@UserName =@UserName,
+				@LangID =@LangID
+		END			
+	END
+	
+	
+	if exists(select AccDocDetailsID from acc_docdetails WITH(nolock)
+		where refccid=300 and refnodeid=@DocID and DocID>0)
+	begin
+		 
+		SELECT @DelDocID = DocID , @DELETECCID = COSTCENTERID FROM dbo.ACC_DocDetails  WITH(nolock)  
+		where refccid=300 and refnodeid=@DocID	and DocID>0
+		while(	@DelDocID>0)
+		BEGIN 	    
+			 EXEC @return_value = [dbo].[spDOC_DeleteAccDocument]  
+			 @CostCenterID = @DELETECCID, 
+			 @DocID=@DelDocID,
+			 @DocPrefix = '''',  
+			 @DocNumber = '''', 		 
+			 @UserID = @UserID,  
+			 @UserName = @UserName,  
+			 @LangID = @LangID,
+			 @RoleID=@RoleID  
+			 
+			 set @DelDocID=0
+			 SELECT @DelDocID = DocID , @DELETECCID = COSTCENTERID FROM dbo.ACC_DocDetails  WITH(nolock)  
+			where refccid=300 and refnodeid=@DocID	and DocID>0
+		END	 
+	end
+				
+	if exists(select a.AccDocDetailsID from INV_DocDetails a WITH(nolock)
+		join INV_DocDetails b WITH(nolock) on b.RefNodeid=a.InvDocDetailsID
+		where b.refccid=300 and a.DocID=@DocID and a.CostCenterID=@CostCenterID)
+	begin
+			IF(@CostCenterID=40202)
+			BEGIN
+				DECLARE @TAB TABLE (ID INT IDENTITY(1,1),DocID INT,COSTCENTERID INT)
+				DECLARE @J INT,@RCNT INT
+				SET @sql=''select b.DocID , b.COSTCENTERID from INV_DocDetails a WITH(nolock)
+				join INV_DocDetails b WITH(nolock) on b.RefNodeid=a.InvDocDetailsID
+				JOIN COM_DocTextData T WITH(NOLOCK) ON T.InvDocDetailsID=a.InvDocDetailsID
+				WHERE b.refccid=300 and a.costcenterid=''+CONVERT(NVARCHAR,@CostCenterID)+'' AND a.DOCID=''+CONVERT(NVARCHAR,@DocID) +'' and ISDATE(T.dcAlpha29)=1 and CONVERT(DATETIME,b.DocDate)>=CONVERT(DATETIME,T.dcAlpha29)''
+				--PRINT (@sql)
+				INSERT INTO @TAB
+				EXEC (@sql)
+
+				SELECT @RCNT=COUNT(*) FROM @TAB
+				SET @J=1
+				WHILE(@J<=@RCNT)
+				BEGIN
+					 SELECT @DelDocID = DocID , @DELETECCID = COSTCENTERID from @TAB where ID=@J
+					 UPDATE [INV_DocDetails] set StatusID=376,IsQtyIgnored=1,CancelledRemarks=@Remarks,LinkedInvDocDetailsID=NULL,ModifiedBy=@UserName,ModifiedDate=@ModDate WHERE DocID=@DelDocID and CostCenterID=@DELETECCID			
+					 DELETE from CRM_Activities where CostCenterID=@DELETECCID and NodeID=@DelDocID
+				SET @J=@J+1
+				END		
+			END
+			ELSE
+			BEGIN
+				DECLARE @TAB2 TABLE (ID INT IDENTITY(1,1),DocID INT,COSTCENTERID INT,DocPrefix NVARCHAR(50),DocNumber NVARCHAR(20))
+				DECLARE @J2 INT,@RCNT2 INT
+				INSERT INTO @TAB2
+				select b.DocID , b.COSTCENTERID,b.DocPrefix,b.DocNumber from INV_DocDetails a WITH(nolock)
+				join INV_DocDetails b WITH(nolock) on b.RefNodeid=a.InvDocDetailsID
+				where b.refccid=300 and a.DocID=@DocID and a.CostCenterID=@CostCenterID	AND b.StatusID<>376	 
+
+				SELECT @J2=1,@RCNT2=COUNT(*) FROM @TAB2
+				
+				WHILE(@J2<=@RCNT2)
+				BEGIN
+					select @DelDocID = DocID , @DELETECCID = COSTCENTERID,@DocPrefix=DocPrefix,@DocNumber=DocNumber FROM @TAB2 WHERE ID=@J2
+					
+					EXEC @return_value = [dbo].[spDOC_SuspendInvDocument]  
+					 @CostCenterID = @DELETECCID, 
+					 @DocID=@DelDocID,
+					 @DocPrefix = @DocPrefix,  
+					 @DocNumber = @DocNumber,
+					 @Remarks=@Remarks,
+					 @UserID = @UserID,  
+					 @UserName = @UserName,  
+					 @LangID = @LangID,
+					 @RoleID=@RoleID
+
+					SET @J2=@J2+1
+				END
+			END
+	end	
+			
+		
+	
+	DECLARE @TblDeleteRows AS Table(idid INT identity(1,1), ID INT,BatchID INT,linkinv INT)
+	insert into  @TblDeleteRows
+	SELECT InvDocDetailsID,BatchID,LinkedInvDocDetailsID FROM [INV_DocDetails] with(nolock)
+	WHERE CostCenterID=@CostCenterID AND DocID=@DocID
+	
+	declare @caseTab table(id int identity(1,1),CaseID INT,Batchid INT,fldName nvarchar(50))
+	declare @AssetTab table(id int identity(1,1),CaseID INT,Batchid INT,fldName nvarchar(50))
+	declare @CaseID INT,@iUNIQ int,@UNIQUECNT int,@BatchID INT,@ConsolidatedBatches nvarchar(50),@AllowNegBatches nvarchar(50)
+	
+	------
+	INSERT INTO @AssetTab(CaseID)
+	SELECT RefDimensionNodeID FROM COM_DocBridge with(nolock)
+	WHERE InvDocID=@DocID AND RefDimensionID=72
+					
+	select @iUNIQ=MIN(id),@UNIQUECNT=MAX(id) FROM @AssetTab
+
+	WHILE(@iUNIQ <= @UNIQUECNT)
+	BEGIN
+		SELECT @CaseID=CaseID FROM @AssetTab WHERE id=@iUNIQ
+		
+		EXEC @return_value = dbo.spACC_DeleteAsset
+			@AssetID =@CaseID,
+			@UserID =@UserID,
+			@RoleID=@RoleID,
+			@LangID =@LangID
+		
+		SET @iUNIQ=@iUNIQ+1
+	end
+	
+	delete a FROM COM_DocBridge a with(nolock)
+	WHERE a.InvDocID=@DocID AND a.RefDimensionID=72
+	------
+		
+	insert into @caseTab(CaseID,Batchid)
+	select InvDocDetailsID,Batchid from INV_DocDetails a WITH(nolock)		
+	where a.DocID=@DocID and a.CostCenterID=@CostCenterID and BatchID is not null and BatchID>1
+	
+
+	set @AUTOCCID=0
+	SELECT @AUTOCCID=PrefValue FROM COM_DocumentPreferences WITH(NOLOCK) 
+	where CostCenterID=@CostCenterID and  PrefName=''ResDocForRet'' and PrefValue is not null 
+	and PrefValue<>'''' and PrefValue<>''0'' and isnumeric(PrefValue)=1
+	
+	select @bi=0,@bcnt=COUNT(id) from @TblDeleteRows
+	while(@bi<@bcnt)		
+	BEGIN  		
+		set @bi=@bi+1	
+		SELECT  @InvDocDetailsID=Id from @TblDeleteRows where idid=@bi	
+		
+		set @ResINVID=0
+		select @ResINVID=InvDocDetailsID from INV_DocExtraDetails WITH(NOLOCK)
+		where RefID=@InvDocDetailsID and type=-10 
+
+		if(@ResINVID>0)
+		BEGIN
+			set @totRet=0
+			select @totRet=isnull(sum([Quantity]),0) from INV_DocExtraDetails WITH(NOLOCK)
+			where InvDocDetailsID=@ResINVID and type=-10 and RefID<>@InvDocDetailsID
+
+			update a
+			set ReserveQuantity=Quantity-@totRet
+			from INV_DocDetails a WITH(NOLOCK)
+			where InvDocDetailsID=@ResINVID
+		END
+	END
+
+
+	IF (@VoucherType=1 and exists(select Batchid from @caseTab))
+	BEGIN
+		select @AllowNegBatches=Value from [COM_CostCenterPreferences] with(nolock)
+		where Name=''AllowNegativebatches'' and costcenterid=16 
+		
+		select @ConsolidatedBatches=Value from [COM_CostCenterPreferences] with(nolock)
+		where Name=''ConsolidatedBatches'' and costcenterid=16 
+		 
+		if(@AllowNegBatches is null or @AllowNegBatches ='''' or @AllowNegBatches =''false'')
+		BEGIN
+			select @iUNIQ=0,@UNIQUECNT=COUNT(id) from @caseTab
+			while(@iUNIQ<@UNIQUECNT)		
+			BEGIN  	
+				
+				set @iUNIQ=@iUNIQ+1			
+				SELECT  @BatchID=Batchid,@InvDocDetailsID=CaseID from @caseTab where id=@iUNIQ
+			
+				if(@ConsolidatedBatches is not null and @ConsolidatedBatches =''false'')
+				begin     
+					set @Tot=0
+					
+					set @Tot= @Tot-isnull((SELECT sum(BD.UOMConvertedQty)    
+					FROM [INV_DocDetails] AS BD  with(nolock)                  
+					where vouchertype=-1 and IsQtyIgnored=0  and batchid=@BatchID and RefInvDocDetailsID=@InvDocDetailsID),0)   
+				end  
+				else  
+				begin
+						set @WHERE=''''
+						if exists(select value from ADM_GlobalPreferences with(nolock) where  Name=''LW Batches'' and Value=''true'')
+							 and exists(select value from ADM_GlobalPreferences with(nolock) where  Name=''EnableLocationWise'' and Value=''true'')
+						BEGIN				
+							set @sql=''select @NodeID=dcCCNID2 from COM_DocCCData with(nolock) where InvDocDetailsID=''+CONVERT(nvarchar,@InvDocDetailsID)						
+							EXEC sp_executesql @sql,N''@NodeID INT OUTPUT'',@NodeID output		 
+							set @WHERE =@WHERE+'' and dcCCNID2=''+CONVERT(nvarchar,@NodeID)       
+						END
+
+						if exists(select value from ADM_GlobalPreferences with(nolock) where  Name=''DW Batches'' and Value=''true'')
+						and exists(select value from ADM_GlobalPreferences with(nolock) where  Name=''EnableDivisionWise'' and Value=''true'')
+						BEGIN		
+							set @sql=''select @NodeID=dcCCNID1 from COM_DocCCData with(nolock) where InvDocDetailsID=''+CONVERT(nvarchar,@InvDocDetailsID)						
+							EXEC sp_executesql @sql,N''@NodeID INT OUTPUT'',@NodeID output		 
+							set @WHERE =@WHERE+'' and dcCCNID1=''+CONVERT(nvarchar,@NodeID)       
+						END
+						
+						set @PrefValue=''''      
+						select @PrefValue= isnull(Value,'''') from ADM_GlobalPreferences with(nolock) where Name=''Maintain Dimensionwise Batches''        
+
+						if(@PrefValue is not null and @PrefValue<>'''' and convert(INT,@PrefValue)>0)        
+						begin 								
+							set @sql=''select @NodeID=dcCCNID''+convert(nvarchar,(convert(INT,@PrefValue)-50000)) +'' from COM_DocCCData with(nolock) where InvDocDetailsID=''+CONVERT(nvarchar,@InvDocDetailsID)						
+							EXEC sp_executesql @sql,N''@NodeID INT OUTPUT'',@NodeID output		 
+							set @WHERE =@WHERE+'' and dcCCNID''+CONVERT(nvarchar,(convert(INT,@PrefValue)-50000))+''=''+CONVERT(nvarchar,@NodeID)        
+						end 
+							  
+						set @sql=''set @Tot=(SELECT isnull(sum(BD.ReleaseQuantity),0)  
+						FROM [INV_DocDetails] AS BD  WITH(NOLOCK)
+						join COM_DocCCData c with(nolock) on BD.InvDocDetailsID=c.InvDocDetailsID 
+						where vouchertype=1  and statusid=369 and IsQtyIgnored=0 ''+@WHERE+''
+						and BD.InvDocDetailsID<>''+convert(nvarchar(max),@InvDocDetailsID)+'' and batchid=''+convert(nvarchar,@BatchID)+'')  
+
+						set @Tot= @Tot-(SELECT isnull(sum(BD.UOMConvertedQty),0)
+						FROM [INV_DocDetails] AS BD  WITH(NOLOCK)                  
+						join COM_DocCCData c with(nolock) on BD.InvDocDetailsID=c.InvDocDetailsID  
+						where vouchertype=-1 and statusid in(369,371,441) and IsQtyIgnored=0 ''+@WHERE+'' and batchid=''+convert(nvarchar,@BatchID)+'')''
+						EXEC sp_executesql @sql,N''@Tot float OUTPUT'',@Tot output							  
+					
+				end  
+			
+				if(@Tot<-0.001)   
+				begin  
+					RAISERROR(''-502'',16,1)      
+				end 					 
+			END 
+		END
+	END  
+	
+	set @PrefValue=''''
+	select @PrefValue=PrefValue from COM_DocumentPreferences WITH(nolock)
+	where CostCenterID=@CostCenterID and PrefName=''DocumentLinkDimension''
+	
+	if(@PrefValue is not null and @PrefValue<>'''')
+	begin
+		declare @Dimesion INT
+		set @Dimesion=0
+		begin try
+			select @Dimesion=convert(INT,@PrefValue)
+		end try
+		begin catch
+			set @Dimesion=0
+		end catch
+		if(@Dimesion>0)
+		begin 
+			select @tablename=tablename from ADM_Features WITH(nolock) where FeatureID=@Dimesion
+			set @sql=''select @NodeID=NodeID from ''+@tablename+'' WITH(nolock) where Name=''''''+@VoucherNo+''''''''
+			print @sql
+			EXEC sp_executesql @sql,N''@NodeID INT OUTPUT'',@NodeID output
+			 
+			if(@NodeID>1)
+			begin
+				if exists(SELECT PrefValue FROM COM_DocumentPreferences WITH(NOLOCK) where CostCenterID=@CostCenterID and  PrefName=''Inactiveonsuspend'' and prefvalue=''true'')
+				BEGIN
+					select @sql=tablename from adm_features WITH(NOLOCK) where featureid=@Dimesion
+					set @sql=''update ''+@sql+'' set statusid=1004 where NODEID=''+CONVERT(NVARCHAR,@NodeID)
+					EXEC(@sql)
+				END
+				ELSE
+				BEGIN	 
+					SET @sql=''UPDATE COM_DocCCData 
+					SET dcCCNID''+CONVERT(NVARCHAR,(@Dimesion-50000))+''=1''
+					+'' WHERE InvDocDetailsID IN (SELECT InvDocDetailsID FROM Inv_DocDetails WITH(nolock) 
+					WHERE COSTCENTERID=''+CONVERT(NVARCHAR,@CostCenterID)+'' AND DOCID=''+CONVERT(NVARCHAR,@DocID)+'')''
+					EXEC(@sql)
+					 		 
+					EXEC @return_value = [dbo].[spCOM_DeleteCostCenter]
+						@CostCenterID = @Dimesion,
+						@NodeID = @NodeID,
+						@RoleID=1,
+						@UserID = 1,
+						@LangID = @LangID
+				END		
+			end
+		end
+	end	
+	
+	IF(@CostCenterID=40099) -- Regularization of Attendance
+	BEGIN
+		DECLARE @TABEMP TABLE (ID INT IDENTITY(1,1),VNo NVARCHAR(600),DocSeqNo NVARCHAR(500),DailyAttDate NVARCHAR(100),EmpNodeID INT)
+		DECLARE @I INT,@CNT INT
+
+		SET @sql=''SELECT T.DCALPHA1,T.DCALPHA2,T.DCALPHA3,CC.dcCCNID51 FROM INV_DocDetails I WITH(NOLOCK)
+		JOIN COM_DocTextData T WITH(NOLOCK) ON T.InvDocDetailsID=I.InvDocDetailsID
+		JOIN COM_DocCCData CC WITH(NOLOCK) ON CC.InvDocDetailsID=I.InvDocDetailsID
+		WHERE costcenterid=''+CONVERT(NVARCHAR,@CostCenterID)+'' AND STATUSID=369 AND T.DCALPHA12=''''True'''' AND DOCID=''+CONVERT(NVARCHAR,@DocID)
+		
+		INSERT INTO @TABEMP
+		EXEC (@sql)
+
+		SELECT @CNT=COUNT(*) FROM @TABEMP
+		SET @I=1
+		WHILE(@I<=@CNT)
+		BEGIN
+			SELECT @sql=''UPDATE T SET dcAlpha2=dcAlpha16,dcAlpha3=dcAlpha17 FROM INV_DocDetails I WITH(NOLOCK)
+			JOIN COM_DocTextData T WITH(NOLOCK) ON T.InvDocDetailsID=I.InvDocDetailsID
+			JOIN COM_DocCCData C WITH(NOLOCK) ON C.InvDocDetailsID=I.InvDocDetailsID
+			WHERE DocumentType=67 AND I.VoucherNo=''''''+VNo+'''''' AND I.DocSeqNo=''''''+DocSeqNo+'''''' AND C.dcCCNID51=''+CONVERT(NVARCHAR,EmpNodeID)+'' AND ISDATE(T.DCALPHA1)=1
+			AND CONVERT(DATETIME,T.DCALPHA1)=CONVERT(DATETIME,''''''+DailyAttDate+'''''')
+
+			UPDATE T SET dcAlpha16=NULL,dcAlpha17=NULL FROM INV_DocDetails I WITH(NOLOCK)
+			JOIN COM_DocTextData T WITH(NOLOCK) ON T.InvDocDetailsID=I.InvDocDetailsID
+			JOIN COM_DocCCData C WITH(NOLOCK) ON C.InvDocDetailsID=I.InvDocDetailsID
+			WHERE DocumentType=67 AND I.VoucherNo=''''''+VNo+'''''' AND I.DocSeqNo=''''''+DocSeqNo+'''''' AND C.dcCCNID51=''+CONVERT(NVARCHAR,EmpNodeID)+'' AND ISDATE(T.DCALPHA1)=1
+			AND CONVERT(DATETIME,T.DCALPHA1)=CONVERT(DATETIME,''''''+DailyAttDate+'''''')'' FROM @TABEMP WHERE ID=@I 
+			EXEC (@sql)
+
+			SET @I=@I+1
+		END
+	END
+
+	IF(@CostCenterID=40069) -- Apply Resignation
+	BEGIN
+		
+		IF((SELECT COUNT(*) FROM INV_DOCDETAILS WITH(NOLOCK) WHERE DOCID=@DOCID)>0)
+		BEGIN
+			Declare @EmplRes INT,@DocFinalSettlement nvarchar(max),@EmpRelDate INT		
+			SET @sql=''SELECT @EmplRes=cc.dcccnid51,@EmpRelDate=CONVERT(INT,CONVERT(DATETIME,TD.dcAlpha4)) 
+			FROM COM_DOCTEXTDATA TD with(nolock) 
+			INNER JOIN INV_DOCDETAILS ID with(nolock) ON TD.INVDOCDETAILSID=ID.INVDOCDETAILSID AND ID.DOCID=@DOCID
+			Inner Join com_DocccData cc with(nolock) on cc.invDocdetailsid=ID.invDocdetailsid 
+			Where CostcenterID=40069
+			IF((SELECT COUNT(*) FROM PAY_FinalSettlement WITH(NOLOCK) WHERE EmpSeqNo=@EmplRes)>0)
+			BEGIN
+				Select @DocFinalSettlement=Convert(nvarchar,DocNo) FROM PAY_FinalSettlement WITH(NOLOCK) WHERE EmpSeqNo=@EmplRes
+				RAISERROR(''''-577'''',16,1)
+			END
+			ELSE
+			BEGIN
+				UPDATE COM_CC50051 SET  RESIGNREMARKS=NULL,RESIGNTYPE=NULL,RESIGNSTATUS=NULL,DORESIGN=NULL, DOTENTRELIEVE=NULL, DORELIEVE=NULL WHERE NODEID=@EmplRes
+				
+				DECLARE @UpdateEmployeeStatus BIT
+				SELECT @UpdateEmployeeStatus=CONVERT(BIT,Value) FROM ADM_GlobalPreferences WITH(NOLOCK) WHERE Name=''''UpdateEmployeeStatusafterRelievingautomatically''''
+
+				IF(ISNULL(@UpdateEmployeeStatus,0)=1)
+				BEGIN
+					UPDATE COM_CC50051 SET  StatusID=250 WHERE NODEID=@EmplRes
+				END
+			END''
+			
+			EXEC sp_executesql @sql,N''@DOCID INT,@EmplRes INT OUTPUT,@DocFinalSettlement nvarchar(max) OUTPUT,@EmpRelDate INT OUTPUT'',@DOCID,@EmplRes OUTPUT,@DocFinalSettlement OUTPUT,@EmpRelDate OUTPUT
+			
+			--deleting the entry in user status
+			DECLARE @EmpUserID INT
+			SET @sql=''SELECT @EmpUserID=ISNULL(UserID,0) From ADM_Users WITH(NOLOCK) Where UserName=(Select Code FROM COM_CC50051 WITH(NOLOCK) WHERE NodeID=''+ CONVERT(NVARCHAR,@EmplRes)+'')''
+			EXEC sp_executesql @sql,N''@EmpUserID INT OUTPUT'',@EmpUserID OUTPUT
+			IF(@EmpUserID IS NOT NULL AND @EmpUserID<>0)
+			BEGIN
+				DELETE FROM [COM_CostCenterStatusMap] WHERE CostCenterID=7 AND NodeID=@EmpUserID AND Status=2 AND FromDate=CONVERT(int,DATEADD(day,1,@EmpRelDate)) AND ToDate IS NULL
+			END
+
+	   END
+	END
+
+	IF(@CostCenterID=40065) -- join FromVacation
+	BEGIN
+		SET @sql=''Declare @FrmDt Datetime,@ToDt Datetime,@Emp INT
+			IF((SELECT CostCenterID FROM INV_DocDetails WITH(NOLOCK) WHERE InvDocDetailsID=(SELECT LinkedInvDocDetailsID FROM INV_DOCDETAILS WITH(NOLOCK) WHERE DOCID=@DOCID))=40072)
+			BEGIN
+				SELECT @FrmDt=CONVERT(DATETIME,TD.DCALPHA1),@ToDt=CONVERT(DATETIME,TD.DCALPHA2),@Emp=Dcccnid51 
+				FROM COM_DOCTEXTDATA TD with(nolock) 
+				INNER JOIN INV_DOCDETAILS ID with(nolock) ON TD.INVDOCDETAILSID=ID.INVDOCDETAILSID AND ID.DOCID=@DOCID
+				Inner Join com_DocccData cc with(nolock) on cc.invDocdetailsid=ID.invDocdetailsid 
+				Where CostcenterID=40065
+				
+				UPDATE TD SET TD.dcAlpha1='''''''' FROM COM_DOCTEXTDATA TD with(nolock) 
+				INNER JOIN COM_DOCCCDATA CC with(nolock) ON TD.INVDOCDETAILSID=CC.INVDOCDETAILSID AND CC.dcCCNID51=@Emp
+				INNER JOIN INV_DOCDETAILS ID with(nolock) ON TD.INVDOCDETAILSID=ID.INVDOCDETAILSID 
+				WHERE ID.CostCenterId=40072 AND ISDATE(TD.DCALPHA2)=1 AND ISDATE(TD.DCALPHA3)=1 
+				AND CONVERT(DATETIME,TD.DCALPHA2)=CONVERT(DATETIME,@FrmDt) AND CONVERT(DATETIME,TD.DCALPHA3)=CONVERT(DATETIME,@ToDt)
+			END
+			ELSE
+			BEGIN
+				SELECT @FrmDt=CONVERT(DATETIME,TD.DCALPHA1),@ToDt=CONVERT(DATETIME,TD.DCALPHA2),@Emp=Dcccnid51 
+				FROM COM_DOCTEXTDATA TD with(nolock) 
+				INNER JOIN INV_DOCDETAILS ID with(nolock) ON TD.INVDOCDETAILSID=ID.INVDOCDETAILSID AND ID.DOCID=@DOCID
+				Inner Join com_DocccData cc with(nolock) on cc.invDocdetailsid=ID.invDocdetailsid 
+				Where CostcenterID=40065
+				
+				UPDATE TD SET TD.dcAlpha15='''''''' FROM COM_DOCTEXTDATA TD with(nolock) 
+				INNER JOIN COM_DOCCCDATA CC with(nolock) ON TD.INVDOCDETAILSID=CC.INVDOCDETAILSID AND CC.dcCCNID51=@Emp
+				INNER JOIN INV_DOCDETAILS ID with(nolock) ON TD.INVDOCDETAILSID=ID.INVDOCDETAILSID 
+				WHERE ID.CostCenterId=40062 AND ISDATE(TD.DCALPHA4)=1 AND ISDATE(TD.DCALPHA5)=1
+				AND CONVERT(DATETIME,TD.DCALPHA4)=CONVERT(DATETIME,@FrmDt) AND CONVERT(DATETIME,TD.DCALPHA5)=CONVERT(DATETIME,@ToDt)
+			END''
+		EXEC  sp_executesql @sql,N''@DOCID INT'',@DOCID
+		print @sql
+	END	
+	
+	set @tablename=''''
+	select @tablename=SpName from ADM_DocFunctions a WITH(NOLOCK) where CostCenterID=@CostCenterID and Mode=11
+	if(@tablename<>'''')
+		exec @tablename @CostCenterID,@DocID,'''',@UserID,@LangID		
+	
+
+	
+	DELETE T FROM  [INV_SerialStockProduct]  T with(nolock)
+	join @TblDeleteRows a on t.InvDocDetailsID=a.ID	 
+	
+	update T
+	set StatusID=376,CancelledRemarks=@Remarks
+	from [ACC_DocDetails] T WITH(NOLOCK)
+	join @TblDeleteRows a on t.InvDocDetailsID=a.ID
+	
+	DELETE T FROM COM_DocFlow T WITH(NOLOCK)
+	WHERE DocID=@DocID
+	
+	DELETE T FROM COM_Billwise T WITH(NOLOCK)
+	WHERE DocNo=@VoucherNo
+
+	DELETE T FROM com_billwisenonacc T WITH(NOLOCK)
+	WHERE DocNo=@VoucherNo
+
+	if(@vouchertype=1 or @DocumentType=5)
+	BEGIN
+		insert into @tbloldBins
+		select binid,t.InvDocDetailsID,t.quantity,c.ProductID	FROM INV_BinDetails T WITH(NOLOCK)
+		join @TblDeleteRows a on t.InvDocDetailsID=a.ID
+		join [INV_DocDetails] c with(nolock)  on a.ID=c.InvDocDetailsID
+		where c.VoucherType=1 and c.IsQtyIgnored=0
+	END
+
+	DELETE T FROM INV_BinDetails  T WITH(NOLOCK)
+	join @TblDeleteRows a on t.InvDocDetailsID=a.ID
+	
+ 	
+	DELETE T FROM INV_DocExtraDetails  T WITH(NOLOCK)
+	join @TblDeleteRows a on t.InvDocDetailsID=a.ID
+	
+	DELETE T FROM INV_DocExtraDetails T with(nolock)
+	join @TblDeleteRows a on t.REFID=a.ID 
+	where t.type in(10,-10)
+	
+	DELETE FROM COM_LCBills 
+		WHERE DocNo=@VoucherNo
+
+
+	EXEC @return_value = dbo.[spDoc_SetNewRef]
+							@DocNo = @VoucherNo,
+							@UserID = @UserID,
+							@LangID = @LangID
+
+
+	update a 
+	set IsNewReference=1,RefDocNo=null,RefDocSeqNo=null,RefDocDate=null,RefDocDueDate=null
+	from COM_LCBills a with(nolock)		
+	WHERE RefDocNo=@VoucherNo
+ 
+	update T 
+	set StatusID=376,IsQtyIgnored=1,CancelledRemarks=@Remarks,LinkedInvDocDetailsID=NULL,RefNo=NULL,ModifiedBy=@UserName,ModifiedDate=@ModDate,WorkFlowLevel=null
+	from [INV_DocDetails] T WITH(NOLOCK)
+	join @TblDeleteRows a on t.InvDocDetailsID=a.ID
+	
+ 	
+	----Check & Insert Notifications
+	IF EXISTS (SELECT * FROM SYS.TABLES WITH(NOLOCK) WHERE NAME=''CRM_Cases'')
+	BEGIN
+		delete from @caseTab
+		
+		SET @SQL=''select CaseID FROM CRM_Cases with(nolock) where SvcContractID=''+CONVERT(NVARCHAR,@DocID)  
+		INSERT INTO @caseTab(CaseID)
+		EXEC (@SQL)
+			
+		select @iUNIQ=MIN(id),@UNIQUECNT=MAX(id) FROM @caseTab
+		
+		WHILE(@iUNIQ <= @UNIQUECNT)
+		BEGIN
+			SELECT @CaseID=CaseID FROM @caseTab WHERE id=@iUNIQ
+			
+			SET @SQL=''exec spCRM_DeleteCase @CASEID=''+CONVERT(NVARCHAR,@CaseID)+'',@USERID=''+CONVERT(NVARCHAR,@UserID)+'',@LangID=''+CONVERT(NVARCHAR,@LangID)+'',@RoleID=''+CONVERT(NVARCHAR,@RoleID)
+			EXEC (@SQL)	
+			
+			SET @SQL=''delete T from CRM_Activities T WITH(NOLOCK)
+			where CostCenterID=73 and NodeID=''+CONVERT(NVARCHAR,@CaseID)
+			EXEC (@SQL)	
+			
+			SET @iUNIQ=@iUNIQ+1
+		END
+	END	
+		
+		
+		
+		select @bi=0,@bcnt=COUNT(id) from @TblDeleteRows
+		while(@bi<@bcnt)		
+		BEGIN  		
+			set @bi=@bi+1
+			set @InvDocDetailsID=0
+			set @BatchID=1
+			SELECT  @BatchID=BatchID,@InvDocDetailsID=Id from @TblDeleteRows where idid=@bi
+			
+			set @varnodexml=(select o.binid as ''@NodeID''
+			from @tbloldBins o
+			where invid =@InvDocDetailsID 
+			for xml path(''Row''),ROOT(''BinsXML''))
+			select @ProductID=pid from @tbloldBins
+			where invid =@InvDocDetailsID
+			
+			EXEC [spDoc_ValidateBins] @BatchID,@ProductID,@DocDate,@varnodexml,@hldbins,@UserID,@RoleID,@BinDimesionNodeID OUT
+						
+			if(@BinDimesionNodeID>0)
+			BEGIN
+				set @PrefValue=''''
+				select @PrefValue=value from com_costcenterpreferences WITH(NOLOCK) where costcenterid=3 
+				and  name=''BinsDimension''  
+				set @BinDimesion=0 
+				if(@PrefValue<>'''')
+				begin    		
+					begin try    
+						select @BinDimesion=convert(INT,@PrefValue)    
+					end try    
+					begin catch    
+						set @BinDimesion=0    
+					end catch 		
+				END 
+					
+				select @PrefValue=TableName from ADM_Features WITH(NOLOCK) where FeatureID=@BinDimesion 
+				set @SQL=''select @ProductName=name from ''+@PrefValue+'' with(NOLOCK) where nodeid=''+CONVERT(nvarchar,@BinDimesionNodeID)
+				EXEC sp_executesql @SQL,N''@ProductName nvarchar(max) OUTPUT'',@ProductName output		 
+					
+				RAISERROR(''-588'',16,1)  
+			End
+			
+			set @BatchID=0			
+			set @InvDocDetailsID=0
+			SELECT  @BatchID=CostCenterID,@InvDocDetailsID=a.linkinv from @TblDeleteRows a
+			join INV_DocDetails b with(nolock) on a.linkinv=b.InvDocDetailsID
+			where idid=@bi
+			
+			if(@InvDocDetailsID is not null and @InvDocDetailsID>0)
+			BEGIN				
+				delete from @caseTab				
+				insert into @caseTab(CaseID,fldName)
+				select SrcDoc,Fld from COM_DocLinkCloseDetails WITH(NOLOCK)
+				where CostCenterID=@CostCenterID and linkedfrom=@BatchID
+								
+				select @iUNIQ=min(id) ,@UNIQUECNT=max(id) from @caseTab
+				while(@iUNIQ<=@UNIQUECNT)
+				BEGIN
+					SELECT @DELETECCID=CaseID,@tablename=fldName from @caseTab where id=@iUNIQ
+					
+					if(@tablename like ''dcalpha%'')
+					BEGIN
+						set @SQL=''SELECT @LockCCValues=''+@tablename+'' from COM_DocTextData WITH(NOLOCK) where InvDocDetailsID=''+convert(nvarchar,@InvDocDetailsID)				
+						exec sp_executesql @SQL,N''@LockCCValues nvarchar(max) output'',@LockCCValues output
+						
+						set @SQL=''SELECT @Tot=isnull(Quantity,0),@DocumentType=LinkStatusID from INV_DocDetails a WITH(NOLOCK)
+							join COM_DocTextData b WITH(NOLOCK) on a.InvDocDetailsID=b.InvDocDetailsID 
+							where costcenterid=''+CONVERT(nvarchar,@DELETECCID)+'' and ''+@tablename+''=''''''+@LockCCValues+''''''''
+								
+						exec sp_executesql @SQL,N''@Tot float output,@DocumentType int OUTPUT'',@Tot output,@DocumentType OUTPUT
+						
+						if(@DocumentType=445)
+						BEGIN
+							set @totqty=0
+							set @SQL=''SELECT @totqty=isnull(sum(Quantity),0) from INV_DocDetails a WITH(NOLOCK)
+								join COM_DocTextData b WITH(NOLOCK) on a.InvDocDetailsID=b.InvDocDetailsID 
+								where a.statusid<>376 and costcenterid=''+convert(nvarchar,@CostCenterID)+'' and ''+@tablename+''=''''''+@LockCCValues+''''''''
+										
+							exec sp_executesql @SQL,N''@totqty float output'',@totqty output
+								
+							if(@Tot>@totqty and @LockCCValues is not null and @LockCCValues<>'''')
+							BEGIN
+								set @SQL=''update INV_DocDetails
+								set LinkStatusID=443
+								from COM_DocTextData b WITH(NOLOCK) 					
+								where INV_DocDetails.InvDocDetailsID=b.InvDocDetailsID
+								 and ''+@tablename+''=''''''+@LockCCValues+''''''''
+								
+								EXEC(@SQL)
+							END
+						END	
+					END
+					set @iUNIQ=@iUNIQ+1
+				END
+			END	
+		END			
+	
+	if exists(SELECT * FROM COM_SchEvents with(nolock) WHERE CostCenterID=@CostCenterID AND NodeID=@DocID)
+	BEGIN
+		-- Issue Id 141697
+		UPDATE COM_SchEvents SET StatusID = 3 WHERE CostCenterID=@CostCenterID AND NodeID=@DocID and StatusID = 1
+	End
+
+	DELETE FROM COM_SchEvents WHERE StatusID=1 AND 
+	ScheduleID IN (SELECT DISTINCT ScheduleID FROM COM_CCSchedules with(nolock) WHERE CostCenterID=@CostCenterID AND NodeID=@DocID)
+	
+	UPDATE S SET StatusID=3 FROM COM_Schedules S with(nolock) 
+	INNER JOIN COM_CCSchedules CC with(nolock) ON S.ScheduleID=CC.ScheduleID
+	WHERE CC.CostCenterID=@CostCenterID AND CC.NodeID=@DocID 
+			
+	--Post Notification On Suspend Doc
+	EXEC spCOM_SetNotifEvent 376,@CostCenterID,@DocID,''GUID'',@UserName,@UserID,@RoleID
+
+	--Audit Trail
+	IF (SELECT CONVERT(BIT,PrefValue) FROM COM_DocumentPreferences with(nolock) where CostCenterID=@CostCenterID and PrefName=''AuditTrial'')=1
+	BEGIN    
+	
+		 EXEC @return_value = [spDOC_SaveHistory]      
+			@DocID =@DocID ,
+			@HistoryStatus=''Suspend'',
+			@Ininv =1,
+			@ReviseReason ='''',
+			@LangID =@LangID,
+			@UserName=@UserName,
+			@ModDate=@ModDate,
+			@CCID=@CostCenterID,
+			@sysinfo=@sysinfo,
+			@AP=@AP
+	END
+	
+	
+	if (@documenttype=5 and exists(SELECT PrefValue FROM COM_DocumentPreferences WITH(NOLOCK) 
+	where CostCenterID=@COSTCENTERID and PrefName=''IsBudgetDocument'' and (PrefValue=''1'' or PrefValue=''true'')))
+	begin		
+		select @CompanyGUID=@CompanyGUID from com_DOCID WITH(NOLOCK) where id=@DOCID
+		exec [spDoc_UpdateBudget] @CostCenterID,@DOCID,@CompanyGUID,@UserName
+	END
+		
+	if exists(select * from COM_Approvals WITH(NOLOCK) where CCID=@COSTCENTERID and CCNODEID=@DOCID)
+	BEGIN
+			SELECT @level=LevelID FROM [COM_WorkFlow]   WITH(NOLOCK)   
+			where WorkFlowID=@WID and UserID =@UserID
+			order by LevelID desc
+			
+			if(@level is null)  
+				SELECT @level=LevelID FROM [COM_WorkFlow]  WITH(NOLOCK)    
+				where WorkFlowID=@WID and RoleID =@RoleID
+				order by LevelID desc
+				
+			if(@level is null)       
+				SELECT @level=LevelID FROM [COM_WorkFlow] W WITH(NOLOCK)
+				JOIN COM_Groups G WITH(NOLOCK) on w.GroupID=g.GID     
+				where g.UserID=@UserID and WorkFlowID=@WID
+				order by LevelID desc
+				
+			if(@level is null)  
+				SELECT @level=LevelID FROM [COM_WorkFlow] W WITH(NOLOCK)
+				JOIN COM_Groups G WITH(NOLOCK) on w.GroupID=g.GID     
+				where g.RoleID =@RoleID and WorkFlowID=@WID
+				order by LevelID desc
+			if(@level is null)  
+				set @level=1
+		INSERT INTO COM_Approvals    
+							(CCID,CCNODEID,StatusID,Date,Remarks,UserID,CompanyGUID,GUID,CreatedBy,CreatedDate,WorkFlowLevel,DocDetID)      
+					VALUES(@COSTCENTERID,@DOCID,376,CONVERT(FLOAT,getdate()),@Remarks,@UserID,''''    
+							,newid(),@UserName,CONVERT(FLOAT,getdate()),@level,0)
+	END	
+		
+	--Set PosCoupons Dimension In Active
+	
+	if exists(select a.VoucherType from COM_PosPayModes a WITH(NOLOCK) where DOCID=@DocID and VoucherNodeID>0)
+	BEGIN
+		SET @sql=''''
+		INSERT INTO @caseTab(CaseID)      
+		SELECT VoucherNodeID FROM COM_PosPayModes with(nolock)
+		WHERE DOCID=@DocID and VoucherNodeID>0
+		
+		SELECT @iUNIQ=MIN(id),@UNIQUECNT=MAX(id) FROM @caseTab        
+				    
+	    SELECT @PrefValue=Value FROM ADM_GlobalPreferences with(nolock) WHERE Name=''PosCoupons''    
+		SET @Dimesion=0
+		if(@PrefValue is not null and @PrefValue<>'''' and ISNUMERIC(@PrefValue)=1)
+		BEGIN						
+			begin try
+				select @Dimesion=convert(INT,@PrefValue)
+			end try
+			begin catch
+				set @Dimesion=0
+			end catch
+		END
+		
+		WHILE(@iUNIQ <= @UNIQUECNT and @Dimesion>50000)        
+		BEGIN      
+		  SELECT @CaseID=CaseID FROM @caseTab WHERE id=@iUNIQ
+		  				
+			SET @sql=''UPDATE T0 SET T0.StatusID=T1.StatusID FROM COM_CC''+CONVERT(NVARCHAR,@Dimesion)+'' T0
+			JOIN COM_Status T1 ON T1.CostCenterID=''+CONVERT(NVARCHAR,@Dimesion)+'' AND T1.Status=''''In Active''''
+			WHERE T0.NodeID=''+CONVERT(NVARCHAR,@CaseID)+''''
+			PRINT @sql
+			exec sp_executesql @SQL
+		  SET @iUNIQ=@iUNIQ+1
+		END   
+	  END
+					
+	if(@SuspendAll=1)
+	BEGIN	
+		
+		set @sql=''''	
+		SELECT @sql=PrefValue FROM COM_DocumentPreferences with(nolock) where CostCenterID=@CostCenterID and PrefName=''SuspendDocs''
+		delete from @caseTab
+		if(@sql<>'''')
+		BEGIN
+			insert into @caseTab(CaseID)
+			exec SPSplitString @sql,'',''  
+		END
+		
+		
+		DECLARE @TotI INT,@TotCNT INT
+		DECLARE @Tbl AS TABLE(ID INT NOT NULL IDENTITY(1,1), DetailsID INT,CostCenterID int,DOCID INT)
+ 
+		INSERT INTO @Tbl(DetailsID,CostCenterID,DOCID)
+		SELECT InvDocDetailsID,CostCenterID,inv.docid
+		FROM INV_DocDetails INV with(nolock) 
+		join @TblDeleteRows t on inv.InvDocDetailsID=t.linkinv
+		
+		set @TotI=0
+		WHILE(1=1)
+		BEGIN
+			SET @TotCNT=(SELECT Count(*) FROM @Tbl)
+			
+			
+			INSERT INTO @Tbl(DetailsID,CostCenterID,DOCID)
+			SELECT Link.InvDocDetailsID,Link.CostCenterID,Link.DOCID
+			FROM INV_DocDetails INV with(nolock) 
+			join INV_DocDetails Link with(nolock) on INV.LINKEDInvDocDetailsID=Link.InvDocDetailsID
+			INNER JOIN @Tbl T ON INV.InvDocDetailsID=T.DetailsID AND ID>@TotI
+			where INV.LINKEDInvDocDetailsID is not null and INV.LINKEDInvDocDetailsID>0
+			
+			IF @TotCNT=(SELECT Count(*) FROM @Tbl)
+				BREAK
+			SET @TotI=@TotCNT
+		END
+		
+				declare @table table(DocID INT) 
+				
+				set @bi=0
+				select @bcnt=Count(id) from @Tbl
+				while(@bi<@bcnt)
+				BEGIN
+					set @bi=@bi+1
+					
+					select @DelDocID=DOCID,@DELETECCID=CostCenterID from @Tbl where id=@bi
+					
+					if exists(select * from @table where DocID=@DelDocID)
+						continue;
+					
+					if(@sql<>'''' and not exists(select CaseID from @caseTab where CaseID=@DELETECCID))
+						BREAK
+	
+						
+					insert into @table(DocID)values(@DelDocID)
+					
+					EXEC @return_value=spDOC_SuspendInvDocument        
+					 @CostCenterID = @DELETECCID, 
+					 @DocID=@DelDocID,
+					 @DocPrefix = '''',  
+					 @DocNumber = '''', 
+					 @Remarks=@Remarks, 
+					 @UserID = @UserID,  
+					 @UserName = @UserName, 
+					 @RoleID=@RoleID, 
+					 @LangID = @LangID  
+					 
+					 if(@return_value=-999)
+					 BEGIN
+						 ROLLBACK TRANSACTION    
+						 SET NOCOUNT OFF      
+						 RETURN -999 
+					 END
+				END		
+	END
+	
+COMMIT TRANSACTION         
+SET NOCOUNT OFF;  
+SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) 
+WHERE ErrorNumber=109 AND LanguageID=@LangID  
+RETURN 1
+END TRY
+BEGIN CATCH  
+	if(@return_value=-999)
+	return -999
+	--Return exception info [Message,Number,ProcedureName,LineNumber]  
+	IF ERROR_NUMBER()=50000
+	BEGIN
+		IF ISNUMERIC(ERROR_MESSAGE())<>1
+		BEGIN
+			SELECT ERROR_MESSAGE() ErrorMessage,ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine
+		END
+		else if(ERROR_MESSAGE()=-127)
+		begin
+			set @VoucherNo=(select top 1 VoucherNo from [INV_DocDetails] where LinkedInvDocDetailsID in (SELECT InvDocDetailsID FROM [INV_DocDetails]
+			WHERE CostCenterID=@CostCenterID AND DocPrefix=@DocPrefix AND DocNumber=@DocNumber))
+			
+			SELECT ErrorMessage+'' ''+@VoucherNo as ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID
+		end
+		 else IF (ERROR_MESSAGE() in( ''-538'',''-588'') )    
+		  BEGIN    
+			   SELECT   replace(ErrorMessage,''##BIN##'',@ProductName)+ CONVERT(NVARCHAR, @bi ) ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as     
+			   ProcedureName, ERROR_LINE() AS ErrorLine  FROM COM_ErrorMessages WITH(nolock)      
+			   WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID      
+		  END
+		else
+			SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID
+	END
+	ELSE IF ERROR_NUMBER()=547
+	BEGIN
+		SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine FROM COM_ErrorMessages WITH(nolock)
+		WHERE ErrorNumber=-110 AND LanguageID=@LangID
+	END
+	ELSE
+	BEGIN
+		SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine
+		FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=-999 AND LanguageID=@LangID
+	END
+ROLLBACK TRANSACTION
+SET NOCOUNT OFF  
+RETURN -999   
+END CATCH
+' 
+END
+GO

@@ -1,0 +1,15 @@
+-- SHASHANK
+
+IF NOT EXISTS(SELECT SeqNo FROM PAY_BioMetricConfig WHERE NAME='PickDeviceBasedOnEmpDim')
+BEGIN
+insert into PAY_BioMetricConfig
+select 'PickDeviceBasedOnEmpDim','','PDConfig','1',CONVERT(float,getdate())
+END
+
+---------- 
+IF NOT EXISTS(SELECT SeqNo FROM PAY_BioMetricConfig WHERE NAME='PickDeviceBasedOnEmpDimXML')
+BEGIN
+insert into PAY_BioMetricConfig
+select 'PickDeviceBasedOnEmpDimXML','','PDConfig','1',CONVERT(float,getdate())
+END
+ 

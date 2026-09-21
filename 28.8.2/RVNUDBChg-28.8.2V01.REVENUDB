@@ -1,0 +1,13 @@
+--CHARY
+
+ DECLARE @RId INT
+ SELECT @RId=MAX(ResourceID)+1 FROM COM_LanguageResources WITH(NOLOCK)
+
+ INSERT INTO COM_LanguageResources
+ SELECT @RId,'MarkupRateFilterBasedOn',1,'English','Markup Rate Filter based on',NULL,NULL,NULL,NULL,NULL,NULL,'PRODUCT' UNION ALL
+ SELECT @RId,'MarkupRateFilterBasedOn',2,'Arabic','Markup Rate Filter based on-AR',NULL,NULL,NULL,NULL,NULL,NULL,'PRODUCT'
+
+ INSERT INTO COM_CostCenterPreferences
+ SELECT 3,3,@RId,'MarkupRateFilterBasedOn','Dimension','Dimension',NULL,'GUID','','admin',2,'admin',2
+
+

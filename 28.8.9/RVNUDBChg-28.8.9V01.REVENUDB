@@ -1,0 +1,12 @@
+--KHASIM
+
+
+;WITH ActualTabs As (
+SELECT  CostCenterID,(row_number() over ( PARTITION BY CostCenterID order by sectionname)+50)*-1 AS ACTUALCOSTCENTERCOLID,SECTIONNAME 
+FROM 
+( 
+    SELECT DISTINCT  COSTCENTERID,SECTIONNAME FROM ADM_CostCenterDef WITH(NOLOCK) WHERE SectionID = 2) T
+)
+UPDATE D SET D.CostCenterColID =  A.ACTUALCOSTCENTERCOLID 
+FROM ADM_DocumentViewDef D INNER JOIN ActualTabs A ON A.CostCenterID = D.CostCenterID AND A.SectionName = D.Description 
+WHERE D.CostCenterColID <= -100 

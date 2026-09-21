@@ -1,0 +1,241 @@
+--Ibrahim
+/****** Object:  StoredProcedure [dbo].[spREN_SetImportParticulars]    Script Date: 8/6/2026 3:15:38 PM ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spREN_SetImportParticulars]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spREN_SetImportParticulars]
+GO
+/****** Object:  StoredProcedure [dbo].[spREN_SetImportParticulars]    Script Date: 8/6/2026 3:15:38 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spREN_SetImportParticulars]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'-- =============================================    
+-- Author: Ibrahim
+-- Create date: 01 Apr 2024
+-- Description: Property    
+-- Example :      
+-- =============================================    
+CREATE procedure [dbo].[spREN_SetImportParticulars]  
+	@CostCenterID INT,
+	@ParticularID BIGINT,
+	@Action NVARCHAR(10), 
+	@SelectedFileds NVARCHAR(MAX),
+	@SelectedFldsData NVARCHAR(MAX),
+	@ExtraFields NVARCHAR(MAX),
+	@FilterXML NVARCHAR(MAX),
+	@IsCode bit,  
+	@SysInfo NVARCHAR(500)='''', 
+	@AP NVARCHAR(10)='''',
+	@UserName NVARCHAR(50),    
+	@UserID INT,
+	@RoleID int=1,
+	@LangID INT=1    
+AS   
+BEGIN TRANSACTION    
+BEGIN TRY    
+SET NOCOUNT ON 
+	
+	DECLARE @return_value int=-1,@SQL NVARCHAR(MAX),@FilterColumn NVARCHAR(20),@Table NVARCHAR(50),@DimNo NVARCHAR(10),@XML XML,@JOIN NVARCHAR(MAX)=''''
+	,@FilterData NVARCHAR(MAX),@I INT=1,@Cnt INT,@CostCenterWhere NVARCHAR(MAX)='''',@CCDupWhere NVARCHAR(MAX)='''',@ParID BIGINT=0
+	IF(@SelectedFileds IS NOT NULL)
+		SET @SelectedFileds = @SelectedFileds+''CreatedDate''
+	IF(@SelectedFldsData IS NOT NULL)
+		SET @SelectedFldsData = @SelectedFldsData+''CONVERT(FLOAT,GETDATE())''
+	IF(@ExtraFields IS NOT NULL)
+		SET @ExtraFields = @ExtraFields+''ModifiedDate =CONVERT(FLOAT,GETDATE())''
+	SELECT @ParID=LEFT(@SelectedFldsData,CHARINDEX('','',@SelectedFldsData+'','')-1)
+	IF(@FilterXML IS NOT NULL AND @FilterXML <> '''')
+	BEGIN
+		SET @XML = @FilterXML
+		
+		IF(@CostCenterID = 92)--Property
+			SET @JOIN=@JOIN+'' JOIN COM_CCCCData CCD WITH(NOLOCK) ON CCD.NodeID=P.NodeID AND CCD.CostCenterID=''+CONVERT(NVARCHAR,@CostCenterID)+''''
+		ELSE IF(@CostCenterID = 93)--Units
+			SET @JOIN=@JOIN+'' JOIN COM_CCCCData CCD WITH(NOLOCK) ON CCD.NodeID=P.UnitID AND CCD.CostCenterID=''+CONVERT(NVARCHAR,@CostCenterID)+''''
+				
+		DECLARE @TAB TABLE (ID INT IDENTITY(1,1),FilterFld NVARCHAR(100),FilterData NVARCHAR(1000))
+		INSERT INTO @TAB
+		SELECT X.value(''@FilterFld'',''NVARCHAR(300)''),X.value(''@FilterData'',''NVARCHAR(MAX)'')  
+		FROM @XML.nodes(''/XML/Row'') as Data(X) 
+		UPDATE @TAB SET FilterData=SUBSTRING(FilterData,2,LEN(FilterData)-2) WHERE FilterFld=''Property''
+		SELECT @Cnt=COUNT(*) FROM @TAB
+		
+		WHILE(@I<=@Cnt)
+		BEGIN
+			IF((SELECT CCD.ColumnCostCenterID FROM @TAB T
+			JOIN ADM_CostCenterDef CCD WITH(NOLOCK) ON CCD.CostCenterID=@CostCenterID AND CCD.UserColumnName=T.FilterFld
+			JOIN ADM_Features F WITH(NOLOCK) ON F.FeatureID=CCD.ColumnCostCenterID
+			WHERE T.ID=@I) > 50000)
+			BEGIN				
+				SELECT @DimNo=SUBSTRING(SysName,13,20),@FilterColumn=''CCNID''+SUBSTRING(SysName,13,20),@Table=F.TableName,@FilterData=FilterData FROM @TAB T
+				JOIN ADM_CostCenterDef CCD WITH(NOLOCK) ON CCD.CostCenterID=@CostCenterID AND CCD.UserColumnName=T.FilterFld
+				JOIN ADM_Features F WITH(NOLOCK) ON F.FeatureID=CCD.ColumnCostCenterID
+				WHERE T.ID=@I		
+					
+				SET @JOIN=@JOIN+'' JOIN ''+@Table+'' T''+CONVERT(NVARCHAR,@I)+'' WITH(NOLOCK) ON T''+CONVERT(NVARCHAR,@I)+''.Name IN (''+@FilterData+'') AND CCD.CCNID''+@DimNo+''=T''+CONVERT(NVARCHAR,@I)+''.NodeID''				
+			END
+			ELSE IF(@CostCenterID = 93 AND ((SELECT FilterFld FROM @TAB WHERE ID=@I)=''Property''))
+			BEGIN
+				IF(@IsCode=1)
+					BEGIN
+						SELECT @CostCenterWhere=@CostCenterWhere+'' AND P.PropertyID IN (''+CONVERT(NVARCHAR,NodeID)+'')'' FROM REN_Property P WITH(NOLOCK) 
+						JOIN @TAB T ON T.FilterData=P.Code WHERE ID=@I
+					END
+				ELSE
+					BEGIN
+						SELECT @CostCenterWhere=@CostCenterWhere+'' AND P.PropertyID IN (''+CONVERT(NVARCHAR,NodeID)+'')'' FROM REN_Property P WITH(NOLOCK) 
+						JOIN @TAB T ON T.FilterData=P.Name WHERE ID=@I
+					END
+			END
+			ELSE IF((SELECT FilterFld FROM @TAB WHERE ID=@I) IN (''Property'',''Unit'',''Units''))
+			BEGIN
+				IF(@IsCode=1)
+					SELECT @CostCenterWhere=@CostCenterWhere+'' AND P.Code IN (''+FilterData+'')'' FROM @TAB WHERE ID=@I
+				ELSE
+					SELECT @CostCenterWhere=@CostCenterWhere+'' AND P.Name IN (''+FilterData+'')'' FROM @TAB WHERE ID=@I				
+			END
+			
+			SET @I=@I+1
+		END
+	END
+	IF(@Action = ''Add'')
+	BEGIN		
+		IF(@CostCenterID = 92)--Property
+		BEGIN
+			--SET @SQL=''IF((SELECT COUNT(*) FROM REN_Particulars PR WITH(NOLOCK)
+			--		  JOIN REN_Property P WITH(NOLOCK) ON PR.NodeID=P.PropertyID
+			--		  ''+@JOIN+''
+			--	      WHERE PR.ParticularID=''+CONVERT(NVARCHAR,@ParticularID)+'' ''+@CostCenterWhere+'' AND PR.ParticularID=''+CONVERT(NVARCHAR,@ParID)+'' )=0)
+			--		  BEGIN
+			--			  INSERT INTO REN_Particulars(PropertyID,UnitID,GUID,''+@SelectedFileds+'')
+			--			  SELECT P.NodeID,0,NEWID(),''+@SelectedFldsData+'' FROM REN_Property P WITH(NOLOCK) 
+			--			  ''+@JOIN+''
+			--			  WHERE P.NodeID>1 ''+@CostCenterWhere+''
+			--		  END
+			--		  ELSE
+			--			  SET @return_value=-998''
+			SET @SQL=''INSERT INTO REN_Particulars(PropertyID,UnitID,GUID,''+@SelectedFileds+'')
+						SELECT P.NodeID,0,NEWID(),''+@SelectedFldsData+'' FROM REN_Property P WITH(NOLOCK)
+						LEFT JOIN REN_Particulars PR WITH(NOLOCK) ON PR.PropertyID=P.NodeID AND PR.ParticularID=''+CONVERT(NVARCHAR,@ParID)+'' 
+						''+@JOIN+''
+						WHERE P.NodeID>1 ''+@CostCenterWhere+'' AND PR.PropertyID IS NULL''
+					  SET @return_value=1
+		END
+		ELSE IF(@CostCenterID = 93)--Units
+		BEGIN			
+			--SET @SQL=''IF((SELECT COUNT(*) FROM REN_Particulars PR WITH(NOLOCK)
+			--		  JOIN REN_Units P WITH(NOLOCK) ON PR.UnitID=P.UnitID
+			--		  ''+@JOIN+''
+			--	      WHERE PR.ParticularID=''+CONVERT(NVARCHAR,@ParticularID)+'' ''+@CostCenterWhere+'' AND PR.ParticularID=''+CONVERT(NVARCHAR,@ParID)+'')=0)
+			--		  BEGIN
+			--			  INSERT INTO REN_Particulars(PropertyID,UnitID,GUID,''+@SelectedFileds+'')
+			--			  SELECT P.PropertyID,P.UnitID,NEWID(),''+@SelectedFldsData+'' FROM REN_Units P WITH(NOLOCK) 
+			--			  ''+@JOIN+''
+			--			  WHERE P.UnitID>1 ''+@CostCenterWhere+''
+			--		  END
+			--		  ELSE
+			--			  SET @return_value=-998''
+
+			SET @SQL=''INSERT INTO REN_Particulars(PropertyID,UnitID,GUID,''+@SelectedFileds+'')
+						SELECT P.PropertyID,P.UnitID,NEWID(),''+@SelectedFldsData+'' FROM REN_Units P WITH(NOLOCK) 
+						LEFT JOIN REN_Particulars PR WITH(NOLOCK) ON PR.UnitID=P.UnitID AND PR.ParticularID=''+CONVERT(NVARCHAR,@ParID)+''
+						''+@JOIN+''
+						WHERE P.UnitID>1 ''+@CostCenterWhere+'' AND PR.UnitID IS NULL''
+					  SET @return_value=1
+		END
+	END
+	ELSE IF(@Action = ''Update'')
+	BEGIN
+		IF(@CostCenterID = 92)--Property
+		BEGIN			
+			SET @SQL=''UPDATE PR SET PR.GUID=NEWID(),''+@ExtraFields+'' FROM REN_Particulars PR WITH(NOLOCK)
+					  JOIN REN_Property P WITH(NOLOCK) ON P.NodeID=PR.PropertyID
+					  ''+@JOIN+''
+					  WHERE PR.ParticularID=''+CONVERT(NVARCHAR,@ParticularID)+'' AND PR.UnitID=0 ''+@CostCenterWhere+''''
+					  SET @return_value=1
+		END
+		ELSE IF(@CostCenterID = 93)--Units
+		BEGIN
+			SELECT @ExtraFields
+			SET @SQL=''UPDATE PR SET PR.GUID=NEWID(),''+@ExtraFields+'' FROM REN_Particulars PR WITH(NOLOCK)
+					  JOIN REN_Units P WITH(NOLOCK) ON P.UnitID=PR.UnitID 
+					  ''+@JOIN+''
+					  WHERE PR.ParticularID=''+CONVERT(NVARCHAR,@ParticularID)+'' AND PR.UnitID>1 ''+@CostCenterWhere+''''
+					  SET @return_value=1
+		END
+	END
+	ELSE IF(@Action = ''Delete'')
+	BEGIN
+		IF(@CostCenterID = 92)--Property
+		BEGIN			
+			SET @SQL=''DELETE PR FROM REN_Particulars PR WITH(NOLOCK) 
+					  JOIN REN_Property P WITH(NOLOCK) ON P.NodeID=PR.PropertyID
+			          ''+@JOIN+''
+					  WHERE PR.ParticularID=''+CONVERT(NVARCHAR,@ParticularID)+'' AND PR.UnitID=0 ''+@CostCenterWhere+''''
+					  SET @return_value=1
+		END
+		ELSE IF(@CostCenterID = 93)--Units
+		BEGIN			
+			SET @SQL=''DELETE PR FROM REN_Particulars PR WITH(NOLOCK) 
+					  JOIN REN_Units P WITH(NOLOCK) ON P.UnitID=PR.UnitID 
+			          ''+@JOIN+''
+					  WHERE PR.ParticularID=''+CONVERT(NVARCHAR,@ParticularID)+'' AND PR.UnitID>1 ''+@CostCenterWhere+''''
+					  SET @return_value=1
+		END
+	END	
+
+	--SELECT @return_value
+    PRINT(@SQL)
+    --EXEC(@SQL)
+	EXEC sp_executesql @SQL,N''@return_value INT OUTPUT'', @return_value OUTPUT 
+COMMIT TRANSACTION      
+  IF(@return_value=-998)
+		SELECT ''Duplicate Pariculars'' ErrorMessage,-998 ErrorNumber
+  ELSE
+		SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock)     
+		WHERE ErrorNumber=100 AND LanguageID=@LangID    
+SET NOCOUNT OFF;      
+RETURN @return_value      
+END TRY      
+BEGIN CATCH
+
+if(@return_value=-999)
+	return  -999
+else if(@return_value=-998)
+	return  -998
+	 
+ IF ERROR_NUMBER()=50000    
+ BEGIN    
+	IF ISNUMERIC(ERROR_MESSAGE())<>1
+	BEGIN
+		SELECT ERROR_MESSAGE() ErrorMessage
+	END
+	ELSE
+	BEGIN
+		SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock)     
+		WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID   
+	END 
+ END    
+ ELSE IF ERROR_NUMBER()=547    
+ BEGIN    
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine FROM COM_ErrorMessages WITH(nolock)    
+  WHERE ErrorNumber=-110 AND LanguageID=@LangID    
+ END    
+ ELSE IF ERROR_NUMBER()=2627    
+ BEGIN    
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine FROM COM_ErrorMessages WITH(nolock)    
+  WHERE ErrorNumber=-116 AND LanguageID=@LangID    
+ END    
+ ELSE    
+ BEGIN    
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine    
+  FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=-999 AND LanguageID=@LangID    
+ END    
+ ROLLBACK TRANSACTION    
+ SET NOCOUNT OFF      
+ RETURN -999       
+END CATCH
+' 
+END
+GO
