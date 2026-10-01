@@ -1,0 +1,20 @@
+--Sajid
+DECLARE @RId BIGINT
+SELECT @RId=ResourceID From [COM_LanguageResources] with(nolock)
+
+set @RId=@RId+1
+
+IF NOT EXISTS(SELECT Name FROM [COM_CostCenterPreferences] WITH(NOLOCK) WHERE CostCenterID=95 and Name='SelectVatWithParticular')
+BEGIN
+
+	INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@RId,'SelectVatWithParticular',1,'English','Select Vat With Particular','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+	INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@RId,'SelectVatWithParticular',2,'Arabic','Select Vat With Particular-AR','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+
+	INSERT [dbo].[COM_CostCenterPreferences] ([CostCenterID], [FeatureID], [ResourceID], [Name], [Value], [DefaultValue], [ProbableValues], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate]) 
+	VALUES (95, 95, @RId, N'SelectVatWithParticular', N'False', N'False', NULL, N'guid', NULL, N'admin', convert(float,getdate()), NULL, NULL)
+
+END

@@ -1,0 +1,21 @@
+--Ibrahim
+
+
+DECLARE @TabOrder INT 
+
+SELECT @TabOrder = ISNULL(MAX(TABORDER),0) +1 FROM ADM_CostCenterTab WITH(NOLOCK) WHERE COSTCENTERID=94
+IF NOT EXISTS(SELECT * FROM ADM_CostCenterTab WITH(NOLOCK) where CostCenterID=94 AND CCTabName='Address' AND IsTabUserDefined=0)
+BEGIN
+	 INSERT INTO ADM_CostCenterTab
+	 SELECT CCTabName,94,ResourceID,@TabOrder,1,IsTabUserDefined,@TabOrder,GroupVisible,QuickViewCCID,QuickViewID,CCIDValues,ReportXML 
+	 FROM ADM_CostCenterTab WITH(NOLOCK) where CostCenterID=2 AND CCTabName='Address' AND IsTabUserDefined=0
+END
+
+
+ INSERT INTO ADM_FeatureAction(Name,ResourceID,FeatureID,FeatureActionTypeID,ApplicationID,Description,Status,CreatedDate,CreatedBy)
+ SELECT Name,ResourceID,94,FeatureActionID,ApplicationID,Description,Status,CONVERT(float,GETDATE()),CreatedBy 
+ FROM ADM_FeatureAction WITH(NOLOCK) WHERE FeatureID=2 AND Name LIKE 'Address_%'
+ 
+
+ INSERT INTO ADM_FeatureActionRoleMap(RoleID,FeatureActionID,Description,Status,CreatedBy,CreatedDate)
+ SELECT 1,FeatureActionID,NULL,NULL,'ADMIN',CONVERT(FLOAT,GETDATE()) FROM ADM_FeatureAction WITH(NOLOCK) WHERE FeatureID=94 AND Name LIKE 'Address_%'

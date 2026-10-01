@@ -1,0 +1,1705 @@
+--Khaja
+GO
+/****** Object:  UserDefinedFunction [dbo].[fnRPT_GetAdjustedDocNos]    Script Date: 21-09-2026 08:54:48 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[fnRPT_GetAdjustedDocNos]') AND type in (N'FN', N'IF', N'TF', N'FS', N'FT'))
+DROP FUNCTION [dbo].[fnRPT_GetAdjustedDocNos]
+GO
+/****** Object:  UserDefinedFunction [dbo].[fnGetPendingQtyQueryForReorder]    Script Date: 21-09-2026 08:54:48 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[fnGetPendingQtyQueryForReorder]') AND type in (N'FN', N'IF', N'TF', N'FS', N'FT'))
+DROP FUNCTION [dbo].[fnGetPendingQtyQueryForReorder]
+GO
+/****** Object:  StoredProcedure [dbo].[spRPT_StockMovement]    Script Date: 21-09-2026 08:54:48 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spRPT_StockMovement]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spRPT_StockMovement]
+GO
+/****** Object:  StoredProcedure [dbo].[spRPT_ReOrderLevel]    Script Date: 21-09-2026 08:54:48 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spRPT_ReOrderLevel]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spRPT_ReOrderLevel]
+GO
+/****** Object:  StoredProcedure [dbo].[spRPT_ReOrderLevel]    Script Date: 21-09-2026 08:54:48 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spRPT_ReOrderLevel]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'-- =============================================
+-- Author:		ADIL
+-- Create date: 19 Apr 2012
+-- Description:	Get Product Re Order Level Data
+-- =============================================
+CREATE procedure [dbo].[spRPT_ReOrderLevel]
+@ProductID NVARCHAR(MAX),
+@ToDateFilter datetime=null,
+@IsGroupWise bit,
+@ExpectedQTY1 NVARCHAR(200),
+@ExpectedQTY2 NVARCHAR(200),
+@ExpectedQTY3 NVARCHAR(200),
+@CommitedQTY1 NVARCHAR(200),
+@CommitedQTY2 NVARCHAR(200),
+@CommitedQTY3 NVARCHAR(200),
+@SalesDocs NVARCHAR(200),
+@SalesFromDate DATETIME,
+@SalesToDate DATETIME,
+@Slot1 INT,
+@Slot2 INT,
+@Slot3 INT,
+@CCWHERE NVARCHAR(MAX),
+@DimensionID INT,
+@Locations NVARCHAR(MAX),
+@AvgLocations NVARCHAR(MAX),
+@ReorderLocations NVARCHAR(MAX),
+@HiddenFields NVARCHAR(MAX),
+@SelectedLocation INT,
+@SalesCostField nvarchar(40),
+@SalesValueField nvarchar(40),
+@SELECT NVARCHAR(MAX),
+@FROM NVARCHAR(MAX),
+@ExpiryWhere NVARCHAR(MAX),
+@ExpirySlab NVARCHAR(MAX)='''',
+@DontShowExUnApproved bit,
+@PostedQtyFor NVARCHAR(MAX)='''',
+@UserID INT,
+@LangID int=1
+AS
+BEGIN TRY	
+SET NOCOUNT ON
+	--Declaration Section
+	DECLARE @TblQOH AS TABLE(ProductID INT,Qty FLOAT)	DECLARE @TblBalanceQty AS TABLE(ProductID INT,TagID INT,Qty FLOAT)
+	DECLARE @TblAvgRate AS TABLE(ProductID INT,TagID INT,BalanceQty FLOAT,AvgRate FLOAT,BalValue FLOAT)
+
+	DECLARE @TblAvgSale AS TABLE(ProductID INT,TagID INT,CY1 FLOAT,CY2 FLOAT,CY3 FLOAT,CYAvgSale FLOAT,TotalSaleQty FLOAT,FC1 FLOAT,FC2 FLOAT,FC3 FLOAT,FCPYAvgSale FLOAT)
+	DECLARE @TblSale AS TABLE(ProductID INT,TagID INT default(-1),SLQ1 FLOAT,SLQ2 FLOAT,SLQ3 FLOAT,SLV1 FLOAT,SLV2 FLOAT,SLV3 FLOAT,SLC1 FLOAT,SLC2 FLOAT,SLC3 FLOAT)
+	DECLARE @TblBatch AS TABLE(ProductID INT,BEx0 FLOAT,BEx1 FLOAT,BEx2 FLOAT,BExGreater FLOAT)
+	CREATE TABLE #TblReorder(ProductID INT,TagID INT,ReorderLevel FLOAT,ReOrderQty FLOAT,SellingPrice FLOAT,LastPrice FLOAT,MaxInventoryLevel FLOAT,ReorderMinOrderQty float,ReorderMaxOrderQty float,PendingSODQty FLOAT)
+	DECLARE @TblPendingOrders AS TABLE(ProductID INT,ExpQty1 FLOAT,ExpQty2 FLOAT,ExpQty3 FLOAT,ComQty1 FLOAT,ComQty2 FLOAT,ComQty3 FLOAT,TagID INT)
+	CREATE TABLE #TblProducts(ID INT IDENTITY(1,1) NOT NULL,ProductID INT,PreexpiryDays INT,ParentID INT)
+	CREATE TABLE #TblGroups(ID INT IDENTITY(1,1) NOT NULL,ProductID INT)
+	DECLARE @Query nvarchar(MAX),@ToDate DATETIME,@StDate DATETIME,@EndDate DATETIME,@ProductIDCol nvarchar(50)
+	DECLARE @TblTagList AS TABLE(ID INT IDENTITY(1,1) NOT NULL,NodeID INT)
+	DECLARE @TblTagSelected AS TABLE(ID INT IDENTITY(1,1) NOT NULL,NodeID INT)
+	DECLARE @TCNT INT,@PID INT,@TI INT,@NodeID INT,@SubTagSQL NVARCHAR(MAX)
+	DECLARE @ReorderLevel FLOAT,@ReOrderQty FLOAT,@SellingPrice FLOAT,@LastPrice FLOAT,@EDATE FLOAT,@DimWhere NVARCHAR(MAX),@DimCol NVARCHAR(MAX)
+	,@MaxInventoryLevel float,@ReorderMinOrderQty float,@ReorderMaxOrderQty float,@PendingSODQty FLOAT
+	DECLARE @TblCalc AS TABLE(Name NVARCHAR(50))
+
+	IF @ToDateFilter is not null
+		SET @ToDate=@ToDateFilter
+	ELSE
+	BEGIN
+		SET @ToDate=getdate()
+		SET @ToDate=CONVERT(DATETIME, CONVERT(NVARCHAR,DATEPART(day,@ToDate))+'' ''+datename(month,@ToDate)+'' ''+CONVERT(NVARCHAR,DATEPART(year,@ToDate)))
+	END
+	
+	IF @SalesToDate is null
+		set @SalesToDate=@ToDate
+	
+	IF @IsGroupWise=1
+	BEGIN
+		SET @ProductIDCol=''TP.ParentID''
+		SET @Query=''select ProductID,ParentID from INV_Product with(nolock) where ParentID in (''+@ProductID+'')''
+		INSERT INTO #TblProducts(ProductID,ParentID)
+		EXEC(@Query)
+		
+		INSERT INTO #TblGroups(ProductID)
+		EXEC SPSplitString @ProductID,'',''
+	END
+	ELSE
+	BEGIN
+		SET @ProductIDCol=''A.ProductID''
+		INSERT INTO #TblProducts(ProductID)
+		EXEC SPSplitString @ProductID,'',''
+	END
+	
+	if @ExpiryWhere like ''%TP.PreexpiryDays%''
+	begin
+		update #TblProducts
+		set PreexpiryDays=floor(convert(float,getdate()))+ isnull(P.PreexpiryDays,0) 
+		from #TblProducts TP 
+		inner join INV_Product P with(nolock) ON P.ProductID=TP.ProductID
+	end
+	
+	INSERT INTO @TblCalc(Name)
+	EXEC SPSplitString @HiddenFields,'',''
+	
+	INSERT INTO @TblTagList(NodeID)
+	EXEC SPSplitString @Locations,'',''
+	
+	INSERT INTO @TblTagList(NodeID) VALUES(-1)
+	
+	set @DimWhere=''''
+	IF len(@CCWHERE)>0 OR @DimensionID>0
+	BEGIN
+		set @DimWhere=@CCWHERE
+		SET @CCWHERE='' INNER JOIN COM_DocCCData DCC with(nolock) ON A.InvDocDetailsID=DCC.InvDocDetailsID ''	+@CCWHERE		
+	END
+
+	if(@DimensionID>0)
+		set @DimCol='',DCC.dcCCNID''+convert(nvarchar,@DimensionID-50000)
+	else
+		set @DimCol='',DCC.dcCCNID2''
+
+	/******* QOH Calculation *******/
+	/*SET @Query=''SELECT A.ProductID, SUM(UOMConvertedQty*VoucherType)
+	FROM INV_DocDetails A WITH(NOLOCK) 
+	WHERE A.ProductID IN (''+@ProductID+'') AND (VoucherType=1 OR VoucherType=-1) AND IsQtyIgnored=0
+	GROUP BY A.ProductID''*/
+	if @ExpiryWhere=''''
+		SET @Query=''SELECT ''+@ProductIDCol+'', SUM(UOMConvertedQty*VoucherType)
+		FROM INV_DocDetails A WITH(NOLOCK) inner join #TblProducts TP on TP.ProductID=A.ProductID
+		WHERE (VoucherType=1 OR VoucherType=-1) AND IsQtyIgnored=0''
+	else
+	begin
+		SET @Query=''SELECT ''+@ProductIDCol+'', SUM(A.UOMConvertedQty*A.VoucherType)
+		FROM INV_DocDetails A WITH(NOLOCK) inner join #TblProducts TP on TP.ProductID=A.ProductID
+		left join INV_Batches B on B.BatchID=A.BatchID
+		WHERE (A.VoucherType=1 OR A.VoucherType=-1) AND A.IsQtyIgnored=0 ''+@ExpiryWhere
+	end
+	if @PostedQtyFor like ''%(QOH)%''
+		set @Query=@Query+'' and A.StatusID=369''
+	else
+		set @Query=@Query+'' and A.StatusID<>376 AND A.StatusID<>372''
+	set @Query=@Query+'' and A.DocDate<=''+convert(nvarchar,convert(int,@ToDate))
+	set @Query=@Query+'' GROUP BY ''+@ProductIDCol
+
+	INSERT INTO @TblQOH(ProductID,Qty)
+	EXEC(@Query)
+	
+
+	/******* Balance Quantity Calculation *******/
+	if (select COUNT(*) from @TblCalc where Name=''BalanceQty'')=0
+	begin
+		if @ExpiryWhere=''''
+			SET @Query=''SELECT ''+@ProductIDCol+@DimCol+'' TAGID, SUM(UOMConvertedQty*VoucherType)
+			FROM INV_DocDetails A WITH(NOLOCK) inner join #TblProducts TP on TP.ProductID=A.ProductID ''+@CCWHERE+''
+			WHERE (VoucherType=1 OR VoucherType=-1) AND IsQtyIgnored=0''
+		else
+			SET @Query=''SELECT ''+@ProductIDCol+@DimCol+'' TAGID, SUM(A.UOMConvertedQty*A.VoucherType)
+			FROM INV_DocDetails A WITH(NOLOCK) inner join #TblProducts TP on TP.ProductID=A.ProductID ''+@CCWHERE+''
+			left join INV_Batches B on B.BatchID=A.BatchID  
+			WHERE (A.VoucherType=1 OR A.VoucherType=-1) AND A.IsQtyIgnored=0''+@ExpiryWhere	
+		if @PostedQtyFor like ''%(BalQty)%''
+			set @Query=@Query+'' and A.StatusID=369''
+		else
+			set @Query=@Query+'' and A.StatusID<>376 AND A.StatusID<>372''
+		set @Query=@Query+'' and A.DocDate<=''+convert(nvarchar,convert(int,@ToDate))
+		set @Query=@Query+'' GROUP BY ''+@ProductIDCol+@DimCol
+		--print(@Query)
+		INSERT INTO @TblBalanceQty(ProductID,TagID,Qty)		
+		EXEC(@Query)
+		
+		--select * from @TblBalanceQty
+		----BalQty ALL Locations
+		insert into @TblBalanceQty
+		select ProductID,-1 TagID,sum(Qty) from @TblBalanceQty
+		group by ProductID
+	end
+	
+	/******* Expected Quantity Calculation *******/
+	IF @ExpectedQTY1<>'''' and (select COUNT(*) from @TblCalc where Name=''ExpQty1'')=0
+	BEGIN		
+		SET @Query=dbo.fnGetPendingQtyQueryForReorder(@ExpectedQTY1,@CCWHERE,@DimCol,@DontShowExUnApproved)
+		INSERT INTO @TblPendingOrders(ProductID,ExpQty1,TagID)
+		EXEC(@Query)
+		
+	END	
+	IF @ExpectedQTY2<>'''' and (select COUNT(*) from @TblCalc where Name=''ExpQty2'')=0
+	BEGIN
+		SET @Query=dbo.fnGetPendingQtyQueryForReorder(@ExpectedQTY2,@CCWHERE,@DimCol,@DontShowExUnApproved)
+		INSERT INTO @TblPendingOrders(ProductID,ExpQty2,TagID)
+		EXEC(@Query)
+	END	
+	IF @ExpectedQTY3<>'''' and (select COUNT(*) from @TblCalc where Name=''ExpQty3'')=0
+	BEGIN
+		SET @Query=dbo.fnGetPendingQtyQueryForReorder(@ExpectedQTY3,@CCWHERE,@DimCol,@DontShowExUnApproved)
+		INSERT INTO @TblPendingOrders(ProductID,ExpQty3,TagID)
+		EXEC(@Query)
+	END
+
+	
+	/******* Commited Quantity Calculation *******/
+	IF @CommitedQTY1<>'''' and (select COUNT(*) from @TblCalc where Name=''ComQty1'')=0
+	BEGIN		
+		SET @Query=dbo.fnGetPendingQtyQueryForReorder(@CommitedQTY1,@CCWHERE,@DimCol,@DontShowExUnApproved)
+		INSERT INTO @TblPendingOrders(ProductID,ComQTy1,TagID)
+		EXEC(@Query)
+	END	
+	IF @CommitedQTY2<>'''' and (select COUNT(*) from @TblCalc where Name=''ComQty2'')=0
+	BEGIN
+		SET @Query=dbo.fnGetPendingQtyQueryForReorder(@CommitedQTY2,@CCWHERE,@DimCol,@DontShowExUnApproved)
+		INSERT INTO @TblPendingOrders(ProductID,ComQTy2,TagID)
+		EXEC(@Query)
+	END	
+	IF @CommitedQTY3<>'''' and (select COUNT(*) from @TblCalc where Name=''ComQty3'')=0
+	BEGIN
+		SET @Query=dbo.fnGetPendingQtyQueryForReorder(@CommitedQTY3,@CCWHERE,@DimCol,@DontShowExUnApproved)
+		INSERT INTO @TblPendingOrders(ProductID,ComQTy3,TagID)
+		EXEC(@Query)
+	END
+	
+	if @ExpirySlab!=''''
+	begin
+		declare @XML xml,@EX1 int,@EX2 int,@EX3 int
+		set @XML=@ExpirySlab
+		select @EX1=isnull(X.value(''@S0'',''int''),0),@EX2=X.value(''@S1'',''int''),@EX3=X.value(''@S2'',''int'')
+		from @XML.nodes(''/Exp'') as data(x)
+		set @Query=''declare @AsOn FLOAT
+		declare @Tbl As Table(ID INT,FromDate FLOAT,ToDate FLOAT)
+		set @AsOn=CONVERT(FLOAT,getdate())
+		--INSERT INTO @Tbl VALUES(-1,0,@AsOn-1)
+		INSERT INTO @Tbl VALUES(0,@AsOn,@AsOn+''+convert(nvarchar,@EX1-1)+'')''
+		if(@EX2 is not null)
+			set @Query=@Query+'' INSERT INTO @Tbl VALUES(1,@AsOn+''+convert(nvarchar,@EX1)+'',@AsOn+''+convert(nvarchar,@EX2-1)+'')''
+		if(@EX3 is not null)
+			set @Query=@Query+'' INSERT INTO @Tbl VALUES(2,@AsOn+''+convert(nvarchar,@EX2)+'',@AsOn+''+convert(nvarchar,@EX3-1)+'')''
+		--INSERT INTO @Tbl VALUES(3,@AsOn+''+convert(nvarchar,@EX3)+'',123456)
+		set @Query=@Query+''
+		select ProductID,sum(BEx0) BEx0,sum(BEx1) BEx1,sum(BEx2) BEx2,sum(BExGreater) BExGreater from (
+		SELECT ''+@ProductIDCol+'' ProductID--,T.ID,SUM(A.UOMConvertedQty*A.VoucherType) Quantity
+		,case when T.ID=0 then SUM(A.UOMConvertedQty*A.VoucherType) else null end BEx0
+		,case when T.ID=1 then SUM(A.UOMConvertedQty*A.VoucherType) else null end BEx1
+		,case when T.ID=2 then SUM(A.UOMConvertedQty*A.VoucherType) else null end BEx2
+		,case when T.ID=3 then SUM(A.UOMConvertedQty*A.VoucherType) else null end BExGreater
+		FROM INV_DocDetails A WITH(NOLOCK) inner join #TblProducts TP on TP.ProductID=A.ProductID
+		JOIN INV_Batches B WITH(NOLOCK) ON B.BatchID=A.BatchID
+		JOIN @Tbl T ON B.ExpiryDate BETWEEN T.FromDate AND T.ToDate ''+@CCWHERE+''
+		WHERE A.BatchID>1 and (A.VoucherType=1 or A.VoucherType=-1) and A.IsQtyIgnored=0 AND A.DocDate<=@AsOn and B.ExpiryDate is not null AND A.StatusID<>438 AND A.StatusID<>372 AND A.StatusID<>376
+		GROUP BY ''+@ProductIDCol+'',T.ID)AS T group by ProductID''
+		--print(@Query)
+		insert into @TblBatch
+		EXEC(@Query)	
+	end
+	
+	--For All Locations
+	IF @IsGroupWise=1
+		INSERT INTO @TblPendingOrders(ProductID,ExpQty1,ExpQty2,ExpQty3,ComQTy1,ComQTy2,ComQTy3,TagID)
+		SELECT TP.ParentID,SUM(ExpQty1),SUM(ExpQty2),SUM(ExpQty3),SUM(ComQTy1),SUM(ComQTy2),SUM(ComQTy3),-1 
+		FROM @TblPendingOrders T
+		JOIN #TblProducts TP on T.ProductID=Tp.ProductID
+		GROUP BY TP.ParentID
+	ELSE
+		INSERT INTO @TblPendingOrders(ProductID,ExpQty1,ExpQty2,ExpQty3,ComQTy1,ComQTy2,ComQTy3,TagID)
+		SELECT ProductID,SUM(ExpQty1),SUM(ExpQty2),SUM(ExpQty3),SUM(ComQTy1),SUM(ComQTy2),SUM(ComQTy3),-1 FROM @TblPendingOrders
+		GROUP BY ProductID
+
+	/******* Current Year Slots Calculation *******/
+	SET @StDate=CONVERT(DATETIME,''01 jan ''+CONVERT(NVARCHAR,year(@SalesToDate)))
+
+	IF @SalesDocs<>''''
+	BEGIN
+		declare @CurrYearMonths FLOAT
+		SET @CurrYearMonths=datediff(dd,@StDate,@SalesToDate)/30.0
+		IF @CurrYearMonths=0
+			SET @CurrYearMonths=1
+		declare @SaleStatusWhere nvarchar(100)
+
+		if @PostedQtyFor like ''%(SaleQty)%''
+			set @SaleStatusWhere='' and A.StatusID=369''
+		else
+			set @SaleStatusWhere='' AND A.StatusID<>438 AND A.StatusID<>376 AND A.StatusID<>372''
+
+		if (select COUNT(*) from @TblCalc where Name=''TotalSaleQty'')=0
+		begin
+		
+			SET @Query=''SELECT ''+@ProductIDCol+@DimCol+'' TAGID,SUM(UOMConvertedQty*-VoucherType)
+			FROM INV_DocDetails A WITH(NOLOCK) inner join #TblProducts TP on TP.ProductID=A.ProductID ''+@CCWHERE+''
+			WHERE A.CostCenterID IN(''+@SalesDocs+'') AND (DocDate BETWEEN ''+CONVERT(NVARCHAR,CONVERT(INT,@SalesFromDate))+'' AND ''+CONVERT(NVARCHAR,CONVERT(INT,@SalesToDate))+'')''
+			+@SaleStatusWhere+'' GROUP BY ''+@ProductIDCol+@DimCol
+			INSERT INTO @TblAvgSale(ProductID,TAGID,TotalSaleQty)
+			EXEC(@Query)	
+		end
+		if (select COUNT(*) from @TblCalc where Name=''CYAvgSale'')=0
+		begin
+			if (select COUNT(*) from @TblCalc where Name=''AvgSaleByTrMn'')=1
+			begin
+				SET @Query=''select ProductID,TAGID,round(sum(Qty)/count(*),4) from (SELECT ''+@ProductIDCol+@DimCol+'' TAGID,month(convert(datetime,A.DocDate)) Mn,SUM(isnull(UOMConvertedQty,0)*-VoucherType) Qty
+				FROM INV_DocDetails A WITH(NOLOCK) inner join #TblProducts TP on TP.ProductID=A.ProductID ''+@CCWHERE+''
+				WHERE A.CostCenterID IN(''+@SalesDocs+'') AND (DocDate BETWEEN ''+CONVERT(NVARCHAR,CONVERT(INT,@StDate))+'' AND ''+CONVERT(NVARCHAR,CONVERT(INT,@SalesToDate))+'')''
+				+@SaleStatusWhere+'' GROUP BY ''+@ProductIDCol+@DimCol+'',month(convert(datetime,A.DocDate))) as T
+				GROUP BY ProductID,TAGID''
+			end
+			else
+			begin
+				SET @Query=''SELECT ''+@ProductIDCol+@DimCol+'' TAGID,SUM(isnull(UOMConvertedQty,0)*-VoucherType)/''+convert(nvarchar,@CurrYearMonths)+''
+				FROM INV_DocDetails A WITH(NOLOCK) inner join #TblProducts TP on TP.ProductID=A.ProductID ''+@CCWHERE+''
+				WHERE A.CostCenterID IN(''+@SalesDocs+'') AND (DocDate BETWEEN ''+CONVERT(NVARCHAR,CONVERT(INT,@StDate))+'' AND ''+CONVERT(NVARCHAR,CONVERT(INT,@SalesToDate))+'')''
+				+@SaleStatusWhere+'' GROUP BY ''+@ProductIDCol+@DimCol
+			end
+			INSERT INTO @TblAvgSale(ProductID,TAGID,CYAvgSale)
+			EXEC(@Query)
+--			print @Query
+		end
+
+		SET @EndDate=@SalesToDate
+		SET @StDate=DATEADD(dd,-(@Slot1-1),@SalesToDate)
+		if (select COUNT(*) from @TblCalc where Name=''CY1'')=0
+		begin
+			SET @Query=''SELECT ''+@ProductIDCol+@DimCol+'' TAGID,SUM(UOMConvertedQty*-VoucherType)
+			FROM INV_DocDetails A WITH(NOLOCK) inner join #TblProducts TP on TP.ProductID=A.ProductID ''+@CCWHERE+''
+			WHERE A.CostCenterID IN(''+@SalesDocs+'') AND (DocDate BETWEEN ''+CONVERT(NVARCHAR,CONVERT(INT,@StDate))+'' AND ''+CONVERT(NVARCHAR,CONVERT(INT,@EndDate))+'')''
+			+@SaleStatusWhere+'' GROUP BY ''+@ProductIDCol+@DimCol
+			INSERT INTO @TblAvgSale(ProductID,TAGID,CY1)
+			EXEC(@Query)
+		end
+
+		--SET @EndDate=DATEADD(dd,-1,@StDate)
+		--SET @StDate=DATEADD(dd,-(@Slot2-1),@EndDate)
+		SET @StDate=DATEADD(dd,-@Slot2,@StDate)		
+		if (select COUNT(*) from @TblCalc where Name=''CY2'')=0
+		begin		
+			SET @Query=''SELECT ''+@ProductIDCol+@DimCol+'' TAGID,SUM(UOMConvertedQty*-VoucherType)
+			FROM INV_DocDetails A WITH(NOLOCK) inner join #TblProducts TP on TP.ProductID=A.ProductID ''+@CCWHERE+''
+			WHERE A.CostCenterID IN(''+@SalesDocs+'') AND (DocDate BETWEEN ''+CONVERT(NVARCHAR,CONVERT(INT,@StDate))+'' AND ''+CONVERT(NVARCHAR,CONVERT(INT,@EndDate))+'')''
+			+@SaleStatusWhere+'' GROUP BY ''+@ProductIDCol+@DimCol
+			INSERT INTO @TblAvgSale(ProductID,TAGID,CY2)
+			EXEC(@Query)	
+		end
+		--SET @EndDate=DATEADD(dd,-1,@StDate)
+		--SET @StDate=DATEADD(dd,-(@Slot3-1),@EndDate)
+		SET @StDate=DATEADD(dd,-@Slot3,@StDate)
+		if (select COUNT(*) from @TblCalc where Name=''CY3'')=0
+		begin
+			SET @Query=''SELECT ''+@ProductIDCol+@DimCol+'' TAGID,SUM(UOMConvertedQty*-VoucherType)
+			FROM INV_DocDetails A WITH(NOLOCK) inner join #TblProducts TP on TP.ProductID=A.ProductID ''+@CCWHERE+''
+			WHERE A.CostCenterID IN(''+@SalesDocs+'')AND (DocDate BETWEEN ''+CONVERT(NVARCHAR,CONVERT(INT,@StDate))+'' AND ''+CONVERT(NVARCHAR,CONVERT(INT,@EndDate))+'')''
+			+@SaleStatusWhere+'' GROUP BY ''+@ProductIDCol+@DimCol
+			INSERT INTO @TblAvgSale(ProductID,TAGID,CY3)
+			EXEC(@Query)	
+		end
+		
+		/******* Forecast based on previous Year Slots Calculation *******/
+		SET @StDate=CONVERT(DATETIME,''01 jan ''+CONVERT(NVARCHAR,year(@SalesToDate)-1))
+		SET @EndDate=DATEADD(dd,-1,DATEADD(yy,1,@StDate))
+
+		if (select COUNT(*) from @TblCalc where Name=''FCPYAvgSale'')=0
+		begin
+			SET @Query=''SELECT ''+@ProductIDCol+@DimCol+'' TAGID,SUM(UOMConvertedQty*-VoucherType)
+			FROM INV_DocDetails A WITH(NOLOCK) inner join #TblProducts TP on TP.ProductID=A.ProductID ''+@CCWHERE+''
+			WHERE A.CostCenterID IN(''+@SalesDocs+'') AND (DocDate BETWEEN ''+CONVERT(NVARCHAR,CONVERT(INT,@StDate))+'' AND ''+CONVERT(NVARCHAR,CONVERT(INT,@EndDate))+'')''
+			+@SaleStatusWhere+'' GROUP BY ''+@ProductIDCol+@DimCol
+			INSERT INTO @TblAvgSale(ProductID,TAGID,FCPYAvgSale)
+			EXEC(@Query)
+		end
+		
+		SET @StDate=DATEADD(yy,-1,@SalesToDate)
+		SET @EndDate=DATEADD(dd,(@Slot1-1),@StDate)	
+		if (select COUNT(*) from @TblCalc where Name=''FC1'')=0
+		begin
+			SET @Query=''SELECT ''+@ProductIDCol+@DimCol+'' TAGID,SUM(UOMConvertedQty*-VoucherType)
+			FROM INV_DocDetails A WITH(NOLOCK) inner join #TblProducts TP on TP.ProductID=A.ProductID ''+@CCWHERE+''
+			WHERE A.CostCenterID IN(''+@SalesDocs+'') AND (DocDate BETWEEN ''+CONVERT(NVARCHAR,CONVERT(INT,@StDate))+'' AND ''+CONVERT(NVARCHAR,CONVERT(INT,@EndDate))+'')''
+			+@SaleStatusWhere+'' GROUP BY ''+@ProductIDCol+@DimCol
+			INSERT INTO @TblAvgSale(ProductID,TAGID,FC1)
+			EXEC(@Query)
+		end
+		--SET @StDate=DATEADD(dd,1,@EndDate)
+		--SET @EndDate=DATEADD(dd,(@Slot2-1),@StDate)	
+		SET @EndDate=DATEADD(dd,@Slot2,@EndDate)
+		if (select COUNT(*) from @TblCalc where Name=''FC2'')=0
+		begin
+			SET @Query=''SELECT ''+@ProductIDCol+@DimCol+'' TAGID,SUM(UOMConvertedQty*-VoucherType)
+			FROM INV_DocDetails A WITH(NOLOCK) inner join #TblProducts TP on TP.ProductID=A.ProductID ''+@CCWHERE+''
+			WHERE A.CostCenterID IN(''+@SalesDocs+'') AND (DocDate BETWEEN ''+CONVERT(NVARCHAR,CONVERT(INT,@StDate))+'' AND ''+CONVERT(NVARCHAR,CONVERT(INT,@EndDate))+'')''
+			+@SaleStatusWhere+'' GROUP BY ''+@ProductIDCol+@DimCol
+			INSERT INTO @TblAvgSale(ProductID,TAGID,FC2)
+			EXEC(@Query)
+		end
+		--SET @StDate=DATEADD(dd,1,@EndDate)
+		--SET @EndDate=DATEADD(dd,(@Slot3-1),@StDate)
+		if (select COUNT(*) from @TblCalc where Name=''FC3'')=0
+		begin
+			SET @EndDate=DATEADD(dd,@Slot3,@EndDate)
+			SET @Query=''SELECT ''+@ProductIDCol+@DimCol+'' TAGID,SUM(UOMConvertedQty*-VoucherType)
+			FROM INV_DocDetails A WITH(NOLOCK) inner join #TblProducts TP on TP.ProductID=A.ProductID ''+@CCWHERE+''
+			WHERE A.CostCenterID IN(''+@SalesDocs+'') AND (DocDate BETWEEN ''+CONVERT(NVARCHAR,CONVERT(INT,@StDate))+'' AND ''+CONVERT(NVARCHAR,CONVERT(INT,@EndDate))+'')''
+			+@SaleStatusWhere+'' GROUP BY ''+@ProductIDCol+@DimCol
+			INSERT INTO @TblAvgSale(ProductID,TAGID,FC3)
+			EXEC(@Query)
+		end
+		
+		if (select COUNT(*) from @TblCalc where Name=''SalesQty'')=0 or (select COUNT(*) from @TblCalc where Name=''SalesValue'')=0
+			or (select COUNT(*) from @TblCalc where Name=''SalesCost'')=0 or (select COUNT(*) from @TblCalc where Name=''SalesProfit'')=0
+		begin
+			SET @EndDate=@SalesToDate
+			SET @StDate=DATEADD(dd,-(@Slot1-1),@SalesToDate)
+			
+			declare @SaleCost nvarchar(200),@SaleCostFrom nvarchar(200)
+			set @SaleCost=''''
+			if (select COUNT(*) from @TblCalc where Name=''SalesCost'')=0 or (select COUNT(*) from @TblCalc where Name=''SalesProfit'')=0
+			begin
+				set @SaleCost='',sum(ANUM.''+@SalesCostField+''*-VoucherType)''
+				set @SaleCostFrom='' inner join COM_DocNumData ANUM with(nolock) on ANUM.InvDocDetailsID=A.InvDocDetailsID''
+			end
+			else
+			begin
+				set @SaleCost='',0''
+				set @SaleCostFrom=''''
+			end
+			
+			if @SalesValueField=''''
+				set @SalesValueField=''Gross''
+			if @SalesValueField like ''dcNum%'' or @SalesValueField like ''dcCalcNum%'' 
+			begin
+				set @SalesValueField='',sum(ANUM.''+@SalesValueField+''*-VoucherType)''
+				if @SaleCostFrom=''''
+					set @SaleCostFrom='' inner join COM_DocNumData ANUM with(nolock) on ANUM.InvDocDetailsID=A.InvDocDetailsID''
+			end
+			else
+				set @SalesValueField='',sum(''+@SalesValueField+''*-VoucherType)''
+		
+			--select @StDate,@EndDate
+			--SLQ1 FLOAT,SLQ2 FLOAT,SLQ3 FLOAT,SLV1 FLOAT,SLV2 FLOAT,SLV3 FLOAT,SLC1 FLOAT,SLC2 FLOAT,SLC3 FLOAT
+			SET @Query=''SELECT ''+@ProductIDCol+@DimCol+'' TAGID,SUM(UOMConvertedQty*-VoucherType)''+@SalesValueField+@SaleCost+''
+			FROM INV_DocDetails A WITH(NOLOCK) inner join #TblProducts TP on TP.ProductID=A.ProductID ''+@SaleCostFrom+@CCWHERE+''
+			WHERE A.CostCenterID IN(''+@SalesDocs+'') AND (DocDate BETWEEN ''+CONVERT(NVARCHAR,CONVERT(INT,@StDate))+'' AND ''+CONVERT(NVARCHAR,CONVERT(INT,@EndDate))+'')''
+			+@SaleStatusWhere+'' GROUP BY ''+@ProductIDCol+@DimCol
+			print(@Query)
+			INSERT INTO @TblSale(ProductID,TAGID,SLQ1,SLV1,SLC1)
+			EXEC(@Query)
+
+			SET @EndDate=DATEADD(dd,-1,@StDate)
+			SET @StDate=DATEADD(dd,-@Slot2,@StDate)	
+			--select @StDate,@EndDate
+			SET @Query=''SELECT ''+@ProductIDCol+@DimCol+'' TAGID,SUM(UOMConvertedQty*-VoucherType)''+@SalesValueField+@SaleCost+''
+			FROM INV_DocDetails A WITH(NOLOCK) inner join #TblProducts TP on TP.ProductID=A.ProductID ''+@SaleCostFrom+@CCWHERE+''
+			WHERE A.CostCenterID IN(''+@SalesDocs+'') AND (DocDate BETWEEN ''+CONVERT(NVARCHAR,CONVERT(INT,@StDate))+'' AND ''+CONVERT(NVARCHAR,CONVERT(INT,@EndDate))+'')''
+			+@SaleStatusWhere+'' GROUP BY ''+@ProductIDCol+@DimCol
+			--print(@Query)
+			INSERT INTO @TblSale(ProductID,TAGID,SLQ2,SLV2,SLC2)
+			EXEC(@Query)
+			
+			SET @EndDate=DATEADD(dd,-1,@StDate)
+			SET @StDate=DATEADD(dd,-@Slot3,@StDate)	
+			--select @StDate,@EndDate
+			SET @Query=''SELECT ''+@ProductIDCol+@DimCol+'' TAGID,SUM(UOMConvertedQty*-VoucherType)''+@SalesValueField+@SaleCost+''
+			FROM INV_DocDetails A WITH(NOLOCK) inner join #TblProducts TP on TP.ProductID=A.ProductID ''+@SaleCostFrom+@CCWHERE+''
+			WHERE A.CostCenterID IN(''+@SalesDocs+'') AND (DocDate BETWEEN ''+CONVERT(NVARCHAR,CONVERT(INT,@StDate)) +'' AND ''+CONVERT(NVARCHAR,CONVERT(INT,@EndDate))+'')''
+			+@SaleStatusWhere+'' GROUP BY ''+@ProductIDCol+@DimCol
+			INSERT INTO @TblSale(ProductID,TAGID,SLQ3,SLV3,SLC3)
+			EXEC(@Query)
+			
+			--For All Locations
+			INSERT INTO @TblSale(ProductID,TAGID,SLQ1,SLQ2,SLQ3,SLV1,SLV2,SLV3,SLC1,SLC2,SLC3)
+			SELECT ProductID,-1,SUM(SLQ1),SUM(SLQ2),SUM(SLQ3),SUM(SLV1),SUM(SLV2),SUM(SLV3),SUM(SLC1),SUM(SLC2),SUM(SLC3) FROM @TblSale
+			GROUP BY ProductID
+		end	
+		
+		--For All Locations
+		INSERT INTO @TblAvgSale(ProductID,TAGID,CY1,CY2,CY3,CYAvgSale,TotalSaleQty,FC1,FC2,FC3,FCPYAvgSale)
+		SELECT ProductID,-1,SUM(CY1),SUM(CY2),SUM(CY3),SUM(CYAvgSale),SUM(TotalSaleQty),SUM(FC1),SUM(FC2),SUM(FC3),SUM(FCPYAvgSale) FROM @TblAvgSale
+		GROUP BY ProductID
+	END
+	--SELECT * FROM @TblAvgSale
+
+	/******* Average Rate Calculation *******/
+	DECLARE @I INT,@COUNT INT,@BalQty FLOAT,@AvgRate FLOAT,@BalValue FLOAT,@COGS FLOAT,@TI_START INT
+	SELECT @I=1,@COUNT=COUNT(*) FROM #TblProducts
+	if (select COUNT(*) from @TblCalc where Name=''AvgRate'')=0
+	begin
+		INSERT INTO @TblTagSelected(NodeID)
+		EXEC SPSplitString @AvgLocations,'',''
+		SELECT @TCNT=COUNT(*)+MIN(ID)-1,@TI_START=MIN(ID) FROM @TblTagSelected	
+
+		WHILE(@I<=@COUNT)
+		BEGIN
+			SELECT @PID=ProductID,@TI=@TI_START FROM #TblProducts WHERE ID=@I
+
+			--OVERALL AVG RATE
+			SET @SubTagSQL=@DimWhere
+			
+			IF (SELECT count(*) from @TblAvgRate where ProductID=@PID and TagID=-1)=0
+			BEGIN
+				--TO GET BALANCE DATA
+				EXEC [spRPT_AvgRate] 0,@PID,@SubTagSQL,'''',@ToDate,@ToDate,0,0,0,0,'''',0,0,@BalQty OUTPUT,@AvgRate OUTPUT,@BalValue OUTPUT,@COGS OUTPUT
+				
+				INSERT INTO @TblAvgRate(ProductID,TagID,BalanceQty,AvgRate,BalValue)
+				SELECT @PID,-1,@BalQty,@AvgRate,@BalValue
+				WHERE @BalQty IS NOT NULL
+			END
+			
+			WHILE(@TI<=@TCNT)
+			BEGIN
+				SELECT @NodeID=NodeID FROM @TblTagSelected WHERE ID=@TI
+				
+				SET @SubTagSQL=@DimWhere+ '' AND DCC.DCCCNID''+CONVERT(NVARCHAR,@DimensionID-50000)+''=''+CONVERT(NVARCHAR,@NodeID)		
+			--	select @SubTagSQL
+				IF (SELECT count(*) from @TblAvgRate where ProductID=@PID and TagID=@NodeID)=0
+				BEGIN
+					--TO GET BALANCE DATA
+					EXEC [spRPT_AvgRate] 0,@PID,@SubTagSQL,'''',@ToDate,@ToDate,0,0,0,0,'''',0,0,@BalQty OUTPUT,@AvgRate OUTPUT,@BalValue OUTPUT,@COGS OUTPUT
+					
+					INSERT INTO @TblAvgRate(ProductID,TagID,BalanceQty,AvgRate,BalValue)
+					SELECT @PID,@NodeID,@BalQty,@AvgRate,@BalValue
+					WHERE @BalQty IS NOT NULL
+				END
+				SET @TI=@TI+1
+			END
+
+			SET @I=@I+1
+		END	
+	end
+	
+	/*********Reorder Level,Reorder Qty,Selling Price,LAST PRICE*********/
+	DECLARE @WHERE NVARCHAR(MAX)
+	SET @WHERE=''WEF<=''+CONVERT(NVARCHAR,CONVERT(FLOAT,@ToDate))+'' and ProductID=@PID''	
+	
+	select @WHERE=@WHERE+'' AND ''+name+''=''+CASE WHEN name=''CCNID''+convert(nvarchar,@DimensionID-50000) THEN ''@TAGID'' ELSE ''0'' END 
+	from sys.columns WITH(NOLOCK)
+	where object_id=object_id(''COM_CCPrices'') and name LIKE ''ccnid%''
+
+	declare @CalcReOrderLevel int,@CalcReOrderQty int,@CalcSellingPrice int,@CalcLastPrice int,@CalcMaxInventoryLevel int,@CalcReorderMinOrderQty int,@CalcReorderMaxOrderQty int,@CalcPendingSODQty int
+	select @CalcReOrderLevel=COUNT(*) from @TblCalc where Name=''ReOrderLevel''
+	select @CalcReOrderQty=COUNT(*) from @TblCalc where Name=''ReOrderQty''
+	select @CalcSellingPrice=COUNT(*) from @TblCalc where Name=''SellingPrice''
+	select @CalcLastPrice=COUNT(*) from @TblCalc where Name=''LastPrice''
+	select @CalcMaxInventoryLevel=COUNT(*) from @TblCalc where Name=''MaxInventoryLevel''
+	select @CalcReorderMinOrderQty=COUNT(*) from @TblCalc where Name=''ReorderMinOrderQty''
+	select @CalcReorderMaxOrderQty=COUNT(*) from @TblCalc where Name=''ReorderMaxOrderQty''
+	select @CalcPendingSODQty=COUNT(*) from @TblCalc where Name=''PendingSODQty''
+	
+	DECLARE @SQL NVARCHAR(MAX)=''''
+	select @SQL=@SQL+'' AND ''+name+''=0'' 
+	from sys.columns WITH(NOLOCK)
+	where object_id=object_id(''COM_CCPrices'') and name LIKE ''ccnid%''
+			
+	if @CalcReOrderLevel=0 or @CalcReOrderQty=0 or @CalcSellingPrice=0 or @CalcLastPrice=0 or @CalcMaxInventoryLevel=0 or @CalcReorderMinOrderQty=0 or @CalcReorderMaxOrderQty=0 or @CalcPendingSODQty=0
+	begin
+		SELECT @I=1,@COUNT=COUNT(*),@EDATE=CONVERT(FLOAT,@ToDate) FROM #TblProducts			
+
+		IF @DimensionID=0
+		BEGIN	
+			
+		
+			WHILE(@I<=@COUNT)
+			BEGIN			
+				SELECT @PID=ProductID,@ReorderLevel=NULL,@ReOrderQty=NULL,@MaxInventoryLevel=NULL,@ReorderMinOrderQty=NULL,@ReorderMaxOrderQty=NULL,@CalcPendingSODQty=NULL FROM #TblProducts WHERE ID=@I		
+				
+				--Reorder Level
+				if @CalcReOrderLevel=0
+				begin
+					SET @Query=''SET @ReorderLevel=(SELECT TOP 1 ReorderLevel FROM COM_CCPrices with(nolock)
+					WHERE WEF<=''+CONVERT(NVARCHAR(MAX),@EDATE)+'' and ProductID=''+CONVERT(NVARCHAR,@PID)+'' AND ReorderLevel>0 AND (PriceType=0 or PriceType=3) ''+@SQL+'' ORDER BY WEF DESC)''
+					
+					EXEC sp_executesql @Query,N''@ReorderLevel FLOAT OUTPUT'',@ReorderLevel OUTPUT
+			
+					IF @ReorderLevel IS NULL
+						SELECT @ReorderLevel=ReorderLevel FROM INV_Product with(nolock) WHERE ProductID=@PID 
+				end
+				
+				--MaxInventory Level
+				if @CalcMaxInventoryLevel=0
+				begin
+					SET @Query=''SET @MaxInventoryLevel=(SELECT TOP 1 MaxInventoryLevel FROM COM_CCPrices with(nolock)
+					WHERE WEF<=''+CONVERT(NVARCHAR(MAX),@EDATE)+'' and ProductID=''+CONVERT(NVARCHAR,@PID)+'' AND MaxInventoryLevel>0 AND (PriceType=0 or PriceType=3) ''+@SQL+'' ORDER BY WEF DESC)''
+					
+					EXEC sp_executesql @Query,N''@MaxInventoryLevel FLOAT OUTPUT'',@MaxInventoryLevel OUTPUT
+			
+					IF @MaxInventoryLevel IS NULL
+						SELECT @MaxInventoryLevel=MaxInventoryLevel FROM INV_Product with(nolock) WHERE ProductID=@PID 
+				end
+
+				--Min Order Qty
+				if @CalcReorderMinOrderQty=0
+				begin
+					SET @Query=''SET @ReorderMinOrderQty=(SELECT TOP 1 ReorderMinOrderQty FROM COM_CCPrices with(nolock)
+					WHERE WEF<=''+CONVERT(NVARCHAR(MAX),@EDATE)+'' and ProductID=''+CONVERT(NVARCHAR,@PID)+'' AND ReorderMinOrderQty>0 AND (PriceType=0 or PriceType=3) ''+@SQL+'' ORDER BY WEF DESC)''
+					
+					EXEC sp_executesql @Query,N''@ReorderMinOrderQty FLOAT OUTPUT'',@ReorderMinOrderQty OUTPUT
+			
+					IF @ReorderMinOrderQty IS NULL
+						SELECT @ReorderMinOrderQty=ReorderMinOrderQty FROM INV_Product with(nolock) WHERE ProductID=@PID 
+				end
+
+				--Max Order Qty
+				if @CalcReorderMaxOrderQty=0
+				begin
+					SET @Query=''SET @ReorderMaxOrderQty=(SELECT TOP 1 ReorderMaxOrderQty FROM COM_CCPrices with(nolock)
+					WHERE WEF<=''+CONVERT(NVARCHAR(MAX),@EDATE)+'' and ProductID=''+CONVERT(NVARCHAR,@PID)+'' AND ReorderMaxOrderQty>0 AND (PriceType=0 or PriceType=3) ''+@SQL+'' ORDER BY WEF DESC)''
+					
+					EXEC sp_executesql @Query,N''@ReorderMaxOrderQty FLOAT OUTPUT'',@ReorderMaxOrderQty OUTPUT
+			
+					IF @ReorderMaxOrderQty IS NULL
+						SELECT @ReorderMaxOrderQty=ReorderMaxOrderQty FROM INV_Product with(nolock) WHERE ProductID=@PID 
+				end
+				
+				--Pending SOD Qty
+				if @CalcPendingSODQty=0
+				begin
+					SET @Query=''SET @PendingSODQty=(SELECT SUM(Quantity-LinkedQuantity) FROM (
+		SELECT I.InvDocDetailsID,I.Quantity,ISNULL(SUM(D.Quantity),0) LinkedQuantity FROM INV_DocDetails I WITH(NOLOCK)
+	 LEFT JOIN INV_DocDetails D WITH(NOLOCK) ON D.LinkedInvDocDetailsID=I.InvDocDetailsID AND D.IsQtyIgnored=0
+	 WHERE I.DocumentType=7 AND I.LinkStatusID!=445 AND I.ProductID=''+CONVERT(NVARCHAR,@PID)+''
+	 GROUP BY I.InvDocDetailsID,I.Quantity) AS T )''
+					
+					EXEC sp_executesql @Query,N''@PendingSODQty FLOAT OUTPUT'',@PendingSODQty OUTPUT
+				end
+
+				--Reorder Qty
+				if @CalcReOrderQty=0
+				begin
+					SET @Query=''SET @ReOrderQty=(SELECT TOP 1 ReOrderQty FROM COM_CCPrices with(nolock)
+					WHERE WEF<=''+CONVERT(NVARCHAR(MAX),@EDATE)+'' and ProductID=''+CONVERT(NVARCHAR,@PID)+'' AND ReOrderQty>0 AND (PriceType=0 or PriceType=3) ''+@SQL+'' ORDER BY WEF DESC)''
+					
+					EXEC sp_executesql @Query,N''@ReOrderQty FLOAT OUTPUT'',@ReOrderQty OUTPUT
+			
+					IF @ReOrderQty IS NULL
+						SELECT @ReOrderQty=ReOrderQty FROM INV_Product with(nolock) WHERE ProductID=@PID
+				end
+				--Selling Price
+				if @CalcSellingPrice=0
+				begin
+					SET @Query=''SET @SellingPrice=(SELECT TOP 1 SellingRate FROM COM_CCPrices with(nolock)
+					WHERE WEF<=''+CONVERT(NVARCHAR(MAX),@EDATE)+'' and ProductID=''+CONVERT(NVARCHAR,@PID)+'' AND SellingRate>0 AND (PriceType=0 or PriceType=1) ''+@SQL+'' ORDER BY WEF DESC)''
+					
+					EXEC sp_executesql @Query,N''@SellingPrice FLOAT OUTPUT'',@SellingPrice OUTPUT
+					
+					IF @SellingPrice IS NULL
+						SELECT @SellingPrice=SellingRate FROM INV_Product with(nolock) WHERE ProductID=@PID 
+				end
+				--Last Price
+				if @CalcLastPrice=0
+				begin
+					SELECT TOP 1 @LastPrice=A.Rate FROM INV_DocDetails A with(nolock) 
+					WHERE A.IsQtyIgnored=0 and A.VoucherType=1 and A.ProductID=@PID AND A.DocDate<=CONVERT(float,getdate())  
+					ORDER BY A.DocDate desc
+				end
+				
+				--IF @ReOrderQty IS NOT NULL
+				INSERT INTO #TblReorder(ProductID,ReOrderLevel,ReOrderQty,SellingPrice,LastPrice,MaxInventoryLevel,ReorderMinOrderQty,ReorderMaxOrderQty,PendingSODQty)
+				SELECT @PID,@ReorderLevel,@ReOrderQty,@SellingPrice,@LastPrice,@MaxInventoryLevel,@ReorderMinOrderQty,@ReorderMaxOrderQty,@PendingSODQty
+			
+				SET @I=@I+1
+			END		
+		END
+		ELSE
+		BEGIN
+		
+			DELETE FROM @TblTagSelected
+			
+			INSERT INTO @TblTagSelected(NodeID)
+			EXEC SPSplitString @ReorderLocations,'',''
+			
+			IF @SelectedLocation>0 AND (select COUNT(*) from @TblTagSelected where NodeID=@SelectedLocation)=0
+				INSERT INTO @TblTagSelected(NodeID) VALUES(@SelectedLocation)
+			
+			IF NOT EXISTS (select 1 from @TblTagSelected )
+				INSERT INTO @TblTagSelected(NodeID) VALUES(1)
+
+			SELECT @TCNT=COUNT(*)+MIN(ID)-1,@TI_START=MIN(ID) FROM @TblTagSelected	
+			WHILE(@I<=@COUNT)
+			BEGIN
+			
+				SELECT @PID=ProductID,@TI=@TI_START FROM #TblProducts WHERE ID=@I
+			
+				WHILE(@TI<=@TCNT)
+				BEGIN				
+					SELECT @NodeID=NodeID FROM @TblTagSelected WHERE ID=@TI
+		
+					SET @Query=''DECLARE @ReorderLevel FLOAT,@MaxInventoryLevel FLOAT,@ReorderMinOrderQty float,@ReorderMaxOrderQty float,@ReOrderQty FLOAT,@SellingPrice FLOAT,@PID INT,@TAGID INT,@TempTAGID INT,@LastPrice FLOAT,@EDATE float,@PendingSODQty FLOAT
+	set @EDATE=''+CONVERT(NVARCHAR,CONVERT(FLOAT,@ToDate))+''					
+	SET @PID=''+CONVERT(NVARCHAR,@PID)+''
+	SET @TempTAGID=''+CONVERT(NVARCHAR,@NodeID)+''
+	SET @TAGID=@TempTAGID
+''
+	if @CalcReOrderLevel=0
+	SET @Query=@Query+''SELECT TOP 1 @ReorderLevel=ReorderLevel FROM COM_CCPrices with(nolock) WHERE ReorderLevel>0 AND (PriceType=0 or PriceType=3) AND ''+@WHERE+'' ORDER BY WEF DESC 
+IF @ReorderLevel IS NULL
+	SET @ReorderLevel=(SELECT TOP 1 ReorderLevel FROM COM_CCPrices with(nolock) WHERE WEF<=@EDATE and ProductID=@PID AND ReorderLevel>0 AND (PriceType=0 or PriceType=3) ''+@SQL+''	ORDER BY WEF DESC)
+IF @ReorderLevel IS NULL
+	SELECT @ReorderLevel=ReorderLevel FROM INV_Product with(nolock) WHERE ProductID=@PID 
+''
+if @CalcMaxInventoryLevel=0
+	SET @Query=@Query+''SELECT TOP 1 @MaxInventoryLevel=MaxInventoryLevel FROM COM_CCPrices with(nolock) WHERE MaxInventoryLevel>0 AND (PriceType=0 or PriceType=3) AND ''+@WHERE+'' ORDER BY WEF DESC 
+IF @MaxInventoryLevel IS NULL
+	SET @MaxInventoryLevel=(SELECT TOP 1 MaxInventoryLevel FROM COM_CCPrices with(nolock) WHERE WEF<=@EDATE and ProductID=@PID AND MaxInventoryLevel>0 AND (PriceType=0 or PriceType=3) ''+@SQL+''	ORDER BY WEF DESC)
+IF @MaxInventoryLevel IS NULL
+	SELECT @MaxInventoryLevel=MaxInventoryLevel FROM INV_Product with(nolock) WHERE ProductID=@PID 
+''
+if @CalcReorderMinOrderQty=0
+	SET @Query=@Query+''SELECT TOP 1 @ReorderMinOrderQty=ReorderMinOrderQty FROM COM_CCPrices with(nolock) WHERE ReorderMinOrderQty>0 AND (PriceType=0 or PriceType=3) AND ''+@WHERE+'' ORDER BY WEF DESC 
+IF @ReorderMinOrderQty IS NULL
+	SET @ReorderMinOrderQty=(SELECT TOP 1 ReorderMinOrderQty FROM COM_CCPrices with(nolock) WHERE WEF<=@EDATE and ProductID=@PID AND ReorderMinOrderQty>0 AND (PriceType=0 or PriceType=3) ''+@SQL+''	ORDER BY WEF DESC)
+IF @ReorderMinOrderQty IS NULL
+	SELECT @ReorderMinOrderQty=ReorderMinOrderQty FROM INV_Product with(nolock) WHERE ProductID=@PID 
+''
+if @CalcReorderMaxOrderQty=0
+	SET @Query=@Query+''SELECT TOP 1 @ReorderMaxOrderQty=ReorderMaxOrderQty FROM COM_CCPrices with(nolock) WHERE ReorderMaxOrderQty>0 AND (PriceType=0 or PriceType=3) AND ''+@WHERE+'' ORDER BY WEF DESC 
+IF @ReorderMaxOrderQty IS NULL
+	SET @ReorderMaxOrderQty=(SELECT TOP 1 ReorderMaxOrderQty FROM COM_CCPrices with(nolock) WHERE WEF<=@EDATE and ProductID=@PID AND ReorderMaxOrderQty>0 AND (PriceType=0 or PriceType=3) ''+@SQL+''	ORDER BY WEF DESC)
+IF @ReorderMaxOrderQty IS NULL
+	SELECT @ReorderMaxOrderQty=ReorderMaxOrderQty FROM INV_Product with(nolock) WHERE ProductID=@PID 
+''
+	if @CalcReOrderQty=0
+	SET @Query=@Query+''SELECT TOP 1 @ReOrderQty=ReOrderQty FROM COM_CCPrices with(nolock) WHERE ReOrderQty>0 AND (PriceType=0 or PriceType=3) AND ''+@WHERE+'' ORDER BY WEF DESC
+IF @ReOrderQty IS NULL
+	SET @ReOrderQty=(SELECT TOP 1 ReOrderQty FROM COM_CCPrices with(nolock) WHERE WEF<=@EDATE and ProductID=@PID AND ReOrderQty>0 AND (PriceType=0 or PriceType=3) ''+@SQL+'' ORDER BY WEF DESC)
+IF @ReOrderQty IS NULL
+	SELECT @ReOrderQty=ReOrderQty FROM INV_Product with(nolock) WHERE ProductID=@PID
+''
+	if @CalcSellingPrice=0
+	SET @Query=@Query+''SELECT TOP 1 @SellingPrice=SellingRate FROM COM_CCPrices with(nolock) WHERE SellingRate>0 AND (PriceType=0 or PriceType=1) AND ''+@WHERE+'' ORDER BY WEF DESC 
+''
+	if @CalcLastPrice=0
+	SET @Query=@Query+''SELECT TOP 1 @LastPrice=A.Rate FROM INV_DocDetails A with(nolock) INNER JOIN COM_DocCCData DCC with(nolock) ON A.InvDocDetailsID=DCC.InvDocDetailsID
+	WHERE A.IsQtyIgnored=0 and A.VoucherType=1 and A.ProductID=@PID AND ''+substring(@DimCol,2,len(@DimCol))+''=@TempTAGID AND A.DocDate<=CONVERT(float,getdate())  
+	ORDER BY A.DocDate desc
+''
+	SET @Query=@Query+''
+	IF @ReorderLevel IS NOT NULL OR @ReOrderQty IS NOT NULL OR @SellingPrice IS NOT NULL OR @LastPrice IS NOT NULL OR @MaxInventoryLevel IS NOT NULL OR @ReorderMinOrderQty IS NOT NULL OR @ReorderMaxOrderQty IS NOT NULL
+		--INSERT INTO #TblReorder(ProductID,TagID,ReorderLevel,ReOrderQty,SellingPrice,LastPrice)
+		--VALUES(@PID,@TempTAGID,@ReorderLevel,@ReOrderQty,@SellingPrice,@LastPrice)
+''
+IF(@TI=1)
+BEGIN
+	if @CalcPendingSODQty=0
+		SET @Query=@Query+''SELECT @PendingSODQty=SUM(Quantity-LinkedQuantity) FROM (
+		SELECT I.InvDocDetailsID,I.Quantity,ISNULL(SUM(D.Quantity),0) LinkedQuantity FROM INV_DocDetails I WITH(NOLOCK)
+	 LEFT JOIN INV_DocDetails D WITH(NOLOCK) ON D.LinkedInvDocDetailsID=I.InvDocDetailsID AND D.IsQtyIgnored=0
+	 WHERE I.DocumentType=7 AND I.LinkStatusID!=445 AND I.ProductID=@PID 
+	 GROUP BY I.InvDocDetailsID,I.Quantity) AS T
+			
+	''
+END
+SET @Query=@Query+''SELECT @PID,@TempTAGID,@ReorderLevel,@ReOrderQty,@SellingPrice,@LastPrice,@MaxInventoryLevel,@ReorderMinOrderQty,@ReorderMaxOrderQty,@PendingSODQty
+	''
+
+				--print(@Query)
+
+					INSERT INTO #TblReorder(ProductID,TagID,ReorderLevel,ReOrderQty,SellingPrice,LastPrice,MaxInventoryLevel,ReorderMinOrderQty,ReorderMaxOrderQty,PendingSODQty)
+					EXEC(@Query)	
+					SET @TI=@TI+1
+				END
+
+				SET @I=@I+1
+			END
+		END
+	end
+	
+	
+	--To Get Reorder of Selected Location
+	IF @SelectedLocation>0
+		INSERT INTO #TblReorder
+		SELECT ProductID,-1,ReorderLevel,ReOrderQty,SellingPrice,LastPrice,MaxInventoryLevel,ReorderMinOrderQty,ReorderMaxOrderQty,PendingSODQty FROM #TblReorder 
+		WHERE TagID=@SelectedLocation
+	ELSE
+		INSERT INTO #TblReorder
+		SELECT ProductID,-1,SUM(ReorderLevel),SUM(ReOrderQty),MAX(SellingPrice),MAX(LastPrice),SUM(MaxInventoryLevel),SUM(ReorderMinOrderQty),SUM(ReorderMaxOrderQty)
+		,SUM(PendingSODQty) FROM #TblReorder
+		GROUP BY ProductID
+		
+	--SELECT * FROM #TblReorder
+	/******* FINAL DATA *******/
+
+	IF @IsGroupWise=1
+		SELECT P.ProductID,TP.NodeID TAGID,P.Description,G.ProductName ProductGroup,ISNULL(PC.ReOrderQty,0) ReOrderQty,ISNULL(PC.ReOrderLevel,0) ReOrderLevel,PC.SellingPrice,PC.LastPrice,PC.PendingSODQty,
+		ISNULL(QOH.Qty,0) QOH,
+		ISNULL(BQ.Qty,0) BalanceQty,--AVR.BalanceQty,
+		AVR.AvgRate
+		,P.UOMID UOM_Key,(SELECT TOP 1 UnitName FROM COM_UOM WITH(NOLOCK) WHERE UOMID=P.UOMID) UOM--,P.Description
+		,PO.ExpQty1,PO.ExpQty2,PO.ExpQty3,PO.ComQty1,PO.ComQty2,PO.ComQty3
+		,AVS.CY1,AVS.CY2,AVS.CY3,ISNULL(AVS.CYAvgSale,0) CYAvgSale,AVS.TotalSaleQty
+		,AVS.FC1,AVS.FC2,AVS.FC3,ISNULL(AVS.FCPYAvgSale,0)/12 FCPYAvgSale
+		,SL.SalesQty1,SalesValue1,SalesCost1,SL.SalesQty2,SalesValue2,SalesCost2,SL.SalesQty3,SalesValue3,SalesCost3
+		,BEx0,BE.BEx1,BE.BEx2,BE.BExGreater,ISNULL(PC.MaxInventoryLevel,0) MaxInventoryLevel,ISNULL(PC.ReorderMinOrderQty,0) ReorderMinOrderQty,ISNULL(PC.ReorderMaxOrderQty,0) ReorderMaxOrderQty,ISNULL(PC.PendingSODQty,0) PendingSODQty
+	--	,TP.AvgRate
+		FROM (SELECT P.ID,P.ProductID,NodeID FROM #TblGroups P,@TblTagList) AS TP 
+		INNER JOIN INV_Product P WITH(NOLOCK) ON P.ProductID=TP.ProductID	
+		LEFT JOIN INV_Product G WITH(NOLOCK) ON G.ProductID=P.ParentID
+	 
+		LEFT JOIN (SELECT ProductID,TagID,SUM(ExpQty1) ExpQty1,SUM(ExpQty2) ExpQty2,SUM(ExpQty3) ExpQty3
+				,SUM(ComQty1) ComQty1,SUM(ComQty2) ComQty2,SUM(ComQty3) ComQty3
+				FROM @TblPendingOrders
+				GROUP BY ProductID,TagID) AS PO ON P.ProductID=PO.ProductID AND PO.TagID=TP.NodeID
+	
+		LEFT JOIN @TblQOH QOH ON P.ProductID=QOH.ProductID
+		LEFT JOIN @TblBalanceQty BQ ON P.ProductID=BQ.ProductID AND BQ.TagID=TP.NodeID
+		LEFT JOIN (select TP.ParentID ProductID,AVR.TagID,max(AVR.AvgRate) AvgRate
+				from @TblAvgRate AVR join #TblProducts TP on TP.ProductID=AVR.ProductID group by TP.ParentID,AVR.TagID) AVR ON TP.ProductID=AVR.ProductID AND AVR.TagID=TP.NodeID
+		LEFT JOIN (select TP.ParentID ProductID,PC.TagID,max(PC.ReOrderQty) ReOrderQty,max(PC.ReOrderLevel) ReOrderLevel,max(PC.SellingPrice) SellingPrice,max(PC.LastPrice) LastPrice,MAX(PC.MaxInventoryLevel) MaxInventoryLevel,MAX(PC.ReorderMinOrderQty) ReorderMinOrderQty,MAX(PC.ReorderMaxOrderQty) ReorderMaxOrderQty 
+		,MAX(PC.PendingSODQty) PendingSODQty 
+				from #TblReorder PC join #TblProducts TP on TP.ProductID=PC.ProductID group by TP.ParentID,PC.TagID)PC ON P.ProductID=PC.ProductID AND PC.TagID=TP.NodeID
+		LEFT JOIN @TblBatch BE ON P.ProductID=BE.ProductID
+		
+		LEFT JOIN (SELECT ProductID,TagID,SUM(CY1) CY1,SUM(CY2) CY2,SUM(CY3) CY3,SUM(CYAvgSale) CYAvgSale,SUM(TotalSaleQty) TotalSaleQty
+				,SUM(FC1) FC1,SUM(FC2) FC2,SUM(FC3) FC3,SUM(FCPYAvgSale) FCPYAvgSale
+				FROM @TblAvgSale
+				GROUP BY ProductID,TagID) AS AVS ON P.ProductID=AVS.ProductID AND AVS.TagID=TP.NodeID	
+				
+		LEFT JOIN (SELECT ProductID,TagID,SUM(SLQ1) SalesQty1,SUM(SLV1) SalesValue1,SUM(SLC1) SalesCost1,SUM(SLQ2) SalesQty2,SUM(SLV2) SalesValue2,SUM(SLC2) SalesCost2,SUM(SLQ3) SalesQty3,SUM(SLV3) SalesValue3,SUM(SLC3) SalesCost3
+				FROM @TblSale
+				GROUP BY ProductID,TagID) AS SL ON P.ProductID=SL.ProductID AND SL.TagID=TP.NodeID			
+					
+		ORDER BY P.lft,TAGID
+	
+	ELSE
+	SELECT P.ProductID,TP.NodeID TAGID,P.Description,G.ProductName ProductGroup,ISNULL(PC.ReOrderQty,0) ReOrderQty,ISNULL(PC.ReOrderLevel,0) ReOrderLevel,PC.SellingPrice,PC.LastPrice,
+		ISNULL(QOH.Qty,0) QOH,
+		ISNULL(BQ.Qty,0) BalanceQty,--AVR.BalanceQty,
+		AVR.AvgRate
+		,P.UOMID UOM_Key,(SELECT TOP 1 UnitName FROM COM_UOM WITH(NOLOCK) WHERE UOMID=P.UOMID) UOM--,P.Description
+		,PO.ExpQty1,PO.ExpQty2,PO.ExpQty3,PO.ComQty1,PO.ComQty2,PO.ComQty3
+		,AVS.CY1,AVS.CY2,AVS.CY3,ISNULL(AVS.CYAvgSale,0) CYAvgSale,AVS.TotalSaleQty
+		,AVS.FC1,AVS.FC2,AVS.FC3,ISNULL(AVS.FCPYAvgSale,0)/12 FCPYAvgSale
+		,SL.SalesQty1,SalesValue1,SalesCost1,SL.SalesQty2,SalesValue2,SalesCost2,SL.SalesQty3,SalesValue3,SalesCost3
+		,BEx0,BE.BEx1,BE.BEx2,BE.BExGreater,ISNULL(PC.MaxInventoryLevel,0) MaxInventoryLevel,ISNULL(PC.ReorderMinOrderQty,0) ReorderMinOrderQty,ISNULL(PC.ReorderMaxOrderQty,0) ReorderMaxOrderQty,ISNULL(PC.PendingSODQty,0) PendingSODQty
+	--	,TP.AvgRate
+	FROM (SELECT P.ID,P.ProductID,NodeID FROM #TblProducts P,@TblTagList) AS TP 
+		INNER JOIN INV_Product P WITH(NOLOCK) ON P.ProductID=TP.ProductID	
+		LEFT JOIN INV_Product G WITH(NOLOCK) ON G.ProductID=P.ParentID
+	 
+		LEFT JOIN (SELECT ProductID,TagID,SUM(ExpQty1) ExpQty1,SUM(ExpQty2) ExpQty2,SUM(ExpQty3) ExpQty3
+				,SUM(ComQty1) ComQty1,SUM(ComQty2) ComQty2,SUM(ComQty3) ComQty3
+				FROM @TblPendingOrders
+				GROUP BY ProductID,TagID) AS PO ON P.ProductID=PO.ProductID AND PO.TagID=TP.NodeID
+	
+		LEFT JOIN @TblQOH QOH ON P.ProductID=QOH.ProductID
+		LEFT JOIN @TblBalanceQty BQ ON P.ProductID=BQ.ProductID AND BQ.TagID=TP.NodeID
+		LEFT JOIN @TblAvgRate AVR ON TP.ProductID=AVR.ProductID AND AVR.TagID=TP.NodeID
+		LEFT JOIN #TblReorder PC ON P.ProductID=PC.ProductID AND PC.TagID=TP.NodeID
+		LEFT JOIN @TblBatch BE ON P.ProductID=BE.ProductID
+		
+		LEFT JOIN (SELECT ProductID,TagID,SUM(CY1) CY1,SUM(CY2) CY2,SUM(CY3) CY3,SUM(CYAvgSale) CYAvgSale,SUM(TotalSaleQty) TotalSaleQty
+				,SUM(FC1) FC1,SUM(FC2) FC2,SUM(FC3) FC3,SUM(FCPYAvgSale) FCPYAvgSale
+				FROM @TblAvgSale
+				GROUP BY ProductID,TagID) AS AVS ON P.ProductID=AVS.ProductID AND AVS.TagID=TP.NodeID	
+				
+		LEFT JOIN (SELECT ProductID,TagID,SUM(SLQ1) SalesQty1,SUM(SLV1) SalesValue1,SUM(SLC1) SalesCost1,SUM(SLQ2) SalesQty2,SUM(SLV2) SalesValue2,SUM(SLC2) SalesCost2,SUM(SLQ3) SalesQty3,SUM(SLV3) SalesValue3,SUM(SLC3) SalesCost3
+				FROM @TblSale
+				GROUP BY ProductID,TagID) AS SL ON P.ProductID=SL.ProductID AND SL.TagID=TP.NodeID			
+					
+	ORDER BY P.lft,TAGID
+	
+	SET @Query=''SELECT P.ProductID,P.ProductCode,P.ProductName''+@SELECT+'' 
+	FROM INV_Product P with(nolock) INNER JOIN ''
+	IF @IsGroupWise=1
+		SET @Query=@Query+''#TblGroups TP''
+	ELSE
+		SET @Query=@Query+''#TblProducts TP''
+	SET @Query=@Query+'' ON TP.ProductID=P.ProductID''+@FROM
+	EXEC(@Query)
+	
+	/******* PRODUCT WISE VENDORS DATA *******/
+	IF @IsGroupWise=1
+		SELECT TP.ParentID ProductID,V.AccountID VendorID,(SELECT TOP 1 AccountName FROM ACC_Accounts WITH(NOLOCK) WHERE AccountID=V.AccountID) VendorName
+		FROM INV_ProductVendors V with(nolock) 
+			INNER JOIN #TblProducts TP ON V.ProductID=TP.ProductID 
+			INNER JOIN (	
+				SELECT V.ProductID,MAX(Priority) Prio
+				FROM INV_ProductVendors V with(nolock) INNER JOIN #TblProducts TP ON V.ProductID=TP.ProductID 
+				GROUP BY V.ProductID) AS T ON T.ProductID=V.ProductID AND T.Prio=V.Priority
+				
+	ELSE
+		SELECT V.ProductID,V.AccountID VendorID,(SELECT TOP 1 AccountName FROM ACC_Accounts WITH(NOLOCK) WHERE AccountID=V.AccountID) VendorName
+		FROM INV_ProductVendors V with(nolock) INNER JOIN (	
+				SELECT V.ProductID,MAX(Priority) Prio
+				FROM INV_ProductVendors V with(nolock) INNER JOIN #TblProducts TP ON V.ProductID=TP.ProductID 
+				GROUP BY V.ProductID) AS T ON T.ProductID=V.ProductID AND T.Prio=V.Priority
+		
+	DROP TABLE #TblReorder
+	DROP TABLE #TblProducts
+	DROP TABLE #TblGroups
+
+SET NOCOUNT OFF;
+RETURN 1
+END TRY
+BEGIN CATCH  
+	--Return exception info [Message,Number,ProcedureName,LineNumber]  
+	IF ERROR_NUMBER()=50000
+	BEGIN
+		SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID
+	END
+	ELSE
+	BEGIN
+		SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine
+		FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=-999 AND LanguageID=@LangID
+	END
+SET NOCOUNT OFF  
+RETURN -999   
+END CATCH
+' 
+END
+GO
+/****** Object:  StoredProcedure [dbo].[spRPT_StockMovement]    Script Date: 21-09-2026 08:54:48 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spRPT_StockMovement]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'-- =============================================  
+-- Author:  Adil  
+-- Create date: 20 Sep 2011  
+-- Description: Get a list of substitute groups
+-- EXAMPLE :
+-- [spRPT_StockMovement2] 265,0,null,50002,NULL,''27 sep 2011'',''30 sep 2012'',1,0,1,1
+-- =============================================  
+CREATE procedure [dbo].[spRPT_StockMovement]
+@ProductList NVARCHAR(MAX),	
+@TagID NVARCHAR(MAX),
+@TagsList NVARCHAR(MAX)=NULL,
+@DimensionID INT,
+@LocationWHERE NVARCHAR(MAX)=NULL,
+@DIMWHERE NVARCHAR(MAX)=NULL,
+@WHERE nvarchar(max),
+@FromDate DATETIME,
+@ToDate DATETIME,
+@IncludeUpPostedDocs BIT,
+@DefValuation INT,
+@PCRates nvarchar(500),
+@PCFilter nvarchar(500),
+@CurrencyType INT,
+@CurrencyID INT=0,
+@SortTransactionsBy nvarchar(50)='''',
+@FCWithExchRate FLOAT=0,
+@UserID INT,
+@LangID INT=1
+AS  
+BEGIN TRY  
+SET NOCOUNT ON;  
+	DECLARE @SQL NVARCHAR(MAX),@RecQty FLOAT,@OpQty FLOAT,@OpValue FLOAT,@RecRate FLOAT,@RecValue FLOAT,@ProductID INT,@Valuation INT,@TagSQL NVARCHAR(MAX),@AvgDimWhere NVARCHAR(MAX),
+			@IssQty FLOAT,@IssValue FLOAT,@OpRate FLOAT,@AvgRate FLOAT,@BalQty FLOAT,@BalValue FLOAT,@COGS FLOAT,@VoucherType INT,@I INT,@COUNT INT,@UnAppSQL NVARCHAR(50),
+			@CurrWHERE nvarchar(30),@ValColumn nvarchar(20),@TagColumn NVARCHAR(50)
+	DECLARE @TblProducts AS TABLE(ID INT IDENTITY(1,1) NOT NULL,ProductID INT)
+	declare @PCRate float,@PCi INT,@PCCnt INT,@PCcol nvarchar(50),@PCxml nvarchar(max)
+	declare @TblPCRates AS TABLE(ID INT IDENTITY(1,1) NOT NULL,Rate NVARCHAR(50))
+	CREATE TABLE #STMTbl(ID INT IDENTITY(1,1) NOT NULL,ProductID INT,OpQty FLOAT,OpValue FLOAT,
+		RecQty FLOAT,RecValue FLOAT,IssQty FLOAT,IssValue FLOAT,BalQty FLOAT,AvgRate FLOAT,BalValue FLOAT,TagID INT,COGS FLOAT,PCxml NVARCHAR(max))
+	DECLARE @From NVARCHAR(20),@To NVARCHAR(20),@DateFilterCol nvarchar(60),@STWHERE NVARCHAR(MAX)
+
+	set @STWHERE=''''
+	set @STWHERE=stuff((select '',''+convert(nvarchar(max),CostCenterID) from [com_documentpreferences] WITH(NOLOCK)
+	where PrefName=''AvgRateEval'' and PrefValue=''true'' for xml path('''')),1,1,'''')
+	
+	create table #TblAvgMn(ID int identity(0,1), FromDate Float, ToDate Float, RecQty FLOAT,RecValue FLOAT,IssQty FLOAT,IssValue FLOAT,BalQty float,AvgRate float,BalValue float,IsDone bit)
+	
+	SET @From=CONVERT(FLOAT,@FromDate)
+	SET @To=CONVERT(FLOAT,@ToDate)
+
+	set @PCCnt=0
+	if @PCRates!=''''
+	begin
+		INSERT INTO @TblPCRates(Rate)
+		EXEC SPSplitString @PCRates,'',''
+		select @PCCnt=count(*) from @TblPCRates
+	end
+	
+	SET @TagColumn=''''
+	SET @TagSQL=''''	
+	SET @AvgDimWhere=''''
+	IF (@LocationWHERE IS NOT NULL AND @LocationWHERE<>'''') OR (@DIMWHERE IS NOT NULL AND @DIMWHERE<>'''')
+	BEGIN
+		IF (@LocationWHERE IS NOT NULL AND @LocationWHERE<>'''')
+			SET @AvgDimWhere=@AvgDimWhere+'' AND DCC.DCCCNID''+CONVERT(NVARCHAR,@DimensionID-50000)+'' IN (''+@LocationWHERE+'') ''
+		IF (@DIMWHERE IS NOT NULL AND @DIMWHERE<>'''')
+			SET @AvgDimWhere=@AvgDimWhere+@DIMWHERE
+		SET @TagSQL='' INNER JOIN COM_DocCCData DCC WITH(NOLOCK) ON DCC.InvDocDetailsID=D.InvDocDetailsID''+@AvgDimWhere
+	END
+
+	IF @IncludeUpPostedDocs=0
+		SET @UnAppSQL='' AND D.StatusID=369''
+	ELSE
+		SET @UnAppSQL='' AND D.StatusID<>376''
+		
+	IF @CurrencyID>0
+	BEGIN
+		SET @ValColumn=''StockValueFC''
+		--SET @GrossColumn=''GrossFC''
+		SET @CurrWHERE='' AND D.CurrencyID=''+CONVERT(NVARCHAR,@CurrencyID)
+	END
+	ELSE
+	BEGIN
+		IF @CurrencyType=1
+		BEGIN
+			SET @ValColumn=''StockValueBC''
+			--SET @GrossColumn=''(Gross/ExhgRtBC)''
+		END
+		ELSE
+		BEGIN
+			SET @ValColumn=''StockValue''
+			--SET @GrossColumn=''Gross''
+		END
+		SET @CurrWHERE=''''
+
+		IF(@FCWithExchRate>0)
+		BEGIN
+			SET @ValColumn=''StockValue/''+CONVERT(NVARCHAR,@FCWithExchRate)
+			--SET @GrossColumn=''(Gross/''+CONVERT(NVARCHAR,@FCWithExchRate)+'')''
+		END
+	END
+	
+	if @SortTransactionsBy=''CreatedDate''
+		set @DateFilterCol='' AND D.CreatedDate>=''+@From+'' AND D.CreatedDate<''+convert(nvarchar,convert(int,@To)+1)
+	else if @SortTransactionsBy=''ModifiedDate''
+		set @DateFilterCol='' AND D.ModifiedDate>=''+@From+'' AND D.ModifiedDate<''+convert(nvarchar,convert(int,@To)+1)
+	else
+		set @DateFilterCol='' AND D.DocDate BETWEEN ''+@From+'' AND ''+@To
+	
+
+	IF @TagID=0
+	BEGIN
+	
+		INSERT INTO @TblProducts(ProductID)
+		EXEC SPSplitString @ProductList,'',''
+		
+		SELECT @I=1,@COUNT=COUNT(*) FROM @TblProducts
+
+		WHILE(@I<=@COUNT)
+		BEGIN
+			SELECT @ProductID=ProductID FROM @TblProducts WHERE ID=@I
+			
+			--Price chart Data			
+			if @PCCnt>0
+			begin
+				set @PCxml=''''
+				set @PCi=1
+				while(@PCi<=@PCCnt)
+				begin
+					select @PCcol=Rate from @TblPCRates where ID=@PCi
+					EXEC spRPT_PCRate @ProductID,@ToDate,@PCcol,@PCFilter,@PCRate OUTPUT					
+					if @PCi>1
+						set @PCxml=@PCxml+'',''
+					if @PCRate is null
+						set @PCRate=0
+					set @PCxml=@PCxml+convert(nvarchar,@PCRate)
+					set @PCi=@PCi+1
+				end
+			end
+
+			--TO GET OPENING DATA
+			EXEC [spRPT_AvgRate] 1,@ProductID,@AvgDimWhere,@WHERE,@FromDate,@ToDate,@IncludeUpPostedDocs,@DefValuation,@CurrencyType,@CurrencyID,@SortTransactionsBy,@FCWithExchRate,0,@OpQty OUTPUT,@OpRate OUTPUT,@OpValue OUTPUT,@COGS OUTPUT
+
+			--TO GET BALANCE DATA
+			SET @BalQty=ISNULL(@OpQty,0)
+			SET @AvgRate=ISNULL(@OpRate,0)
+			SET @BalValue=ISNULL(@OpValue,0)
+			
+			if @TagsList is not null and @TagsList like ''<X>%''
+			begin
+				--update #TblAvgMn 
+				--set BalQty=null,AvgRate=null,BalValue=null,IsDone=0
+				truncate table #TblAvgMn
+				if @TagsList is not null and @TagsList like ''<X>%''
+				begin
+					declare @XML xml
+					set @XML=@TagsList
+					--insert into #TblAvgMn(FromDate)
+					--values(0)
+					
+					insert into #TblAvgMn(ToDate)
+					select convert(float,X.value(''@D'',''datetime''))
+					from @XML.nodes(''/X/R'') as Data(X)  
+					
+					/*update #TblAvgMn
+					set FromDate=100(select ToDate-1 from #TblAvgMn where ID=ID-1)
+					where ID>0*/
+					
+					update T2
+					set FromDate=T1.ToDate -1
+					from #TblAvgMn T1 with(nolock)
+					join #TblAvgMn T2 with(nolock) on T1.ID=T2.ID-1
+					
+					update #TblAvgMn set FromDate=0 where ID=0
+					
+					--select * from #TblAvgMn with(nolock)
+					SET @SQL=''UPDATE #TblAvgMn SET RecQty=(SELECT SUM(D.UOMConvertedQty)
+					FROM INV_DocDetails D WITH(NOLOCK) ''+@TagSQL+''
+					WHERE D.ProductID=''+CONVERT(NVARCHAR,@ProductID)+'' AND D.IsQtyIgnored=0 AND D.VoucherType=1 AND D.DocumentType<>3
+					AND FromDate>0 AND D.DocDate BETWEEN FromDate+2 AND ToDate ''+@UnAppSQL+@CurrWHERE+@WHERE+'')
+					,RecValue=(SELECT SUM(''+@ValColumn+'')
+					FROM INV_DocDetails D WITH(NOLOCK) ''+@TagSQL+''
+					WHERE D.ProductID=''+CONVERT(NVARCHAR,@ProductID)+'' AND D.IsQtyIgnored=0 AND D.VoucherType=1 AND D.DocumentType<>3
+					AND FromDate>0 AND D.DocDate BETWEEN FromDate+2 AND ToDate ''+@UnAppSQL+@CurrWHERE+@WHERE+'')
+					,IssQty=(SELECT SUM(D.UOMConvertedQty)
+					FROM INV_DocDetails D WITH(NOLOCK) ''+@TagSQL+''
+					WHERE D.ProductID=''+CONVERT(NVARCHAR,@ProductID)+'' AND D.IsQtyIgnored=0 AND D.VoucherType=-1 
+					AND FromDate>0 AND D.DocDate BETWEEN FromDate+2 AND ToDate ''+@UnAppSQL+@CurrWHERE+@WHERE+'')
+					,IssValue=(SELECT SUM(''+@ValColumn+'')
+					FROM INV_DocDetails D WITH(NOLOCK) ''+@TagSQL+''
+					WHERE D.ProductID=''+CONVERT(NVARCHAR,@ProductID)+'' AND D.IsQtyIgnored=0 AND D.VoucherType=-1 
+					AND FromDate>0 AND D.DocDate BETWEEN FromDate+2 AND ToDate ''+@UnAppSQL+@CurrWHERE+@WHERE+'')''
+					EXEC sp_executesql @SQL
+
+					if(@DefValuation=3 and @STWHERE<>'''')
+					begin
+						SET @SQL=''UPDATE #TblAvgMn SET RecValue=RecValue+(SELECT ISNULL(SUM(''+@ValColumn+''),0)
+						FROM INV_DocDetails D WITH(NOLOCK) ''+@TagSQL+''
+						WHERE D.ProductID=''+CONVERT(NVARCHAR,@ProductID)+'' AND D.DocumentType<>3
+						AND FromDate>0 AND D.DocDate BETWEEN FromDate+2 AND ToDate ''+@UnAppSQL+@CurrWHERE+@WHERE+'' and D.CostCenterID in (''+@STWHERE+''))''
+						EXEC sp_executesql @SQL
+					end
+				
+				end
+			
+				EXEC [spRPT_AvgRate] 0,@ProductID,@AvgDimWhere,@WHERE,@ToDate,@ToDate,@IncludeUpPostedDocs,@DefValuation,@CurrencyType,@CurrencyID,@SortTransactionsBy,@FCWithExchRate,1,@BalQty OUTPUT,@AvgRate OUTPUT,@BalValue OUTPUT,@COGS OUTPUT
+				
+				INSERT INTO #STMTbl(ProductID,OpQty,OpValue,BalQty,AvgRate,BalValue,COGS,PCxml)
+				SELECT @ProductID,@OpQty,@OpValue,@BalQty,@AvgRate,@BalValue,@COGS,@PCxml
+				WHERE @AvgRate IS NOT NULL
+			
+				INSERT INTO #STMTbl(ProductID,TagID,OpQty,OpValue,BalQty,AvgRate,BalValue,COGS,PCxml,RecQty,RecValue,IssQty,IssValue)
+				SELECT @ProductID,ID,@OpQty,@OpValue,BalQty,AvgRate,BalValue,@COGS,@PCxml,RecQty,RecValue,IssQty,IssValue
+				FROM #TblAvgMn with(nolock) where  BalQty<>0 or  RecQty<>0 or IssQty<>0
+					
+			end
+			else
+			begin
+				EXEC [spRPT_AvgRate] 0,@ProductID,@AvgDimWhere,@WHERE,@FromDate,@ToDate,@IncludeUpPostedDocs,@DefValuation,@CurrencyType,@CurrencyID,@SortTransactionsBy,@FCWithExchRate,0,@BalQty OUTPUT,@AvgRate OUTPUT,@BalValue OUTPUT,@COGS OUTPUT
+				--EXEC [spRPT_StockAvgValues] 0,@ProductID,@LocationWHERE,NULL,@ToDate,@BalQty OUTPUT,@AvgRate OUTPUT,@BalValue OUTPUT
+				
+				if @DefValuation=4 or @DefValuation=5
+				begin
+					INSERT INTO #STMTbl(ProductID,OpQty,OpValue,BalQty,AvgRate,BalValue,COGS,PCxml)
+					SELECT @ProductID,@OpQty,@OpQty*@AvgRate,@BalQty,@AvgRate,@BalValue,@COGS,@PCxml
+					WHERE @AvgRate IS NOT NULL
+				end
+				else
+				begin
+					INSERT INTO #STMTbl(ProductID,OpQty,OpValue,BalQty,AvgRate,BalValue,COGS,PCxml)
+					SELECT @ProductID,@OpQty,@OpValue,@BalQty,@AvgRate,@BalValue,@COGS,@PCxml
+					WHERE @AvgRate IS NOT NULL
+				end
+			end
+			
+			SET @I=@I+1
+		END
+		
+		--TO GET RECIEDVED DATA BETWEEN DATES
+		SET @SQL=''SELECT D.ProductID,SUM(D.UOMConvertedQty),SUM(''+@ValColumn+'')
+			FROM INV_DocDetails D WITH(NOLOCK) ''+@TagSQL+''
+			WHERE D.ProductID IN (''+@ProductList+'') AND D.IsQtyIgnored=0 AND D.VoucherType=1 AND D.DocumentType<>3
+			''+@DateFilterCol+@UnAppSQL+@CurrWHERE+@WHERE+''
+			GROUP BY D.ProductID''
+		
+		if(@DefValuation=3 and @STWHERE<>'''')
+		begin
+			SET @SQL=@SQL+''
+			UNION ALL
+			SELECT D.ProductID,0,SUM(''+@ValColumn+'')
+			FROM INV_DocDetails D WITH(NOLOCK) ''+@TagSQL+''
+			WHERE D.ProductID IN (''+@ProductList+'') AND D.DocumentType<>3
+			''+@DateFilterCol+@UnAppSQL+@CurrWHERE+@WHERE+'' and D.CostCenterID in (''+@STWHERE+'')
+			GROUP BY D.ProductID''
+		end
+
+		INSERT INTO #STMTbl(ProductID,RecQty,RecValue)
+		EXEC sp_executesql @SQL
+		
+		--TO GET ISSUE DATA BETWEEN DATES
+		SET @SQL=''SELECT D.ProductID,SUM(D.UOMConvertedQty),SUM(''+@ValColumn+'')
+			FROM INV_DocDetails D WITH(NOLOCK) ''+@TagSQL+''
+			WHERE D.ProductID IN (''+@ProductList+'') AND D.IsQtyIgnored=0 AND D.VoucherType=-1 
+			''+@DateFilterCol+@UnAppSQL+@CurrWHERE+@WHERE+''
+			GROUP BY D.ProductID''
+		
+		INSERT INTO #STMTbl(ProductID,IssQty,IssValue)
+		EXEC sp_executesql @SQL
+		
+	END
+	ELSE
+	BEGIN
+		DECLARE @TI INT,@TCNT INT,@NodeID INT,@SubTagSQL NVARCHAR(MAX),@Pos int,@Nodes NVARCHAR(30),@PIDCHAR NVARCHAR(15),@NIDCHAR NVARCHAR(35)
+		DECLARE @TblTagProduct AS TABLE(ID INT IDENTITY(1,1) NOT NULL,Nodes NVARCHAR(30))
+		DECLARE @TblNodes AS TABLE(ProductID INT,NodeID INT)
+
+		INSERT INTO @TblTagProduct(Nodes)
+		EXEC SPSplitString @TagsList,'',''
+		
+		SET @TagsList=''''
+		SET @ProductList=''''
+		
+		SELECT @TI=1,@TCNT=COUNT(*) FROM @TblTagProduct	
+		
+		WHILE(@TI<=@TCNT)
+		BEGIN
+			SELECT @Nodes=Nodes FROM @TblTagProduct WHERE ID=@TI
+			set @Pos = CHARINDEX(''~'',@Nodes)
+			set @PIDCHAR=substring(@Nodes,1,@Pos-1)
+			set @ProductID=convert(INT, @PIDCHAR)
+			set @NIDCHAR=substring(@Nodes,@Pos+1,LEN(@Nodes)-@Pos)
+			set @NodeID=convert(INT, @NIDCHAR)
+			
+			if not exists(select ProductID from @TblNodes where ProductID=@ProductID)
+			begin
+				insert into @TblNodes(ProductID) values(@ProductID)
+				if len(@ProductList)>0
+					set @ProductList=@ProductList+'',''
+				set @ProductList=@ProductList+@PIDCHAR
+			end
+			if not exists(select NodeID from @TblNodes where NodeID=@NodeID)
+			begin
+				insert into @TblNodes(NodeID) values(@NodeID)
+				if len(@TagsList)>0
+					set @TagsList=@TagsList+'',''
+				set @TagsList=@TagsList+@NIDCHAR
+			end
+			
+			IF @TagID=2
+				SET @SubTagSQL=''''
+			ELSE
+				SET @SubTagSQL='' AND DCC.DCCCNID''+CONVERT(NVARCHAR,@TagID-50000)+''=''+CONVERT(NVARCHAR,@NodeID)
+			
+			IF @TagSQL<>''''
+				SET @SubTagSQL=@AvgDimWhere + @SubTagSQL
+				
+			--Price chart Data			
+			if @PCCnt>0
+			begin
+				set @PCxml=''''
+				set @PCi=1
+				while(@PCi<=@PCCnt)
+				begin
+					select @PCcol=Rate from @TblPCRates where ID=@PCi
+					EXEC spRPT_PCRate @ProductID,@ToDate,@PCcol,@PCFilter,@PCRate OUTPUT					
+					if @PCi>1
+						set @PCxml=@PCxml+'',''
+					if @PCRate is null
+						set @PCRate=0
+					set @PCxml=@PCxml+convert(nvarchar,@PCRate)
+					set @PCi=@PCi+1
+				end
+			end	
+
+			--TO GET OPENING DATA
+			EXEC [spRPT_AvgRate] 1,@ProductID,@SubTagSQL,@WHERE,@FromDate,@ToDate,@IncludeUpPostedDocs,@DefValuation,@CurrencyType,@CurrencyID,@SortTransactionsBy,@FCWithExchRate,0,@OpQty OUTPUT,@OpRate OUTPUT,@OpValue OUTPUT,@COGS OUTPUT
+
+			--TO GET BALANCE DATA
+			SET @BalQty=ISNULL(@OpQty,0)
+			SET @AvgRate=ISNULL(@OpRate,0)
+			SET @BalValue=ISNULL(@OpValue,0)
+			
+			EXEC [spRPT_AvgRate] 0,@ProductID,@SubTagSQL,@WHERE,@FromDate,@ToDate,@IncludeUpPostedDocs,@DefValuation,@CurrencyType,@CurrencyID,@SortTransactionsBy,@FCWithExchRate,0,@BalQty OUTPUT,@AvgRate OUTPUT,@BalValue OUTPUT,@COGS OUTPUT
+			
+			INSERT INTO #STMTbl(ProductID,OpQty,OpValue,BalQty,AvgRate,BalValue,TagID,COGS)
+			SELECT @ProductID,@OpQty,@OpValue,@BalQty,@AvgRate,@BalValue,@NodeID,@COGS
+			WHERE @AvgRate IS NOT NULL
+			
+			SET @TI=@TI+1
+		END
+
+		IF @TagID=2
+			SET @TagColumn='',PVG.AccountID''
+		ELSE
+			SET @TagColumn='',DCC.DCCCNID''+CONVERT(NVARCHAR,@TagID-50000)
+		
+		IF @TagID=2
+		BEGIN
+			SET @TagSQL=@TagSQL + '' INNER JOIN INV_ProductVendors PVG WITH(NOLOCK) ON PVG.ProductID=D.ProductID AND PVG.AccountID IN (''+@TagsList+'')''
+		END
+		ELSE
+		BEGIN
+			IF @TagSQL=''''
+				SET @TagSQL='' INNER JOIN COM_DocCCData DCC WITH(NOLOCK) ON DCC.InvDocDetailsID=D.InvDocDetailsID AND DCC.DCCCNID''+CONVERT(NVARCHAR,@TagID-50000)+'' IN(''+@TagsList+'')''
+			ELSE
+				SET @TagSQL=@TagSQL + '' AND DCC.DCCCNID''+CONVERT(NVARCHAR,@TagID-50000)+'' IN (''+@TagsList+'')''
+		END
+	
+		--TO GET RECIEDVED DATA BETWEEN DATES
+		SET @SQL=''SELECT D.ProductID''+@TagColumn+'',SUM(D.UOMConvertedQty),SUM(''+@ValColumn+'')
+			FROM INV_DocDetails D WITH(NOLOCK) ''+@TagSQL+''
+			WHERE D.ProductID IN (''+@ProductList+'') AND D.IsQtyIgnored=0 AND D.VoucherType=1 AND D.DocumentType<>3
+				''+@DateFilterCol+@UnAppSQL+@CurrWHERE+@WHERE+''
+			GROUP BY D.ProductID''+@TagColumn
+
+		if(@DefValuation=3 and @STWHERE<>'''')
+		begin
+			SET @SQL=@SQL+''
+			UNION ALL
+			SELECT D.ProductID''+@TagColumn+'',0,SUM(''+@ValColumn+'')
+			FROM INV_DocDetails D WITH(NOLOCK) ''+@TagSQL+''
+			WHERE D.ProductID IN (''+@ProductList+'') AND D.DocumentType<>3
+			''+@DateFilterCol+@UnAppSQL+@CurrWHERE+@WHERE+'' and D.CostCenterID in (''+@STWHERE+'')
+			GROUP BY D.ProductID''+@TagColumn
+		end
+
+		INSERT INTO #STMTbl(ProductID,TagID,RecQty,RecValue)
+		EXEC sp_executesql @SQL
+
+		--TO GET ISSUE DATA BETWEEN DATES
+		SET @SQL=''SELECT D.ProductID''+@TagColumn+'',SUM(D.UOMConvertedQty),SUM(''+@ValColumn+'')
+			FROM INV_DocDetails D WITH(NOLOCK) ''+@TagSQL+''
+			WHERE D.ProductID IN (''+@ProductList+'') AND D.IsQtyIgnored=0 AND D.VoucherType=-1 
+				''+@DateFilterCol+@UnAppSQL+@CurrWHERE+@WHERE+''
+			GROUP BY D.ProductID''+@TagColumn
+			
+
+		INSERT INTO #STMTbl(ProductID,TagID,IssQty,IssValue)
+		EXEC sp_executesql @SQL
+	END
+	
+	SET @SQL=''''	
+	SELECT @SQL=@SQL+'',SUM(CASE WHEN D.CostCenterID=''+CONVERT(NVARCHAR,DT.CostCenterID)+'' THEN D.UOMConvertedQty ELSE 0 END) [''+replace(replace(replace(replace(replace(replace(DocumentName,'' '',''_''),''-'',''_''),''('',''_''),'')'',''_''),''/'',''_''),'','',''_'')+''_Qty]
+	,SUM(CASE WHEN D.CostCenterID=''+CONVERT(NVARCHAR,DT.CostCenterID)+'' THEN ''+@ValColumn+'' ELSE 0 END) [''+
+replace(replace(replace(replace(replace(replace(DocumentName,'' '',''_''),''-'',''_''),''('',''_''),'')'',''_''),''/'',''_''),'','',''_'')
+	+''_Value]'' 
+	FROM ADM_DocumentTypes DT WITH(NOLOCK) 
+	WHERE IsInventory=1 AND DT.CostCenterID IN (SELECT DISTINCT CostCenterID FROM INV_DocDetails WITH(NOLOCK) WHERE IsQtyIgnored=0 AND DocumentType<>3)
+	
+	SET @SQL=''SELECT D.ProductID PID''+CASE WHEN @TagColumn<>'''' THEN @TagColumn+'' TID'' ELSE '''' END+@SQL+''
+		INTO #CCTEMP
+		FROM INV_DocDetails D WITH(NOLOCK) ''+@TagSQL+''
+		WHERE D.ProductID IN (''+@ProductList+'') AND D.IsQtyIgnored=0 AND (D.VoucherType=1 OR D.VoucherType=-1) AND D.DocumentType<>3
+			''+@DateFilterCol+@UnAppSQL+@CurrWHERE+@WHERE+''
+		GROUP BY D.ProductID''+@TagColumn
+		
+	if @TagID<>0 OR (@TagsList is not null and @TagsList like ''<X>%'')
+	begin
+		SET @SQL=@SQL+'' SELECT ProductID,TagID,OpQty,OpValue,RecQty,RecValue,IssQty,IssValue,BalQty,AvgRate,BalValue,case when IssQty>0 then COGS else null end COGS,PCXml,CT.*
+		FROM (
+			SELECT ProductID,TagID,SUM(OpQty) OpQty,SUM(OpValue) OpValue,
+				SUM(RecQty) RecQty,SUM(RecValue) RecValue,SUM(IssQty) IssQty,SUM(IssValue) IssValue,
+				SUM(BalQty) BalQty,SUM(AvgRate) AvgRate,SUM(BalValue) BalValue,SUM(COGS) COGS,MAX(PCXml) PCXml
+		FROM #STMTbl WITH(NOLOCK)
+		GROUP BY ProductID,TagID) AS T
+		LEFT JOIN #CCTEMP CT WITH(NOLOCK) ON CT.PID=T.ProductID ''+CASE WHEN @TagID<>0 THEN ''AND CT.TID=T.TagID'' ELSE '''' END
+	end
+	else
+	begin
+		SET @SQL=@SQL+'' SELECT ProductID,OpQty,OpValue,RecQty,RecValue,IssQty,IssValue,BalQty,AvgRate,BalValue,case when IssQty>0 then COGS else null end COGS,PCXml,CT.*
+		FROM (
+			SELECT ProductID,SUM(OpQty) OpQty,SUM(OpValue) OpValue,
+				SUM(RecQty) RecQty,SUM(RecValue) RecValue,SUM(IssQty) IssQty,SUM(IssValue) IssValue,
+				SUM(BalQty) BalQty,SUM(AvgRate) AvgRate,SUM(BalValue) BalValue,SUM(COGS) COGS,MAX(PCXml) PCXml
+		FROM #STMTbl WITH(NOLOCK)
+		GROUP BY ProductID) AS T
+		LEFT JOIN #CCTEMP CT WITH(NOLOCK) ON CT.PID=T.ProductID''
+	end
+	
+	SET @SQL=@SQL+'' DROP TABLE #CCTEMP''		
+	
+	EXEC sp_executesql @SQL
+	
+	DROP TABLE #TblAvgMn
+	DROP TABLE #STMTbl
+	
+SET NOCOUNT OFF;  
+RETURN 1
+END TRY
+BEGIN CATCH  
+	IF ERROR_NUMBER()=50000
+	BEGIN
+		SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(NOLOCK) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID
+	END
+	ELSE
+	BEGIN
+		SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() AS ErrorNumber, ERROR_PROCEDURE()AS ProcedureName, ERROR_LINE() AS ErrorLine
+		FROM COM_ErrorMessages WITH(NOLOCK) WHERE ErrorNumber=-999 AND LanguageID=@LangID
+	END
+SET NOCOUNT OFF  
+RETURN -999   
+END CATCH
+' 
+END
+GO
+/****** Object:  UserDefinedFunction [dbo].[fnGetPendingQtyQueryForReorder]    Script Date: 21-09-2026 08:54:48 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[fnGetPendingQtyQueryForReorder]') AND type in (N'FN', N'IF', N'TF', N'FS', N'FT'))
+BEGIN
+execute dbo.sp_executesql @statement = N'-- =============================================
+-- Author:		ADIL
+-- Create date: 21 Nov 2012
+-- Description:	To Get Pending Orders Query
+-- Example :  
+-- SELECT dbo.fnGetPendingQtyQueryForReorder(''40002'',''1517,265,2429,2437'','''','''')
+-- =============================================
+CREATE FUNCTION [dbo].[fnGetPendingQtyQueryForReorder]
+(
+@Documents NVARCHAR(MAX),
+@CCWHERE NVARCHAR(MAX),
+@TagColumn NVARCHAR(50),
+@DontShowUnApproved bit
+)
+RETURNS NVARCHAR(MAX) 
+AS 
+BEGIN
+
+	DECLARE @StrList varchar(max), @SplitChar varchar(2),@Data varchar(max),@Pos INT,@HoldOnSave BIT,@HoldQty BIT,@ReserveQty BIT,@UnDocsWhere nvarchar(max)
+	DECLARE @Tbl AS TABLE(ID INT IDENTITY(1,1),Document INT,HoldOnSave BIT default(0),HoldQty BIT default(0),ReserveQty BIT default(0))
+	DECLARE @TblHold AS TABLE(ID INT IDENTITY(1,1),Document INT)
+	SET @SplitChar='',''
+	SET @StrList=@Documents
+	SET @StrList=LTRIM(RTRIM(@StrList))+@SplitChar  
+	SET @Pos=CHARINDEX(@SplitChar,@StrList,1)  
+	IF REPLACE(@StrList,@SplitChar,'''')<>''''  
+	BEGIN  
+		WHILE @Pos > 0  
+		BEGIN  
+			SET @Data=LTRIM(RTRIM(LEFT(@StrList,@Pos-1)))  
+			INSERT INTO @Tbl(Document) VALUES(@Data)  
+			SET @StrList=RIGHT(@StrList,LEN(@StrList)-@Pos)  
+			SET @Pos=CHARINDEX(@SplitChar,@StrList,1)  
+		END  
+	END  
+	--set value for HoldOnSave column for each document
+	UPDATE @Tbl
+	SET HoldOnSave=1
+	FROM @Tbl T INNER JOIN COM_DocumentPreferences P with(nolock) ON P.CostCenterID=T.Document AND P.PrefName=''enebleSaveonhold''
+	WHERE P.PrefValue=''True''
+	
+	--set value for HoldQty column for each document
+	UPDATE @Tbl
+	SET HoldQty=1
+	FROM @Tbl T INNER JOIN COM_DocumentPreferences P with(nolock) ON P.CostCenterID=T.Document AND P.PrefName=''Enable Hold''
+	WHERE P.PrefValue=''True''
+	
+	----set value for ReserveQty column for each document
+	UPDATE @Tbl
+	SET ReserveQty=1
+	FROM @Tbl T INNER JOIN COM_DocumentPreferences P with(nolock) ON P.CostCenterID=T.Document AND P.PrefName=''Enable Reserve''
+	WHERE P.PrefValue=''True''
+	
+	DECLARE @TblMaps AS TABLE(ID INT IDENTITY(1,1),Document INT,ColumnName NVARCHAR(50),LinkColumn NVARCHAR(50))
+	DECLARE @CostCenterID int,@ColumnName nvarchar(50),@lINKColumnName nvarchar(50)
+	DECLARE @I INT,@J INT,@Cnt INT,@CNTDOCS INT,@Document INT
+	DECLARE @Query nvarchar(MAX),@SubQry NVARCHAR(MAX),@TagColumnAlias NVARCHAR(50),@HoldSaveQuery nvarchar(MAX)
+		,@HoldQuery nvarchar(MAX),@NormalQuery nvarchar(MAX),@ReserveQuery nvarchar(MAX)
+	SELECT @Query = '''',@SubQry='''',@HoldSaveQuery='''',@HoldQuery='''',@NormalQuery='''',@ReserveQuery=''''
+	SET @TagColumnAlias=REPLACE(@TagColumn,''DCC.'','''')
+	
+	if @DontShowUnApproved=1
+		set @UnDocsWhere='' AND B.StatusID=369''
+	else
+		set @UnDocsWhere='' AND B.StatusID<>376 AND A.StatusID<>372''
+	
+	SELECT @I=1,@Cnt=COUNT(*) FROM @Tbl
+	WHILE(@I<=@Cnt)
+	BEGIN
+		SELECT @Document=Document,@HoldOnSave=HoldOnSave,@HoldQty=HoldQty,@ReserveQty=ReserveQty FROM @Tbl WHERE ID=@I
+		
+		IF @HoldQty=1
+		BEGIN
+			IF len(@HoldQuery)>0
+				SET @HoldQuery=@HoldQuery+'',''			
+			SET @HoldQuery=@HoldQuery+CONVERT(NVARCHAR,@Document)
+		END
+		ELSE IF @ReserveQty=1
+		BEGIN
+			IF len(@ReserveQuery)>0
+				SET @ReserveQuery=@ReserveQuery+'',''			
+			SET @ReserveQuery=@ReserveQuery+CONVERT(NVARCHAR,@Document)
+		END		 
+		ELSE 
+		BEGIN
+			IF @HoldOnSave=1
+			BEGIN
+				IF len(@HoldSaveQuery)>0
+					SET @HoldSaveQuery=@HoldSaveQuery+'',''
+				SET @HoldSaveQuery=@HoldSaveQuery+CONVERT(NVARCHAR,@Document)
+			END
+			
+			IF len(@NormalQuery)>0
+				SET @NormalQuery=@NormalQuery+'',''			
+			SET @NormalQuery=@NormalQuery+CONVERT(NVARCHAR,@Document)
+		
+			DELETE FROM @TblMaps
+			INSERT INTO @TblMaps(Document,ColumnName,LinkColumn)
+			SELECT DISTINCT CostCenterIDBase,
+				(SELECT SysColumnName FROM ADM_CostCenterDef WITH(NOLOCK) WHERE CostCenterColID=[CostCenterColIDBase]),
+				(SELECT SysColumnName FROM ADM_CostCenterDef WITH(NOLOCK) WHERE CostCenterColID=[CostCenterColIDLinked])
+			FROM COM_DocumentLinkDef WITH(NOLOCK) 
+			WHERE CostCenterIDLinked=@Document AND IsQtyExecuted=1
+		
+			SELECT @J=MIN(ID), @CNTDOCS = MAX(ID) FROM @TblMaps	
+			IF @CNTDOCS > 0
+			BEGIN	
+				WHILE(@J<=@CNTDOCS)
+				BEGIN
+					SELECT @CostCenterID=Document, @ColumnName=ColumnName, @lINKColumnName=LinkColumn FROM @TblMaps WHERE ID=@J
+					IF @lINKColumnName IS NOT NULL OR @lINKColumnName<>''''
+					BEGIN
+						IF len(@SubQry)>0
+							SET @SubQry=@SubQry+''
+							 UNION ALL ''
+						IF @lINKColumnName LIKE ''dcNum%''
+							SET @SubQry=@SubQry+''SELECT N.''+@lINKColumnName+'' Qty FROM INV_DocDetails B with(nolock) INNER JOIN COM_DocNumData N with(nolock) ON N.InvDocdetailsID=B.InvDocdetailsID WHERE A.InvDocDetailsID =B.LinkedInvDocDetailsID AND A.costcenterid=''+CONVERT(NVARCHAR,@Document)+@UnDocsWhere+'' AND B.costcenterid=''+CONVERT(NVARCHAR,@CostCenterID)
+						ELSE
+							SET @SubQry=@SubQry+''SELECT B.''+@lINKColumnName+'' Qty FROM INV_DocDetails B with(nolock) WHERE A.InvDocDetailsID =B.LinkedInvDocDetailsID AND A.costcenterid=''+CONVERT(NVARCHAR,@Document)+@UnDocsWhere+'' AND B.costcenterid=''+CONVERT(NVARCHAR,@CostCenterID)
+					END
+					SET @J=@J+1					
+				END
+			END
+			ELSE
+			BEGIN		
+				IF len(@SubQry)>0
+					SET @SubQry=@SubQry+'' UNION ALL ''
+				SET @SubQry=@SubQry+''SELECT 0 Qty''
+			END	
+		END
+		
+		SET @I=@I+1
+	END
+	
+	IF @NormalQuery<>''''
+	BEGIN
+		IF @SubQry=''''
+			SET @SubQry=''select 1 qty''
+			
+		SET @SubQry=''(case when A.LinkStatusID=445 then A.Quantity else (SELECT ISNULL(SUM(Qty),0) FROM (''+@SubQry+'') AS T) END)*A.UOMConversion Executed''
+		SET @SubQry=''SELECT A.ProductID,A.QUANTITY*A.UOMConversion QUANTITY,''+@SubQry+@TagColumn+'' FROM INV_DocDetails A with(nolock) inner join #TblProducts TP on TP.ProductID=A.ProductID ''+@CCWHERE
+		SET @NormalQuery=@SubQry+'' WHERE A.CostCenterID IN (''+@NormalQuery+'') AND A.StatusID<>376''
+		IF @HoldSaveQuery!=''''
+		BEGIN
+			SET @HoldSaveQuery='' AND (A.CostCenterID NOT IN (''+@HoldSaveQuery+'') OR A.StatusID<>369)''
+			SET @NormalQuery=@NormalQuery+@HoldSaveQuery
+		END
+		SET @NormalQuery=''select ProductID,QUANTITY,case when Executed>QUANTITY then QUANTITY else Executed end Executed''+@TagColumnAlias+'' from(''+@NormalQuery+'') as T''
+	END
+	
+	declare @cancelleddocs nvarchar(max)
+	select @cancelleddocs=Value from adm_globalPreferences WITH(NOLOCK) where  Name=''HoldResCancelledDocs''    
+	if(@cancelleddocs is not null and @cancelleddocs<>'''')
+		set @cancelleddocs='' or l.Costcenterid in(''+@cancelleddocs+'') ''	
+	else
+		set @cancelleddocs=''''
+	
+	IF @HoldQuery<>''''
+	BEGIN
+		SET @SubQry=@HoldQuery
+		SET @HoldQuery=''select ProductID,HoldQuantity QUANTITY,case when release>HoldQuantity then HoldQuantity else release end Executed''+@TagColumnAlias+''
+from  (
+	SELECT A.ProductID''+@TagColumn+'',A.HoldQuantity*max(A.UOMConversion) HoldQuantity,
+	isnull(sum(case when l.IsQtyIgnored=0''+@cancelleddocs+'' then l.Quantity else l.ReserveQuantity end),0)*max(A.UOMConversion) release 
+	FROM INV_DocDetails A WITH(NOLOCK) inner join #TblProducts TP on TP.ProductID=A.ProductID
+	left join INV_DocDetails l  WITH(NOLOCK) on A.InvDocDetailsID=l.LinkedInvDocDetailsID ''+@CCWHERE +''
+	WHERE A.StatusID''
+		if exists(select Value from adm_globalPreferences WITH(NOLOCK) where  Name=''ConsiderUnAppInHold'' and value=''true'')
+			set @HoldQuery=@HoldQuery+'' in (371,441,369)''
+		else	
+			set @HoldQuery=@HoldQuery+''=369''
+		SET @HoldQuery=@HoldQuery+'' AND A.LinkStatusID!=445 AND A.CostCenterID IN (''+@SubQry+'')	group by A.ProductID, A.InvDocDetailsID,A.HoldQuantity''+@TagColumn+'') 	as t''
+	
+		IF @NormalQuery<>''''
+			SET @HoldQuery='' UNION ALL ''+@HoldQuery
+	END
+	
+	IF @ReserveQuery<>''''
+	BEGIN
+		SET @SubQry=@ReserveQuery
+		SET @ReserveQuery=''select ProductID,HoldQuantity QUANTITY,case when release>HoldQuantity then HoldQuantity else release end Executed''+@TagColumnAlias+''
+from  (
+	SELECT A.ProductID''+@TagColumn+'',A.ReserveQuantity*max(A.UOMConversion) HoldQuantity,
+	isnull(sum(case when l.IsQtyIgnored=0''+@cancelleddocs+'' then l.Quantity else l.ReserveQuantity end),0)*max(A.UOMConversion) release 
+	FROM INV_DocDetails A WITH(NOLOCK) inner join #TblProducts TP on TP.ProductID=A.ProductID
+	left join INV_DocDetails l  WITH(NOLOCK) on A.InvDocDetailsID=l.LinkedInvDocDetailsID ''+@CCWHERE +''
+	WHERE A.StatusID'' 
+		if exists(select Value from adm_globalPreferences WITH(NOLOCK) where  Name=''ConsiderUnAppInHold'' and value=''true'')
+			set @ReserveQuery=@ReserveQuery+'' in (371,441,369)''
+		else	
+			set @ReserveQuery=@ReserveQuery+''=369''
+		SET @ReserveQuery=@ReserveQuery+'' AND A.LinkStatusID!=445 AND A.CostCenterID IN (''+@SubQry+'') group by A.ProductID,A.InvDocDetailsID,A.ReserveQuantity''+@TagColumn+'') 	as t''
+	
+		IF @NormalQuery<>'''' OR @HoldQuery<>''''
+			SET @ReserveQuery='' UNION ALL ''+@ReserveQuery		
+	END
+	
+	
+	SET @Query=''SELECT ProductID,SUM(QUANTITY)-SUM(Executed) PendingOrders''+@TagColumnAlias+'' FROM (''+ @NormalQuery+@HoldQuery+@ReserveQuery+'') AS T GROUP BY ProductID''+@TagColumnAlias
+
+    RETURN @Query
+END;
+' 
+END
+
+GO
+/****** Object:  UserDefinedFunction [dbo].[fnRPT_GetAdjustedDocNos]    Script Date: 21-09-2026 08:54:48 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[fnRPT_GetAdjustedDocNos]') AND type in (N'FN', N'IF', N'TF', N'FS', N'FT'))
+BEGIN
+execute dbo.sp_executesql @statement = N'-- =============================================
+-- Author:		Adil
+-- Create date: 20 Aug 2013
+-- Description:	Returns adjusted docnos
+--==============================
+CREATE FUNCTION [dbo].[fnRPT_GetAdjustedDocNos] 
+(
+	@VoucherNo nvarchar(100),
+	@AccountID INT
+)
+RETURNS nvarchar(max)
+AS
+BEGIN
+
+	declare @Docs nvarchar(max)
+	set @Docs=''''
+	select @Docs=@Docs+'', ''+isnull(DocNo,'''')
+	FROM (
+	SELECT CB.DocNo DocNo FROM COM_Billwise CB WITH(NOLOCK) 
+	WHERE IsNewReference=0 AND CB.RefDocNo=@VoucherNo AND (0=@AccountID OR CB.AccountID=@AccountID)
+	UNION
+	SELECT CB.RefDocNo DocNo FROM COM_Billwise CB WITH(NOLOCK)
+	WHERE IsNewReference=0 AND CB.DocNo=@VoucherNo AND (0=@AccountID OR CB.AccountID=@AccountID)
+	) AS T
+	
+	
+	-- Return the result of the function
+	if len(@Docs)>2
+	begin
+		set @Docs=substring(@Docs,3,len(@Docs)-2)
+	end
+	else
+	begin
+		declare @TblDocs TABLE (ID INT IDENTITY(1,1) PRIMARY KEY, VoucherNo nvarchar(50),ParentVoucherNo nvarchar(50),DetailsID INT,LinkedDetailsID INT)
+		
+		INSERT INTO @TblDocs(VoucherNo,ParentVoucherNo,DetailsID,LinkedDetailsID)
+		select distinct D.VoucherNo,P.VoucherNo,D.InvDocDetailsID,D.LinkedInvDocDetailsID
+		FROM INV_DocDetails D with(nolock) 
+		LEFT JOIN INV_DocDetails P with(nolock) ON P.InvDocDetailsID=D.LinkedInvDocDetailsID
+		WHERE D.VoucherNo=@VoucherNo and D.DynamicInvDocDetailsID is null
+
+		if exists (SELECT ID FROM @TblDocs)
+		begin
+			DECLARE @I INT=0,@CNT INT
+			WHILE(1=1)
+			BEGIN		
+				SET @CNT=(SELECT Count(*) FROM @TblDocs)
+				if @CNT>10000
+					break
+					
+				IF @I=0
+					INSERT INTO @TblDocs(VoucherNo,ParentVoucherNo,DetailsID,LinkedDetailsID)
+					SELECT distinct INV.VoucherNo,TINV.VoucherNo,INV.InvDocDetailsID,INV.LinkedInvDocDetailsID
+					FROM INV_DocDetails INV with(nolock) 
+					INNER JOIN INV_DocDetails TINV with(nolock) on TINV.InvDocDetailsID=INV.LinkedInvDocDetailsID
+					INNER JOIN @TblDocs T ON TINV.VoucherNo collate database_default=T.VoucherNo collate database_default AND ID>@I and ID=1
+					LEFT JOIN @TblDocs TD on TD.DetailsID=INV.LinkedInvDocDetailsID AND TD.ParentVoucherNo collate database_default=TINV.VoucherNo collate database_default
+					where TD.VoucherNo IS NULL and INV.CostCenterID>0 and INV.DynamicInvDocDetailsID is null
+				ELSE
+					INSERT INTO @TblDocs(VoucherNo,ParentVoucherNo,DetailsID,LinkedDetailsID)
+					SELECT distinct INV.VoucherNo,TINV.VoucherNo,INV.InvDocDetailsID,INV.LinkedInvDocDetailsID
+					FROM INV_DocDetails INV with(nolock) 
+					INNER JOIN INV_DocDetails TINV with(nolock) on TINV.InvDocDetailsID=INV.LinkedInvDocDetailsID
+					INNER JOIN @TblDocs T ON TINV.VoucherNo collate database_default=T.VoucherNo collate database_default AND ID>@I and ID<=@CNT
+					LEFT JOIN @TblDocs TD on TD.DetailsID=INV.LinkedInvDocDetailsID AND TD.ParentVoucherNo collate database_default=TINV.VoucherNo collate database_default
+					where TD.VoucherNo IS NULL and INV.CostCenterID>0 and INV.DynamicInvDocDetailsID is null
+					
+				IF @CNT=(SELECT Count(*) FROM @TblDocs)
+					BREAK			
+				SET @I=@CNT
+			END
+		
+			select @Docs=@Docs+'', ''+isnull(DocNo,'''')
+			FROM ( select B.RefDocNo DocNo from @TblDocs T 
+				join COM_BillWise B with(nolock) on T.VoucherNo collate database_default=B.DocNo collate database_default
+				where B.RefDocNo is not null AND B.RefDocNo<>'''' AND (0=@AccountID OR B.AccountID=@AccountID)
+				union
+				select B.DocNo from @TblDocs T
+				join COM_BillWise B with(nolock) on T.VoucherNo collate database_default=B.RefDocNo collate database_default
+				where B.DocNo is not null AND B.DocNo<>'''' AND (0=@AccountID OR B.AccountID=@AccountID) ) AS B
+
+			if len(@Docs)>2
+				set @Docs=substring(@Docs,3,len(@Docs)-2)
+
+		 end
+	end
+	return @Docs
+
+END
+' 
+END
+
+GO

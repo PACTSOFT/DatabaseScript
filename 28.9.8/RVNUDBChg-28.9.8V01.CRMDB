@@ -1,0 +1,30 @@
+--waseem
+declare @Rid int,@col int
+select @Rid=MAX(ResourceID) from COM_LanguageResources 
+set @Rid=@Rid+1
+ IF NOT EXISTS (SELECT CostCenterID FROM [ADM_CostCenterDef] WITH(NOLOCK) WHERE [LocalReference]=83 AND CostCenterID=144 and  SysColumnName='ActStartDate') 
+ begin
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'Actual Start Date',1,'English','Actual Start Date','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',convert(float,getdate()),NULL,NULL,'')
+ 
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'Actual Start Date',2,'Arabic','Actual Start Date-AR','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',convert(float,getdate()),NULL,NULL,'')
+
+INSERT [dbo].[ADM_CostCenterDef] ([CostCenterID],  [ResourceID], [CostCenterName], [SysTableName], [UserColumnName], [SysColumnName], [ColumnTypeSeqNumber], [UserColumnType], [ColumnDataType], [UserDefaultValue], [UserProbableValues], [ColumnOrder], [IsMandatory], [IsEditable], [IsVisible], [IsCostCenterUserDefined], [IsColumnUserDefined], [IsCCDeleted], [IsColumnDeleted], [ColumnCostCenterID], [ColumnCCListViewTypeID], [FetchMaxRows], [IsColumnGroup], [ColumnGroupNumber], [SectionSeqNumber], [SectionID], [SectionName], [RowNo], [ColumnNo], [ColumnSpan], [IsColumnInUse], [UIWidth], [CompanyGUID], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate], [IsUnique], [IsForeignKey], [ParentCostCenterID], [ParentCostCenterColID], [IsValidReportBuilderCol], [ParentCostCenterSysName], [ParentCostCenterColSysName], [ParentCCDefaultColID], [LinkData], [LocalReference], [Decimal], [TextFormat], [Filter], [IsRepeat], [LastValueVouchers], [IsnoTab], [dependancy], [dependanton], [IsTransfer], [DbFilter], [CrFilter], [ShowInQuickAdd], [QuickAddOrder], [Calculate], [Cformula], [IsReEvaluate], [IgnoreChar], [WaterMark])
+VALUES (144,  @Rid, N'Activities', N'CRM_Activities', N'Actual Start Date', N'ActStartDate', 0, N'Date', N'Date', N'', N'', 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, NULL, 0, NULL, 100, NULL, NULL, 8, 1, 1, 1, 100, N'CompanyGUID', N'094D7155-54D7-4F7E-8CC2-AF40F8226858', N'', N'ADMIN', 22, NULL, NULL, 0, 1, NULL, 0, 1, NULL, NULL, NULL, NULL, 83, NULL, 0, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, 649, NULL)
+end
+ IF NOT EXISTS (SELECT CostCenterID FROM [ADM_CostCenterDef] WITH(NOLOCK) WHERE [LocalReference]=83 AND CostCenterID=144 and  SysColumnName='ActEndDate') 
+ begin
+	set @Rid=@Rid+1  
+
+	INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid,'Actual End Date',1,'English','Actual End Date','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',convert(float,getdate()),NULL,NULL,'')
+ 
+	INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid,'Actual End Date',2,'Arabic','Actual End Date-AR','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',convert(float,getdate()),NULL,NULL,'')
+
+	INSERT [dbo].[ADM_CostCenterDef] ([CostCenterID],  [ResourceID], [CostCenterName], [SysTableName], [UserColumnName], [SysColumnName], [ColumnTypeSeqNumber], [UserColumnType], [ColumnDataType], [UserDefaultValue], [UserProbableValues], [ColumnOrder], [IsMandatory], [IsEditable], [IsVisible], [IsCostCenterUserDefined], [IsColumnUserDefined], [IsCCDeleted], [IsColumnDeleted], [ColumnCostCenterID], [ColumnCCListViewTypeID], [FetchMaxRows], [IsColumnGroup], [ColumnGroupNumber], [SectionSeqNumber], [SectionID], [SectionName], [RowNo], [ColumnNo], [ColumnSpan], [IsColumnInUse], [UIWidth], [CompanyGUID], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate], [IsUnique], [IsForeignKey], [ParentCostCenterID], [ParentCostCenterColID], [IsValidReportBuilderCol], [ParentCostCenterSysName], [ParentCostCenterColSysName], [ParentCCDefaultColID], [LinkData], [LocalReference], [Decimal], [TextFormat], [Filter], [IsRepeat], [LastValueVouchers], [IsnoTab], [dependancy], [dependanton], [IsTransfer], [DbFilter], [CrFilter], [ShowInQuickAdd], [QuickAddOrder], [Calculate], [Cformula], [IsReEvaluate], [IgnoreChar], [WaterMark])
+	VALUES (144,  @Rid, N'Activities', N'CRM_Activities', N'Actual End Date', N'ActEndDate', 0, N'Date', N'Date', N'', N'', 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, NULL, 0, NULL, 100, NULL, NULL, 8, 1, 1, 1, 100, N'CompanyGUID', N'094D7155-54D7-4F7E-8CC2-AF40F8226858', N'', N'ADMIN', 22, NULL, NULL, 0, 1, NULL, 0, 1, NULL, NULL, NULL, NULL, 83, NULL, 0, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, 649, NULL)
+ 
+ end

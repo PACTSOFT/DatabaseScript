@@ -1,0 +1,13 @@
+
+--Sameer
+if(not exists(select 1 from sys.columns where name = 'MobilePaging' and Object_ID=Object_ID('dbo.ADM_GridView')))
+begin
+	ALTER TABLE ADM_GridView ADD MobilePaging bit default(1) not null;
+end
+
+declare @RefreshTime int
+select @RefreshTime = Value from REN_FM_Mobile_Configuration WITH(NOLOCK) where Name='FmDashboardRefreshmentTime'
+if(@RefreshTime = 30)
+begin
+	update REN_FM_Mobile_Configuration set Value = 120 where Name='FmDashboardRefreshmentTime'
+end

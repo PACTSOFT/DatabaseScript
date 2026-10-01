@@ -1,0 +1,24 @@
+--Ibrahim
+
+IF NOT EXISTS(SELECT * FROM COM_CostCenterPreferences WHERE CostCenterID=72 AND Name IN ('DisposeSIV'))
+BEGIN
+	DECLARE @ResID INT
+
+	SELECT @ResID=MAX(ResourceID)+1 FROM COM_LanguageResources WITH(NOLOCK)
+	INSERT INTO COM_LanguageResources (ResourceID, ResourceName, LanguageID, LanguageName, ResourceData,FEATURE)
+	VALUES (@ResID, 'DisposeSIV',1,'English','Dispose SIV' ,'Asset')
+	INSERT INTO COM_CostCenterPreferences
+	SELECT 72,72,@ResID,'DisposeSIV',0,0,'','GUID','DefaultPostSIV','Admin',CONVERT(FLOAT,GETDATE()),'Admin',CONVERT(FLOAT,GETDATE())
+
+	SELECT @ResID=MAX(ResourceID)+1 FROM COM_LanguageResources WITH(NOLOCK)
+	INSERT INTO COM_LanguageResources (ResourceID, ResourceName, LanguageID, LanguageName, ResourceData,FEATURE)
+	VALUES (@ResID, 'DDefaultPostSIV',2,'Arabic','DDefaultPostSIV' ,'Asset')
+	INSERT INTO COM_CostCenterPreferences
+	SELECT 72,72,@ResID,'DDefaultPostSIV',2,2,'','GUID','DefaultPostSIV','Admin',CONVERT(FLOAT,GETDATE()),'Admin',CONVERT(FLOAT,GETDATE())
+
+	SELECT @ResID=MAX(ResourceID)+1 FROM COM_LanguageResources WITH(NOLOCK)
+	INSERT INTO COM_LanguageResources (ResourceID, ResourceName, LanguageID, LanguageName, ResourceData,FEATURE)
+	VALUES (@ResID, 'DPostSIVMand',3,'Italian','DPostSIVMand' ,'Asset')
+	INSERT INTO COM_CostCenterPreferences
+	SELECT 72,72,@ResID,'DPostSIVMand',2,2,'','GUID','DefaultPostSIV','Admin',CONVERT(FLOAT,GETDATE()),'Admin',CONVERT(FLOAT,GETDATE())
+END

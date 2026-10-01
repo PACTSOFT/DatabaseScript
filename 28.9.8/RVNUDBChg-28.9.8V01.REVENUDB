@@ -1,0 +1,26 @@
+--Sajid
+DECLARE @FROMCCID INT,@TOCCID INT,@Rid INT
+SELECT @TOCCID=MAX(COSTCENTERID) FROM ADM_DOCUMENTTYPES WITH(NOLOCK) where DocumentType not IN (38,39)
+SELECT @Rid=MAX(ResourceID) from COM_LanguageResources WITH(NOLOCK)
+SET @Rid=@Rid+1
+SET @FROMCCID=40000
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'DontDeletePostedDocAttachments',1,'English','Do not allow to delete posted doc attachments',NEWID(),NULL,'ADMIN',convert(float,getdate()),NULL,NULL,'FeatureAction')
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'DontDeletePostedDocAttachments',2,'Arabic','Do not allow to delete posted doc attachments - AR',NEWID(),NULL,'ADMIN',convert(float,getdate()),NULL,NULL,'FeatureAction')
+
+
+WHILE(@FROMCCID<=@TOCCID)
+BEGIN		
+ IF ((SELECT COUNT(*) FROM ADM_DOCUMENTTYPES WITH(NOLOCK) WHERE COSTCENTERID=@FROMCCID)>0)
+ BEGIN
+	IF NOT EXISTS(SELECT Name FROM [ADM_FeatureAction] WITH(NOLOCK) WHERE FeatureID=@FROMCCID AND [Name]='Do not allow to delete posted doc attachments')
+	BEGIN
+		INSERT INTO [adm_featureaction] ([Name],[ResourceID],[FeatureID],[FeatureActionTypeID],[ApplicationID],[GridShortCut],[Description],[Status],[CreatedDate],[CreatedBy])
+		VALUES('Do not allow to delete posted doc attachments',@RID,@FROMCCID,961,1,NULL,NULL,1,CONVERT(FLOAT,GETDATE()),'ADMIN')
+	END
+ END	
+SET @FROMCCID=@FROMCCID+1
+END
