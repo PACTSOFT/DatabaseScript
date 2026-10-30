@@ -1,0 +1,20 @@
+--waseem
+IF NOT EXISTS(SELECT PrefName FROM [COM_DOCUMENTPREFERENCES] WITH(NOLOCK) WHERE  PrefName='DonotOverlapActivities')
+BEGIN
+	declare @Rid INT
+	SELECT @Rid=MAX([ResourceID])+1 FROM [Com_LanguageResources] WITH(NOLOCK)
+
+	INSERT INTO [Com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid+1,'DonotOverlapActivities',1,'English','DonotOverlapActivities',NULL,NULL,NULL,NULL,NULL,NULL,'')	
+	INSERT INTO [Com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid+1,'DonotOverlapActivities',2,'Arabic','DonotOverlapActivities-AR',NULL,NULL,NULL,NULL,NULL,NULL,'')	
+
+	INSERT [dbo].[COM_CostCenterPreferences] ( [CostCenterID], [FeatureID], [ResourceID], [Name], [Value], [DefaultValue], [ProbableValues], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate]) 
+	VALUES (86, 86, @Rid, N'DonotOverlapActivities', N'False', N'False', NULL, N'GUID', N'DonotOverlapActivities', N'admin', CONVERT(FLOAT,GETDATE()), N'admin',  CONVERT(FLOAT,GETDATE()))
+	set @Rid=@Rid+1
+	INSERT [dbo].[COM_CostCenterPreferences] ( [CostCenterID], [FeatureID], [ResourceID], [Name], [Value], [DefaultValue], [ProbableValues], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate]) 
+	VALUES (89, 89, @Rid, N'DonotOverlapActivities', N'False', N'False', NULL, N'GUID', N'DonotOverlapActivities', N'admin', CONVERT(FLOAT,GETDATE()), N'admin',  CONVERT(FLOAT,GETDATE()))
+	set @Rid=@Rid+1
+	INSERT [dbo].[COM_CostCenterPreferences] ( [CostCenterID], [FeatureID], [ResourceID], [Name], [Value], [DefaultValue], [ProbableValues], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate]) 
+	VALUES (83, 83, @Rid, N'DonotOverlapActivities', N'False', N'False', NULL, N'GUID', N'DonotOverlapActivities', N'admin', CONVERT(FLOAT,GETDATE()), N'admin',  CONVERT(FLOAT,GETDATE()))
+end

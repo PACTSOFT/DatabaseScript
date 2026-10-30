@@ -1,0 +1,8 @@
+--KHAJA
+
+
+UPDATE INV_GSTMapping SET DefColumnName='dcCCNID67'  WHERE CostCenterID=0 and GSTType='UAEUBL' and GSTColumnName='ItemClassification'
+UPDATE INV_GSTMapping SET SysColumnName='dcCCNID67'  WHERE CostCenterID!=0 and GSTType='UAEUBL' and GSTColumnName='ItemClassification'
+UPDATE INV_GSTMapping SET SysColumnName='dcCCNID61'  WHERE CostCenterID!=0 and GSTType='UAEUBL' and GSTColumnName='VATCategory'
+UPDATE INV_GSTMapping SET SysColumnName='dcCCNID104'  WHERE CostCenterID!=0 and GSTType='UAEUBL' and GSTColumnName='VATExemptionReason'
+UPDATE INV_GSTMapping SET DefColumnName='dcCCNID98'  WHERE CostCenterID=0 and GSTType='UAEUBL' and GSTColumnName='ReturnReason'

@@ -1,0 +1,16 @@
+--Subhani
+
+DECLARE @RId BIGINT
+SELECT @RId=MAX([ResourceID])+1 FROM [Com_LanguageResources] WITH(NOLOCK)
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@RId,'ASP',1,'English','ASP','GUID',NULL,'ADMIN',CONVERT(FLOAT,GETDATE()),NULL,NULL,'')
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@RId,'ASP',2,'Arabic','ASP-AR','GUID',NULL,'ADMIN',CONVERT(FLOAT,GETDATE()),NULL,NULL,'')
+
+IF NOT EXISTS(SELECT 1 FROM ADM_GlobalPreferences WITH(NOLOCK) WHERE NAME='ASP')
+BEGIN
+	Insert into ADM_GlobalPreferences(ResourceID, Name, Value, DefaultValue, GUID, Description, CreatedBy, CreatedDate, ModifiedBy, ModifiedDate, PreferenceTypeName, PrefRowOrder, PrefColOrder, PrefValueType, Version)
+	SELECT @RID,'ASP','0','0','GUID','UAE-EINV','ADMIN',CONVERT(FLOAT,GETDATE()),'ADMIN',CONVERT(FLOAT,GETDATE()),null,null,null,null,NULL
+END

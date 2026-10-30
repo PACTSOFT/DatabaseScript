@@ -1,0 +1,12 @@
+--Subhani
+
+
+IF EXISTS(SELECT 1 FROM SYS.TABLES WHERE NAME='PRD_JobOuputProductsHistory')
+BEGIN
+	IF NOT EXISTS(SELECT 1 FROM SYS.TABLES TAB 
+	LEFT JOIN SYS.COLUMNS SCO ON TAB.object_id=SCO.object_id
+	 WHERE TAB.NAME='PRD_JobOuputProductsHistory' AND SCO.Name='HistoryStatus')
+	 BEGIN
+		ALTER TABLE [dbo].[PRD_JobOuputProductsHistory] ADD [HistoryStatus] [nvarchar](50) NOT NULL
+	 END
+END

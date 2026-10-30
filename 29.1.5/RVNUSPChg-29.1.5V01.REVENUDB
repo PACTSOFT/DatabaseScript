@@ -1,0 +1,849 @@
+﻿--Sajid
+/****** Object:  StoredProcedure [dbo].[spCOM_SetFavorite]    Script Date: 27-10-2026 12:51:27 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spCOM_SetFavorite]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spCOM_SetFavorite]
+GO
+/****** Object:  StoredProcedure [dbo].[spCOM_GetFavorites]    Script Date: 27-10-2026 12:51:27 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spCOM_GetFavorites]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spCOM_GetFavorites]
+GO
+/****** Object:  StoredProcedure [dbo].[spCOM_GetFavorites]    Script Date: 27-10-2026 12:51:27 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spCOM_GetFavorites]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'
+CREATE procedure [dbo].[spCOM_GetFavorites]
+	@Call nvarchar(50)=null, 
+	@FavID bigint,
+	@UserID BIGINT,
+	@RoleID INT,  
+	@LangID INT=1,  
+	@CompanyIndex INT=1  
+AS  
+BEGIN TRY   
+SET NOCOUNT ON  
+   
+	--Declaration Section  
+	DECLARE @HasAccess BIT,@SQL nvarchar(max)
+
+	--SP Required Parameters Check  
+	IF @UserID<1  
+	BEGIN  
+		RAISERROR(''-100'',16,1)  
+	END
+	
+	DECLARE @TABLE TABLE(ID INT IDENTITY(1,1),FeatureactionID BIGINT,FeatureID BIGINT,  
+	FeatureActionName NVARCHAR(300),DisplayName NVARCHAR(300),RowNo INT,ColumnNo INT,ShortCutKey NVARCHAR(300),TabID INT,TabName NVARCHAR(300),  
+	GROUPID INT,GroupName NVARCHAR(300),ScreenName NVARCHAR(300),ImagePath NVARCHAR(300),ButtonKeyTip NVARCHAR(300),isReport int,
+	FeatureActionTypeID int,FavName NVARCHAR(200),Link nvarchar(max),Category nvarchar(100),DarkColor nvarchar(100),LightColor nvarchar(100))
+
+	IF @Call like ''GETLIST%''
+	BEGIN
+		--select ID,FavName from COM_Favourite F with(nolock) join ADM_Assign M with(nolock) on F.ID=M.NodeID
+		--where F.TypeID=1 and M.CostCenterID=69 and (M.UserID=@UserID or M.RoleID=@RoleID) group by ID,FavName order by FavName
+
+		IF(@UserID=1 OR @RoleID=1)
+		BEGIN
+			select ID,case isnull(s.ResourceData,'''') when '''' then FavName else s.ResourceData end FavName
+			 from COM_Favourite F with(nolock) 
+			LEFT JOIN COM_LanguageResources S  WITH(NOLOCK) ON S.ResourceName=F.FavName AND S.LanguageID=@LangID  
+			where F.TypeID=1 
+			group by ID,FavName,s.ResourceData order by FavName
+		END
+		ELSE
+		BEGIN
+			--select ID,case isnull(s.ResourceData,'''') when '''' then FavName else s.ResourceData end FavName
+			-- from COM_Favourite F with(nolock) join ADM_Assign M with(nolock) on F.ID=M.NodeID
+			--LEFT JOIN COM_LanguageResources S  WITH(NOLOCK) ON S.ResourceName=F.FavName AND S.LanguageID=@LangID  
+			--where F.TypeID=1 and M.CostCenterID=69 and (M.UserID=@UserID or M.RoleID=@RoleID)
+			--group by ID,FavName,s.ResourceData order by FavName
+
+			--Check Global Preference ''FavouritesDimension'' assigned for user/role
+			Declare @strSql nvarchar(max),@strWhere nvarchar(max),@favDim int
+			set @strWhere=''''
+			if (exists(select value from ADM_GlobalPreferences with(nolock) where Name=''FavouritesDimension'' and isnull(value,'''')<>'''' and convert(int,value)>50000))
+			begin
+				select @favDim=value from ADM_GlobalPreferences with(nolock) where Name=''FavouritesDimension''
+				if (exists(select NodeID from ADM_Assign with(nolock) WHERE TypeCCID=@favDim and CostCenterID=69 and (UserID=@UserID or RoleID=@RoleID)))
+				begin
+					set @strWhere='' join COM_CostCenterCostCenterMap CCMAP WITH(NOLOCK) ON M.TypeCCID=CCMAP.CostCenterID and M.TypeNodeID=CCMAP.NODEID
+										and  CCMAP.ParentCostCenterID=7 AND CCMAP.ParentNodeID=''+ convert(nvarchar,@UserID) +''''
+				end
+			end
+
+			set @strSql=''''
+			set @strSql=''select ID,case isnull(s.ResourceData,'''''''') when '''''''' then FavName else s.ResourceData end FavName
+			 from COM_Favourite F with(nolock) join ADM_Assign M with(nolock) on F.ID=M.NodeID ''
+			if(isnull(@strWhere,'''')<>'''')
+				set @strSql=@strSql + isnull(@strWhere,'''')
+			set @strSql=@strSql + '' LEFT JOIN COM_LanguageResources S  WITH(NOLOCK) ON S.ResourceName=F.FavName AND S.LanguageID=''+ convert(nvarchar,@LangID) +''
+			where F.TypeID=1 and M.CostCenterID=69 and (M.UserID=''+ convert(nvarchar,@UserID) +'' or M.RoleID=''+ convert(nvarchar,@RoleID) +'')
+			group by ID,FavName,s.ResourceData order by FavName''
+			--print (@strSql)
+			exec (@strSql)
+		END
+
+		--select FavID from COM_Favourite F with(nolock) where TypeID=3 and FeatureActionID=@UserID
+		declare @FavID1 int	--TicketID 195327
+		set @FavID1=isnull((select FavID from COM_Favourite F with(nolock) where TypeID=3 and FeatureActionID=@UserID),0)
+		if(@FavID1=0)
+		begin
+			select @FavID1=FavID from COM_Favourite F with(nolock) where TypeID=3 and favid in (
+			select NodeID from  ADM_Assign with(nolock)  where CostCenterID=69 and (RoleID=@RoleID or UserID=@UserID))
+		end
+		select @FavID1 as FavID
+
+		declare @LocID int
+		set @Call=replace(@Call,''GETLIST'','''')
+		if isnumeric(@Call)=1
+			set @LocID=convert(int,@Call)
+		else
+			set @LocID=0
+		set @Call=''''
+		if @LocID>0
+			select TOP 1 @Call=GUID+''.''+FileExtension from COM_Files with(nolock) where CostCenterID=50002 and IsProductImage=1 and FeaturePK=@LocID
+			order by (CASE WHEN IsDefaultImage=0 THEN 100 ELSE IsDefaultImage END),FileID
+		if @Call is null or @Call=''''
+			SELECT @Call=LogoExt FROM PACT2C.dbo.ADM_Company with(nolock) WHERE DBIndex=@CompanyIndex Order by StatusID ASC
+		select @Call LogoExt
+	END
+	ELSE IF @Call=''GETDASHBOARDLIST''
+	BEGIN
+		--select ID,FavName from COM_Favourite F with(nolock) join ADM_Assign M with(nolock) on F.ID=M.NodeID
+		--where F.TypeID=1 and M.CostCenterID=69 and (M.UserID=@UserID or M.RoleID=@RoleID) group by ID,FavName order by FavName
+		
+		IF(@UserID=1 OR @RoleID=1)
+		BEGIN
+			select ID,case isnull(s.ResourceData,'''') when '''' then FavName else s.ResourceData end FavName
+			from COM_Favourite F with(nolock) 
+			LEFT JOIN COM_LanguageResources S  WITH(NOLOCK) ON S.ResourceName=F.FavName AND S.LanguageID=@LangID  
+			where F.TypeID=1 
+			group by ID,FavName,s.ResourceData order by FavName
+		END
+		ELSE 
+		BEGIN
+			select ID,case isnull(s.ResourceData,'''') when '''' then FavName else s.ResourceData end FavName
+			from COM_Favourite F with(nolock) join ADM_Assign M with(nolock) on F.ID=M.NodeID
+			LEFT JOIN COM_LanguageResources S  WITH(NOLOCK) ON S.ResourceName=F.FavName AND S.LanguageID=@LangID  
+			where F.TypeID=1 and M.CostCenterID=69 and (M.UserID=@UserID or M.RoleID=@RoleID) group by ID,FavName,s.ResourceData order by FavName
+		END
+
+	END
+	ELSE IF @Call=''DELETE'' OR @Call=''FORCEDELETE''
+	BEGIN
+		if @Call=''DELETE'' and exists(select * from ADM_Assign with(nolock) where CostCenterID=69 and NodeID=@FavID and UserID!=@UserID)
+		begin
+			SELECT ''Favourite assigned to users. Still do you want to delete?'' DeleteError
+			ROLLBACK TRANSACTION
+			return -101
+		end
+		DELETE FROM COM_Favourite WHERE FavID=@FavID
+		DELETE FROM COM_Favourite WHERE ID=@FavID
+		delete from ADM_Assign where CostCenterID=69 and NodeID=@FavID
+		select @FavID Deleted
+	END
+	ELSE IF @Call=''VIEW''
+	BEGIN
+		INSERT INTO @TABLE  
+		select distinct cf.FeatureactionID,cf.FeatureID,null FeatureActionName,  
+		s.ResourceData DisplayName,--cf.DisplayName,
+		cf.RowNo,cf.ColumnNo,cf.ShortCutKey, R.TabID,null TabName,   
+		R.GROUPID,null GroupName,
+		s.ResourceData ScreenName,--R.ScreenName,
+		R.ImagePath,R.ButtonKeyTip,0, af.FeatureActionTypeID ,
+		cf.FavName  FavoriteName,cf.Link,cf.Category,R.DarkColor,R.LightColor
+		from COM_Favourite cf WITH(NOLOCK) 
+		join ADM_RibbonView R WITH(NOLOCK) on cf.FeatureactionID=R.FeatureActionID AND cf.FeatureID=R.FeatureID 
+		LEFT JOIN ADM_FeatureAction af  WITH(NOLOCK) ON   cf.FeatureactionID=af.FeatureactionID 
+		LEFT JOIN ADM_FeatureActionRoleMap far  WITH(NOLOCK) ON far.FeatureActionID=af.FeatureactionID and far.roleid=@RoleID 
+		LEFT JOIN COM_LanguageResources S  WITH(NOLOCK) ON S.ResourceID=cf.ResourceID AND S.LanguageID=@LangID  
+		WHERE cf.FavID=@FavID AND cf.isReport=0 --and af.featureid is not null 
+		and (far.featureactionrolemapid is not null or cf.featureid IN (498,499)  or (cf.featureid between 40001 and 49999 and (af.FeatureActionTypeID=1 or af.FeatureActionTypeID=2)))
+		order by cf.RowNo,cf.ColumnNo
+		--select distinct cf.FeatureactionID,cf.FeatureID,null FeatureActionName,  
+		--s.ResourceData DisplayName,--cf.DisplayName,
+		--cf.RowNo,cf.ColumnNo,cf.ShortCutKey, R.TabID,null TabName,   
+		--R.GROUPID,null GroupName,
+		--s.ResourceData ScreenName,--R.ScreenName,
+		--R.ImagePath,R.ButtonKeyTip,0, af.FeatureActionTypeID ,
+		--cf.FavName  FavoriteName,cf.Link,cf.Category
+		--from COM_Favourite cf WITH(NOLOCK) 
+		--join ADM_RibbonView R WITH(NOLOCK) on cf.FeatureactionID=R.FeatureActionID AND cf.FeatureID=R.FeatureID 
+		--LEFT JOIN ADM_FeatureAction af  WITH(NOLOCK) ON   cf.FeatureactionID=af.FeatureactionID 
+		--LEFT JOIN ADM_FeatureActionRoleMap far  WITH(NOLOCK) ON far.FeatureActionID=af.FeatureactionID and far.roleid=@RoleID 
+		--LEFT JOIN COM_LanguageResources S  WITH(NOLOCK) ON S.ResourceID=R.ScreenResourceID AND S.LanguageID=@LangID  
+		--WHERE cf.FavID=@FavID AND cf.isReport=0 --and af.featureid is not null 
+		--and (far.featureactionrolemapid is not null or cf.featureid=498  or (cf.featureid between 40001 and 49999 and (af.FeatureActionTypeID=1 or af.FeatureActionTypeID=2)))
+		--order by cf.RowNo,cf.ColumnNo
+		
+		declare @OptXML xml
+		select @OptXML = OptionsXML from COM_Favourite F with(nolock) where TypeID=1 and ID=@FavID
+		
+		if(select X.value(''CheckReportSecurity[1]'',''int'') FROM @OptXML.nodes(''/XML'') as Data(X))=1
+			INSERT INTO @TABLE  
+			SELECT distinct ADM_RevenUReports.REPORTID FeatureActionID,ADM_RevenUReports.ParentID,ADM_RevenUReports.ReportName FeatureActionName,cf.DisplayName,cf.RowNo,cf.ColumnNo,cf.ShortCutKey,  
+			''6'' ''TabID'', ''Reports'' ''TabName'',R.REPORTID GroupID,R.ReportName GroupName,''Reports'', 
+			''REP_List-of-reports.png'',NULL,1, case when @RoleID!=1 and S.ReportID is null then 0 else 1 end ,   cf.FavName  FavoriteName,cf.Link,cf.Category,'''',''''
+			FROM COM_Favourite cf WITH(NOLOCK)      
+			INNER JOIN ADM_RevenUReports WITH(NOLOCK) ON ADM_RevenUReports.REPORTID=cf.FeatureactionID  
+			LEFT JOIN ADM_RevenUReports R WITH(NOLOCK) ON R.REPORTID=ADM_RevenUReports.PARENTID
+			left join (SELECT R.ReportID FROM ADM_ReportsUserMap M with(nolock) inner join ADM_RevenUReports R with(nolock) on R.ReportID=M.ReportID and R.IsGroup=0 and (M.ActionType=1 or M.ActionType=0)
+				WHERE UserID=@UserID OR RoleID = @RoleID OR GroupID IN (SELECT GID FROM COM_Groups with(nolock) WHERE UserID=@UserID or RoleID=@RoleID)
+				union
+				SELECT SR.ReportID FROM ADM_ReportsUserMap M with(nolock) inner join ADM_RevenUReports R with(nolock) on R.ReportID=M.ReportID and R.IsGroup=1 and (M.ActionType=1 or M.ActionType=0)
+				inner join ADM_RevenUReports SR with(nolock) on SR.lft between R.lft and R.rgt and SR.ReportID>0
+				WHERE UserID=@UserID OR RoleID = @RoleID OR GroupID IN (SELECT GID FROM COM_Groups with(nolock) WHERE UserID=@UserID or RoleID=@RoleID)) S on S.ReportID=ADM_RevenUReports.REPORTID
+			WHERE cf.FavID=@FavID AND cf.isReport=1
+			order by cf.RowNo,cf.ColumnNo
+		ELSE
+			INSERT INTO @TABLE  
+			SELECT distinct ADM_RevenUReports.REPORTID FeatureActionID,ADM_RevenUReports.ParentID,ADM_RevenUReports.ReportName FeatureActionName
+			,S.ResourceData DisplayName--,cf.DisplayName (Comment from Masood)
+			,cf.RowNo,cf.ColumnNo,cf.ShortCutKey,  
+			''6'' ''TabID'', ''Reports'' ''TabName'',R.REPORTID GroupID,R.ReportName GroupName,''Reports'', 
+			''REP_List-of-reports.png'',NULL,1, 1,   cf.FavName  FavoriteName,cf.Link,cf.Category,'''',''''
+			FROM COM_Favourite cf WITH(NOLOCK)      
+			LEFT JOIN Com_LanguageResources S WITH(NOLOCK) ON S.ResourceID=cf.ResourceID AND S.LanguageID=@LangID --(in order to populate arabic name of the report)
+			INNER JOIN ADM_RevenUReports WITH(NOLOCK) ON ADM_RevenUReports.REPORTID=cf.FeatureactionID  
+			LEFT JOIN ADM_RevenUReports R WITH(NOLOCK) ON R.REPORTID=ADM_RevenUReports.PARENTID
+			WHERE cf.FavID=@FavID AND cf.isReport=1
+			order by cf.RowNo,cf.ColumnNo
+
+		INSERT INTO @TABLE 
+		SELECT distinct ADM_DashBoard.DashBoardID FeatureActionID,-499,ADM_DashBoard.DashBoardName FeatureActionName,cf.DisplayName,cf.RowNo,cf.ColumnNo,cf.ShortCutKey,  
+			  ''6'' ''TabID'', ''Reports'' ''TabName'',R.DashBoardID GroupID,''DashBoard'' GroupName,''Reports'',
+			   ''REP_List-of-reports.png'',NULL,2,2 ,   cf.FavName  FavoriteName,cf.Link,cf.Category,'''',''''
+			   FROM COM_Favourite cf WITH(NOLOCK)      
+			   INNER JOIN ADM_DashBoard WITH(NOLOCK) ON ADM_DashBoard.DashBoardID=cf.FeatureactionID  
+			   LEFT JOIN ADM_DashBoard R WITH(NOLOCK) ON R.REPORTID=ADM_DashBoard.PARENTID  
+			   WHERE cf.FavID=@FavID AND cf.FeatureID=-499
+			   order by cf.RowNo,cf.ColumnNo
+		
+		INSERT INTO @TABLE 
+		SELECT distinct L.NodeID FeatureActionID,-44,L.LookupName FeatureActionName,cf.DisplayName,cf.RowNo,cf.ColumnNo,cf.ShortCutKey,  
+		''9'' ''TabID'', ''Administration'' ''TabName'',9 GroupID,''Administration'' GroupName,''Administration'',
+		''lookups.png'',NULL,0,0 ,   cf.FavName  FavoriteName,cf.Link,cf.Category,'''',''''
+		FROM COM_Favourite cf WITH(NOLOCK)      
+		INNER JOIN COM_LookupTypes L WITH(NOLOCK) ON L.NodeID=cf.FeatureactionID  			   
+		WHERE cf.FavID=@FavID AND cf.FeatureID=-44
+		order by cf.RowNo,cf.ColumnNo
+		
+		INSERT INTO @TABLE
+		select distinct cf.FeatureactionID,cf.FeatureID,null FeatureActionName,  
+		cf.DisplayName,cf.RowNo,cf.ColumnNo,cf.ShortCutKey, R.TabID,null TabName,   
+		R.GROUPID,null GroupName,R.ScreenName,R.ImagePath,R.ButtonKeyTip,0, af.FeatureActionTypeID ,
+		cf.FavName  FavoriteName,cf.Link,cf.Category,R.DarkColor,R.LightColor
+		from COM_Favourite cf WITH(NOLOCK) 
+		inner join ADM_RibbonView R WITH(NOLOCK) on cf.FeatureactionID=R.FeatureActionID AND cf.FeatureID=R.FeatureID 
+		LEFT JOIN ADM_FeatureAction af  WITH(NOLOCK) ON   cf.FeatureactionID=af.FeatureactionID 
+		LEFT JOIN ADM_FeatureActionRoleMap far  WITH(NOLOCK) ON far.FeatureActionID=af.FeatureactionID and far.roleid=@RoleID 
+		WHERE cf.FavID=@FavID AND cf.featureid=494 and cf.FeatureactionID in (
+			SELECT R.ID FROM ADM_Assign M with(nolock) inner join ADM_BulkEditTemplate R with(nolock) on R.ID=M.NodeID
+			WHERE M.CostCenterID=49 and UserID=@UserID OR RoleID = @RoleID OR GroupID IN (SELECT GID FROM COM_Groups with(nolock) WHERE UserID=@UserID or RoleID=@RoleID)
+			GROUP BY R.ID)
+		order by cf.RowNo,cf.ColumnNo
+
+		select      t.RowNo,t.ColumnNo,t.DisplayName,t.FeatureactionID,t.ImagePath,t.ScreenName,ShortCutKey,t.FeatureID,t.ButtonKeyTip,isReport,FeatureActionTypeID,Link,Category,Dt.DocumentType
+		,CASE WHEN ISNULL(isReport,0)=0 AND t.FeatureID between 40001 and 49999 THEN dbo.fnCOM_HasAccess(@RoleID,t.FeatureID,2) ELSE 1 END  as HasAccess,
+		CASE 
+		   WHEN (t.TabID = 6 AND t.TabName=''Reports'') OR (t.TabID = 9 AND t.TabName=''Administration'') THEN 1
+		   ELSE ISNULL(R.ShowInWeb,0)
+		END AS ShowInWeb,
+		CASE 
+		   WHEN (t.TabID = 6 AND t.TabName=''Reports'') OR (t.TabID = 9 AND t.TabName=''Administration'') THEN 1
+		   ELSE ISNULL(R.ShowInMobile,0)
+		END AS ShowInMobile,t.DarkColor,t.LightColor
+		from @TABLE  t 
+		left join ADM_RibbonView R on t.FeatureactionID=R.FeatureActionID AND t.FeatureID=R.FeatureID 
+		left join Adm_DocumentTypes Dt WITH(NOLOCK) on Dt.CostcenterID=t.FeatureID 
+		order by RowNo,ColumnNo
+	     
+		SELECT MAX(ROWNO) MaxRows FROM COM_Favourite WITH(NOLOCK) WHERE FavID=@FavID
+		
+		select OptionsXML from COM_Favourite F with(nolock) where TypeID=1 and ID=@FavID
+
+		-- to get Dimension ICON on Favorites -- Wajid 06-11-2024
+		select FileID, FilePath, ActualFileName, [GUID], FileExtension, FeatureID, FeaturePK, CostCenterID 
+                from COM_Files with(nolock) where FeatureID >50000 and FeatureID <60000 and FeaturePK = -500
+	END
+	ELSE IF @Call=''ISESS''
+	BEGIN
+		INSERT INTO @TABLE  
+		select distinct cf.FeatureactionID,cf.FeatureID,null FeatureActionName,  
+		cf.DisplayName,cf.RowNo,cf.ColumnNo,cf.ShortCutKey, R.TabID,null TabName,   
+		R.GROUPID,null GroupName,R.ScreenName,R.ImagePath,R.ButtonKeyTip,0, af.FeatureActionTypeID ,
+		cf.FavName  FavoriteName,cf.Link,cf.Category,R.DarkColor,R.LightColor
+		from COM_Favourite cf WITH(NOLOCK) 
+		LEFT join ADM_RibbonView R WITH(NOLOCK) on cf.FeatureactionID=R.FeatureActionID AND cf.FeatureID=R.FeatureID 
+		LEFT JOIN ADM_FeatureAction af  WITH(NOLOCK) ON   cf.FeatureactionID=af.FeatureactionID 
+		LEFT JOIN ADM_FeatureActionRoleMap far  WITH(NOLOCK) ON far.FeatureActionID=af.FeatureactionID and far.roleid=@RoleID 
+		WHERE cf.FavID=@FavID AND cf.isReport=0 and af.featureid is not null 
+		and (far.featureactionrolemapid is not null or cf.featureid=498 or (cf.featureid between 40001 and 49999 and (af.FeatureActionTypeID=1 or af.FeatureActionTypeID=2)))
+		order by cf.RowNo,cf.ColumnNo
+
+		INSERT INTO @TABLE  
+		SELECT distinct ADM_RevenUReports.REPORTID FeatureActionID,ADM_RevenUReports.ParentID,ADM_RevenUReports.ReportName FeatureActionName,cf.DisplayName,cf.RowNo,cf.ColumnNo,cf.ShortCutKey,  
+		''6'' ''TabID'', ''Reports'' ''TabName'',R.REPORTID GroupID,R.ReportName GroupName,''Reports'', 
+		''REP_List-of-reports.png'',NULL,1,0 ,   cf.FavName  FavoriteName,cf.Link,cf.Category,'''',''''
+		FROM COM_Favourite cf WITH(NOLOCK)      
+		INNER JOIN ADM_RevenUReports WITH(NOLOCK) ON ADM_RevenUReports.REPORTID=cf.FeatureactionID  
+		LEFT JOIN ADM_RevenUReports R WITH(NOLOCK) ON R.REPORTID=ADM_RevenUReports.PARENTID  
+		WHERE cf.FavID=@FavID AND cf.isReport=1
+		order by cf.RowNo,cf.ColumnNo
+		
+		INSERT INTO @TABLE
+		select distinct cf.FeatureactionID,cf.FeatureID,null FeatureActionName,  
+		cf.DisplayName,cf.RowNo,cf.ColumnNo,cf.ShortCutKey, R.TabID,null TabName,   
+		R.GROUPID,null GroupName,R.ScreenName,R.ImagePath,R.ButtonKeyTip,0, af.FeatureActionTypeID ,
+		cf.FavName  FavoriteName,cf.Link,cf.Category,R.DarkColor,R.LightColor
+		from COM_Favourite cf WITH(NOLOCK) 
+		inner join ADM_RibbonView R WITH(NOLOCK) on cf.FeatureactionID=R.FeatureActionID AND cf.FeatureID=R.FeatureID 
+		LEFT JOIN ADM_FeatureAction af  WITH(NOLOCK) ON   cf.FeatureactionID=af.FeatureactionID 
+		LEFT JOIN ADM_FeatureActionRoleMap far  WITH(NOLOCK) ON far.FeatureActionID=af.FeatureactionID and far.roleid=@RoleID 
+		WHERE cf.FavID=@FavID AND cf.featureid=494 and cf.FeatureactionID in (
+			SELECT R.ID FROM ADM_Assign M with(nolock) inner join ADM_BulkEditTemplate R with(nolock) on R.ID=M.NodeID
+			WHERE M.CostCenterID=49 and UserID=@UserID OR RoleID = @RoleID OR GroupID IN (SELECT GID FROM COM_Groups with(nolock) WHERE UserID=@UserID or RoleID=@RoleID)
+			GROUP BY R.ID)
+		order by cf.RowNo,cf.ColumnNo
+	
+		select RowNo,ColumnNo,t.DisplayName,t.FeatureactionID,t.ImagePath,t.ScreenName,ShortCutKey,t.FeatureID,t.ButtonKeyTip,isReport,FeatureActionTypeID,Link,Category,Dt.DocumentType,R.ShowInWeb,R.ShowInMobile,t.DarkColor,t.LightColor
+		from @TABLE t left join Adm_DocumentTypes Dt on Dt.CostcenterID=t.FeatureID 
+		left join ADM_RibbonView R on t.FeatureactionID=R.FeatureActionID AND t.FeatureID=R.FeatureID 
+		order by RowNo,ColumnNo
+	     
+		SELECT MAX(ROWNO) MaxRows FROM COM_Favourite WITH(NOLOCK) WHERE FavID=@FavID
+		
+		select OptionsXML from COM_Favourite F with(nolock) where TypeID=1 and ID=@FavID
+	END
+	ELSE IF @Call=''EDITGET''
+	BEGIN
+		IF (@FavID>0 OR @FavID=-1000)
+		BEGIN
+			  INSERT INTO @TABLE  
+			  select distinct cf.FeatureactionID,cf.FeatureID, f.ResourceData as FeatureActionName,  
+			  --cf.DisplayName,
+			  H.ResourceData DisplayName,
+			  cf.RowNo,cf.ColumnNo, cf.ShortCutKey, R.TabID, t.ResourceData as TabName,   
+			  R.GROUPID, g.ResourceData as GroupName,R.ScreenName,R.ImagePath,R.ButtonKeyTip,0, 
+			  af.FeatureActionTypeID , cf.FavName  FavoriteName,cf.Link,cf.Category,R.DarkColor,R.LightColor
+			  from COM_Favourite cf WITH(NOLOCK) 
+			  inner join ADM_RibbonView R WITH(NOLOCK) on cf.FeatureactionID=R.FeatureActionID AND cf.FeatureID=R.FeatureID 
+			  LEFT JOIN ADM_FeatureAction af WITH(NOLOCK) ON   cf.FeatureactionID=af.FeatureactionID 
+			  LEFT JOIN COM_LanguageResources T  WITH(NOLOCK) ON T.ResourceID=R.TabResourceID AND T.LanguageID=@LangID  
+			  LEFT JOIN COM_LanguageResources G  WITH(NOLOCK) ON G.ResourceID=R.GroupResourceID AND G.LanguageID=@LangID  
+			  LEFT JOIN COM_LanguageResources F  WITH(NOLOCK) ON F.ResourceID=R.FeatureActionResourceID AND F.LanguageID=@LangID  
+			  LEFT JOIN COM_LanguageResources H  WITH(NOLOCK) ON H.ResourceID=cf.ResourceID AND H.LanguageID=@LangID  
+			  WHERE cf.FavID=@FavID AND cf.isReport=0 and (af.featureid is not null or cf.FeatureID=498)
+			  order by cf.RowNo,cf.ColumnNo
+		  
+			  INSERT INTO @TABLE  
+			  SELECT distinct ADM_RevenUReports.REPORTID FeatureActionID,ADM_RevenUReports.ParentID,ADM_RevenUReports.ReportName FeatureActionName,cf.DisplayName,cf.RowNo,cf.ColumnNo,cf.ShortCutKey,  
+			  ''6'' ''TabID'', ''Reports'' ''TabName'',R.REPORTID GroupID,R.ReportName GroupName,''Reports'',
+			   ''REP_List-of-reports.png'',NULL,1,0 ,   cf.FavName  FavoriteName,cf.Link,cf.Category,'''',''''
+			   FROM COM_Favourite cf WITH(NOLOCK)      
+			   INNER JOIN ADM_RevenUReports WITH(NOLOCK) ON ADM_RevenUReports.REPORTID=cf.FeatureactionID  
+			   LEFT JOIN ADM_RevenUReports R WITH(NOLOCK) ON R.REPORTID=ADM_RevenUReports.PARENTID  
+			   WHERE cf.FavID=@FavID AND cf.isReport=1
+			   order by cf.RowNo,cf.ColumnNo
+
+			   INSERT INTO @TABLE  
+			  SELECT distinct ADM_DashBoard.DashBoardID FeatureActionID,-499,ADM_DashBoard.DashBoardName FeatureActionName,cf.DisplayName,cf.RowNo,cf.ColumnNo,cf.ShortCutKey,  
+			  ''6'' ''TabID'', ''Reports'' ''TabName'',-499 GroupID,''DashBoard'' GroupName,''Reports'',
+			   ''REP_List-of-reports.png'',NULL,2,0 ,   cf.FavName  FavoriteName,cf.Link,cf.Category,'''',''''
+			   FROM COM_Favourite cf WITH(NOLOCK)      
+			   INNER JOIN ADM_DashBoard WITH(NOLOCK) ON ADM_DashBoard.DashBoardID=cf.FeatureactionID  
+			   LEFT JOIN ADM_DashBoard R WITH(NOLOCK) ON R.DashBoardID=ADM_DashBoard.PARENTID  
+			   WHERE cf.FavID=@FavID  AND cf.FeatureID=-499
+			   order by cf.RowNo,cf.ColumnNo
+			   
+			   INSERT INTO @TABLE 
+			   SELECT distinct L.NodeID FeatureActionID,-44,L.LookupName FeatureActionName,cf.DisplayName,cf.RowNo,cf.ColumnNo,cf.ShortCutKey,  
+			  ''9'' ''TabID'', ''Administration'' ''TabName'',-44 GroupID,''Lookup'' GroupName,''Administration'',
+			   ''lookups.png'',NULL,0,0 ,   cf.FavName  FavoriteName,cf.Link,cf.Category,'''',''''
+			   FROM COM_Favourite cf WITH(NOLOCK)      
+			   INNER JOIN COM_LookupTypes L WITH(NOLOCK) ON L.NodeID=cf.FeatureactionID  			   
+			   WHERE cf.FavID=@FavID AND cf.FeatureID=-44
+			   order by cf.RowNo,cf.ColumnNo
+		END    
+		ELSE
+		BEGIN
+			  INSERT INTO @TABLE  
+			  select distinct cf.FeatureactionID,cf.FeatureID, f.ResourceData as FeatureActionName,  
+			  cf.DisplayName,cf.RowNo,cf.ColumnNo,cf.ShortCutKey, R.TabID, t.ResourceData as TabName,   
+			  R.GROUPID, g.ResourceData as GroupName,R.ScreenName,R.ImagePath,R.ButtonKeyTip,0, af.FeatureActionTypeID ,
+			   cf.FavName  FavoriteName,cf.Link,cf.Category,R.DarkColor,R.LightColor
+			  from COM_Favourite cf WITH(NOLOCK) 
+			  inner join ADM_RibbonView R WITH(NOLOCK) on cf.FeatureactionID=R.FeatureActionID  AND cf.FeatureID=R.FeatureID 
+			  LEFT JOIN ADM_FeatureAction af WITH(NOLOCK) ON   cf.FeatureactionID=af.FeatureactionID
+			  LEFT JOIN COM_LanguageResources T  WITH(NOLOCK) ON T.ResourceID=R.TabResourceID AND T.LanguageID=@LangID  
+			  LEFT JOIN COM_LanguageResources G  WITH(NOLOCK) ON G.ResourceID=R.GroupResourceID AND G.LanguageID=@LangID  
+			  LEFT JOIN COM_LanguageResources F  WITH(NOLOCK) ON F.ResourceID=R.FeatureActionResourceID AND F.LanguageID=@LangID  
+			  WHERE 1!=1 and cf.isReport=0 and af.featureid is not null 
+			  order by cf.RowNo,cf.ColumnNo
+		  
+			  INSERT INTO @TABLE  
+			  SELECT distinct ADM_RevenUReports.REPORTID FeatureActionID,ADM_RevenUReports.ParentID,ADM_RevenUReports.ReportName FeatureActionName,cf.DisplayName,cf.RowNo,cf.ColumnNo,cf.ShortCutKey,  
+			  ''6'' ''TabID'', ''Reports'' ''TabName'',R.REPORTID GroupID,R.ReportName GroupName,''Reports'', 
+			  ''REP_List-of-reports.png'',NULL,1,0 ,   cf.FavName  FavoriteName,cf.Link,cf.Category,'''',''''
+			   FROM COM_Favourite cf WITH(NOLOCK)      
+			   INNER JOIN ADM_RevenUReports WITH(NOLOCK) ON ADM_RevenUReports.REPORTID=cf.FeatureactionID  
+			   LEFT JOIN ADM_RevenUReports R WITH(NOLOCK) ON R.REPORTID=ADM_RevenUReports.PARENTID  
+			   WHERE 1!=1 and cf.isReport=1  
+			   order by cf.RowNo,cf.ColumnNo
+		END
+		 
+		select * from @TABLE t order by RowNo,ColumnNo 
+		
+		select FavID DefaultFavID from COM_Favourite F with(nolock) where TypeID=3 and FeatureActionID=@UserID
+		
+		select OptionsXML from COM_Favourite F with(nolock) where TypeID=1 and ID=@FavID
+	END
+	ELSE IF @Call=''MENU''
+	BEGIN	
+		--Getting ribbon view information for that user.  		
+		set @SQL=''declare @UserID int,@LangID int,@RoleID int
+set @UserID=''+convert(nvarchar,@UserID)+''
+set @RoleID=''+convert(nvarchar,@RoleID)+''
+set @LangID=''+convert(nvarchar,@LangID)
+		set @SQL=@SQL+''
+SELECT DISTINCT  RibbonViewID 
+  ,ISNULL(RV.TabID,0) TabID  
+  ,ISNULL(RV.GroupID,0) GroupID  
+  ,ISNULL(RV.DrpID,0) DrpID  
+  ,T.ResourceData TabName      
+  ,G.ResourceData GroupName  
+  ,D.ResourceData DrpName      
+  ,ISNULL(RV.FeatureID,0) FeatureID  
+  ,ISNULL(RV.FeatureActionID,0) FeatureActionID  
+  ,F.ResourceData FeatureActionName   
+  ,S.ResourceData ScreenName        
+  ,ADM_FeatureAction.FeatureActionTypeID  
+  ,RV.TabResourceID
+  ,RV.GroupResourceID
+  ,RV.DrpResourceID
+  ,RV.ScreenResourceID  
+  ,RV.DisplayNameResourceID
+  ,RV.ColumnOrder  
+  ,ISNULL(ShowInWeb,0) ShowInWeb
+  ,ISNULL(ShowInMobile,0) ShowInMobile
+  ,IsOffLine,rv.WebIcon
+FROM ADM_RibbonView RV WITH(NOLOCK)  
+INNER JOIN ADM_FeatureActionRoleMap WITH(NOLOCK) ON ADM_FeatureActionRoleMap.FeatureActionID=RV.FeatureActionID AND ADM_FeatureActionRoleMap.RoleID=@RoleID   
+LEFT JOIN COM_LanguageResources T  WITH(NOLOCK) ON T.ResourceID=RV.TabResourceID AND T.LanguageID=@LangID  
+LEFT JOIN COM_LanguageResources G  WITH(NOLOCK) ON G.ResourceID=RV.GroupResourceID AND G.LanguageID=@LangID  
+LEFT JOIN COM_LanguageResources D  WITH(NOLOCK) ON D.ResourceID=RV.DrpResourceID AND D.LanguageID=@LangID  
+LEFT JOIN COM_LanguageResources F  WITH(NOLOCK) ON F.ResourceID=RV.FeatureActionResourceID AND F.LanguageID=@LangID  
+LEFT JOIN COM_LanguageResources S  WITH(NOLOCK) ON S.ResourceID=RV.ScreenResourceID AND S.LanguageID=@LangID  
+LEFT JOIN ADM_FeatureAction  WITH(NOLOCK) ON ADM_FeatureAction.FeatureActionID=RV.FeatureActionID 
+WHERE RV.FeatureID NOT IN (494,498,499) 
+UNION''
+set @SQL=@SQL+''
+SELECT DISTINCT  RV.RibbonViewID 
+  ,ISNULL(RV.TabID,0) TabID  
+  ,ISNULL(RV.GroupID,0) GroupID  
+  ,ISNULL(RV.DrpID,0) DrpID  
+  ,T.ResourceData TabName      
+  ,G.ResourceData GroupName  
+  ,D.ResourceData DrpName      
+  ,ISNULL(RV.FeatureID,0) FeatureID  
+  ,ISNULL(RV.FeatureActionID,0) FeatureActionID  
+  ,F.ResourceData FeatureActionName   
+  ,S.ResourceData ScreenName        
+  ,ADM_FeatureAction.FeatureActionTypeID  
+  ,RV.TabResourceID
+  ,RV.GroupResourceID
+  ,RV.DrpResourceID
+  ,RV.ScreenResourceID  
+  ,RV.DisplayNameResourceID
+  ,RV.ColumnOrder  
+  ,ISNULL(ShowInWeb,0) ShowInWeb
+  ,ISNULL(ShowInMobile,0) ShowInMobile
+  ,IsOffLine,rv.WebIcon
+FROM ADM_RibbonView RV WITH(NOLOCK)  
+LEFT JOIN COM_LanguageResources T  WITH(NOLOCK) ON T.ResourceID=RV.TabResourceID AND T.LanguageID=@LangID  
+LEFT JOIN COM_LanguageResources G  WITH(NOLOCK) ON G.ResourceID=RV.GroupResourceID AND G.LanguageID=@LangID  
+LEFT JOIN COM_LanguageResources D  WITH(NOLOCK) ON D.ResourceID=RV.DrpResourceID AND D.LanguageID=@LangID  
+LEFT JOIN COM_LanguageResources F  WITH(NOLOCK) ON F.ResourceID=RV.FeatureActionResourceID AND F.LanguageID=@LangID  
+LEFT JOIN COM_LanguageResources S  WITH(NOLOCK) ON S.ResourceID=RV.ScreenResourceID AND S.LanguageID=@LangID  
+LEFT JOIN ADM_FeatureAction  WITH(NOLOCK) ON ADM_FeatureAction.FeatureActionID=RV.FeatureActionID  
+WHERE (	RV.FeatureID=498 AND RV.FeatureActionID IN 
+		(
+			SELECT R.ReportID FROM ADM_ReportsUserMap M with(nolock) inner join ADM_RevenUReports R with(nolock) on R.ReportID=M.ReportID and R.IsGroup=0
+			WHERE ActionType=1 AND UserID=@UserID or RoleID=@RoleID or GroupID IN (SELECT GID FROM COM_Groups with(nolock) WHERE UserID=@UserID or RoleID=@RoleID)
+			UNION
+			SELECT SR.ReportID FROM ADM_ReportsUserMap M with(nolock) inner join ADM_RevenUReports R with(nolock) on R.ReportID=M.ReportID and R.IsGroup=1
+			inner join ADM_RevenUReports SR with(nolock) on SR.lft between R.lft and R.rgt and SR.ReportID>0
+			WHERE ActionType=1 AND UserID=@UserID or RoleID=@RoleID or GroupID IN (SELECT GID FROM COM_Groups with(nolock) WHERE UserID=@UserID or RoleID=@RoleID)					
+		)						
+	)
+OR (RV.FeatureID=499 AND RV.FeatureActionID IN (SELECT DISTINCT DashBoardID FROM ADM_DashBoardUserRoleMap with(nolock)
+WHERE UserID=@UserID or RoleID=@RoleID or GroupID IN  (SELECT GID FROM COM_Groups G with(nolock) WHERE UserID=@UserID or RoleID=@RoleID)))''
+set @SQL=@SQL+''
+OR (RV.FeatureID=494 AND RV.FeatureActionID IN 
+		(
+			SELECT R.ID FROM ADM_Assign M with(nolock) inner join ADM_BulkEditTemplate R with(nolock) on R.ID=M.NodeID
+			WHERE M.CostCenterID=49 and UserID=@UserID OR RoleID = @RoleID OR GroupID IN (SELECT GID FROM COM_Groups with(nolock) WHERE UserID=@UserID or RoleID=@RoleID)
+			GROUP BY R.ID					
+		)						
+	)
+ORDER BY TabID,GroupID,ColumnOrder,RibbonViewID  ''
+		
+		print(substring(@SQL,1,4000))
+		print(substring(@SQL,4001,8000))
+		print(substring(@SQL,8001,9999))
+		EXEC(@SQL)
+		  
+		SELECT ISNULL(RV.TabID,0) TabID   
+			,MAX(T.ResourceData) TabName    
+			,RV.TabResourceID
+		FROM ADM_RibbonView RV WITH(NOLOCK)  
+		INNER JOIN ADM_FeatureActionRoleMap FAR WITH(NOLOCK) ON FAR.FeatureActionID=RV.FeatureActionID AND FAR.RoleID=@RoleID   
+		LEFT JOIN COM_LanguageResources T  WITH(NOLOCK) ON T.ResourceID=RV.TabResourceID AND T.LanguageID=@LangID  
+		LEFT JOIN ADM_FeatureAction  FA WITH(NOLOCK) ON FA.FeatureActionID=RV.FeatureActionID  
+		GROUP BY RV.TabID,RV.TabResourceID
+		ORDER BY RV.TabID
+				
+		SELECT ISNULL(RV.TabID,0) TabID  
+			,ISNULL(RV.GroupID,0) GroupID  
+			,MAX(T.ResourceData) TabName      
+			,MAX(G.ResourceData) GroupName
+			,RV.TabResourceID
+			,RV.GroupResourceID   
+		FROM ADM_RibbonView RV WITH(NOLOCK)  
+		LEFT JOIN COM_LanguageResources T  WITH(NOLOCK) ON T.ResourceID=RV.TabResourceID AND T.LanguageID=@LangID  
+		LEFT JOIN COM_LanguageResources G  WITH(NOLOCK) ON G.ResourceID=RV.GroupResourceID AND G.LanguageID=@LangID  
+		GROUP BY RV.TabID,RV.GroupID,RV.TabResourceID,RV.GroupResourceID  
+		ORDER BY RV.TabID,RV.GroupID
+		
+		SELECT ISNULL(RV.TabID,0) TabID   
+			,ISNULL(RV.GroupID,0) GroupID
+			,ISNULL(RV.DrpID,0) DrpID   
+			,MAX(T.ResourceData) TabName        
+			,MAX(G.ResourceData) GroupName
+			,MAX(D.ResourceData) DrpName
+			,RV.DrpResourceID
+			,RV.GroupResourceID   
+		FROM ADM_RibbonView RV WITH(NOLOCK)
+		LEFT JOIN COM_LanguageResources T  WITH(NOLOCK) ON T.ResourceID=RV.TabResourceID AND T.LanguageID=@LangID  
+		LEFT JOIN COM_LanguageResources D  WITH(NOLOCK) ON D.ResourceID=RV.DrpResourceID AND D.LanguageID=@LangID  
+		LEFT JOIN COM_LanguageResources G  WITH(NOLOCK) ON G.ResourceID=RV.GroupResourceID AND G.LanguageID=@LangID 
+		WHERE RV.DrpID IS NOT NULL
+		GROUP BY RV.TabID,RV.GroupID,RV.DrpID,RV.TabResourceID,RV.GroupResourceID,RV.DrpResourceID  
+		ORDER BY RV.TabID,RV.GroupID,RV.DrpID
+	END
+	ELSE
+	BEGIN  
+		  --Getting ribbon view information for that user.  
+		set @SQL=''
+SELECT RibbonViewID ,GroupOrder  
+,ISNULL(TabID,0) TabID,ISNULL(GroupID,0) GroupID,DrpID,DrpImage,T.ResourceData TabName,G.ResourceData GroupName,D.ResourceData DrpName   
+,ISNULL(ADM_RibbonView.FeatureID,0) FeatureID,ISNULL(ADM_RibbonView.FeatureActionID,0) FeatureActionID  
+,F.ResourceData FeatureActionName,S.ResourceData ScreenName,ImageType,ImagePath  
+,TT.ResourceData ToolTipTitle,ToolTipImg,TD.ResourceData ToolTipDesc   
+,ISNULL(ADM_FeatureActionRoleMap.FeatureActionRoleMapID,0) [HasAccess],TabOrder,ADM_FeatureAction.FeatureActionTypeID  
+,TabKeyTip,DrpKeyTip,ButtonKeyTip,GroupKeyTip  
+,DN.Resourcedata as RDrpName,ADM_RibbonView.TabResourceID,ADM_RibbonView.GroupResourceID,ADM_RibbonView.ScreenResourceID,  
+ADM_RibbonView.DisplayNameResourceID, ADM_RibbonView.ColumnOrder  
+,(select count(*) from ADM_RibbonView RB WITH(NOLOCK) where RB.DrpID=ADM_RibbonView.DrpID) [ItemCount] 
+,ISNULL(ShowInWeb,0) ShowInWeb,ISNULL(ShowInMobile,0) ShowInMobile,IsOffLine
+FROM ADM_RibbonView WITH(NOLOCK)  
+LEFT JOIN ADM_FeatureActionRoleMap WITH(NOLOCK) ON ADM_FeatureActionRoleMap.FeatureActionID=ADM_RibbonView.FeatureActionID AND ADM_FeatureActionRoleMap.RoleID=@RoleID   
+LEFT JOIN COM_LanguageResources T  WITH(NOLOCK) ON T.ResourceID=ADM_RibbonView.TabResourceID AND T.LanguageID=@LangID  
+LEFT JOIN COM_LanguageResources G  WITH(NOLOCK) ON G.ResourceID=ADM_RibbonView.GroupResourceID AND G.LanguageID=@LangID  
+LEFT JOIN COM_LanguageResources F  WITH(NOLOCK) ON F.ResourceID=ADM_RibbonView.FeatureActionResourceID AND F.LanguageID=@LangID  
+LEFT JOIN COM_LanguageResources S  WITH(NOLOCK) ON S.ResourceID=ADM_RibbonView.ScreenResourceID AND S.LanguageID=@LangID  
+LEFT JOIN COM_LanguageResources TT WITH(NOLOCK) ON TT.ResourceID=ADM_RibbonView.ToolTipTitleResourceID AND TT.LanguageID=@LangID  
+LEFT JOIN COM_LanguageResources TD WITH(NOLOCK) ON TD.ResourceID=ADM_RibbonView.ToolTipDescResourceID AND TD.LanguageID=@LangID  
+LEFT JOIN COM_LanguageResources D WITH(NOLOCK) ON D.ResourceID=ADM_RibbonView.DrpResourceID AND D.LanguageID=@LangID  
+LEFT JOIN COM_LanguageResources DN WITH(NOLOCK) ON DN.ResourceID=ADM_RibbonView.DisplaynameResourceID AND DN.LanguageID=@LangID  
+LEFT JOIN ADM_FeatureAction  WITH(NOLOCK) ON ADM_FeatureAction.FeatureActionID=ADM_RibbonView.FeatureActionID  
+WHERE ISNULL(ADM_RibbonView.FeatureID,0)!=494
+and (ADM_FeatureActionRoleMap.FeatureActionID is not null or ADM_RibbonView.FeatureID=498)
+UNION ALL
+SELECT RibbonViewID ,GroupOrder  
+,ISNULL(TabID,0) TabID,ISNULL(GroupID,0) GroupID,DrpID,DrpImage,T.ResourceData TabName,G.ResourceData GroupName,D.ResourceData DrpName   
+,ISNULL(ADM_RibbonView.FeatureID,0) FeatureID,ISNULL(ADM_RibbonView.FeatureActionID,0) FeatureActionID  
+,F.ResourceData FeatureActionName,S.ResourceData ScreenName,ImageType,ImagePath  
+,TT.ResourceData ToolTipTitle,ToolTipImg,TD.ResourceData ToolTipDesc   
+,ISNULL(ADM_RibbonView.FeatureactionID,0) [HasAccess],TabOrder,ADM_FeatureAction.FeatureActionTypeID  
+,TabKeyTip,DrpKeyTip,ButtonKeyTip,GroupKeyTip  
+,DN.Resourcedata as RDrpName,ADM_RibbonView.TabResourceID,ADM_RibbonView.GroupResourceID,ADM_RibbonView.ScreenResourceID,  
+ADM_RibbonView.DisplayNameResourceID, ADM_RibbonView.ColumnOrder  
+,(select count(*) from ADM_RibbonView RB WITH(NOLOCK) where RB.DrpID=ADM_RibbonView.DrpID) [ItemCount] 
+,ISNULL(ShowInWeb,0) ShowInWeb,ISNULL(ShowInMobile,0) ShowInMobile,IsOffLine
+FROM ADM_RibbonView WITH(NOLOCK)  
+LEFT JOIN COM_LanguageResources T WITH(NOLOCK) ON T.ResourceID=ADM_RibbonView.TabResourceID AND T.LanguageID=@LangID  
+LEFT JOIN COM_LanguageResources G WITH(NOLOCK) ON G.ResourceID=ADM_RibbonView.GroupResourceID AND G.LanguageID=@LangID  
+LEFT JOIN COM_LanguageResources F WITH(NOLOCK) ON F.ResourceID=ADM_RibbonView.FeatureActionResourceID AND F.LanguageID=@LangID  
+LEFT JOIN COM_LanguageResources S WITH(NOLOCK) ON S.ResourceID=ADM_RibbonView.ScreenResourceID AND S.LanguageID=@LangID  
+LEFT JOIN COM_LanguageResources TT WITH(NOLOCK) ON TT.ResourceID=ADM_RibbonView.ToolTipTitleResourceID AND TT.LanguageID=@LangID  
+LEFT JOIN COM_LanguageResources TD WITH(NOLOCK) ON TD.ResourceID=ADM_RibbonView.ToolTipDescResourceID AND TD.LanguageID=@LangID  
+LEFT JOIN COM_LanguageResources D WITH(NOLOCK) ON D.ResourceID=ADM_RibbonView.DrpResourceID AND D.LanguageID=@LangID  
+LEFT JOIN COM_LanguageResources DN WITH(NOLOCK) ON DN.ResourceID=ADM_RibbonView.DisplaynameResourceID AND DN.LanguageID=@LangID  
+LEFT JOIN ADM_FeatureAction  WITH(NOLOCK) ON ADM_FeatureAction.FeatureActionID=ADM_RibbonView.FeatureActionID  
+WHERE ISNULL(ADM_RibbonView.FeatureID,0)=494 and ADM_RibbonView.FeatureactionID in (
+SELECT R.ID FROM ADM_Assign M with(nolock) inner join ADM_BulkEditTemplate R with(nolock) on R.ID=M.NodeID
+WHERE M.CostCenterID=49 and UserID=@UserID OR RoleID = @RoleID OR GroupID IN (SELECT GID FROM COM_Groups with(nolock) WHERE UserID=@UserID or RoleID=@RoleID)
+GROUP BY R.ID)
+ORDER BY TabOrder,GroupOrder,ColumnOrder,RibbonViewID''
+		  set @SQL=''declare @UserID int,@LangID int,@RoleID int
+set @UserID=''+convert(nvarchar,@UserID)+''
+set @RoleID=''+convert(nvarchar,@RoleID)+''
+set @LangID=''+convert(nvarchar,@LangID)+@SQL
+		--print(substring(@SQL,1,4000))
+		--print(substring(@SQL,4001,len(@SQL)-4000))
+		EXEC(@SQL)
+
+		--select ID,FavName,F.CreatedBy from COM_Favourite F with(nolock) join ADM_Assign M with(nolock) on F.ID=M.NodeID
+		--where F.TypeID=1 and M.CostCenterID=69 and (M.UserID=@UserID or M.RoleID=@RoleID)
+		--group by ID,FavName,F.CreatedBy order by FavName
+		IF(@UserID=1 OR @RoleID=1)
+		BEGIN
+			select ID,case isnull(s.ResourceData,'''') when '''' then FavName else s.ResourceData end FavName
+			,F.CreatedBy from COM_Favourite F with(nolock) 
+			LEFT JOIN COM_LanguageResources S  WITH(NOLOCK) ON S.ResourceName=F.FavName AND S.LanguageID=@LangID  
+			where F.TypeID=1 
+			group by ID,FavName,F.CreatedBy,s.ResourceData order by FavName
+		END
+		ELSE
+		BEGIN
+			select ID,case isnull(s.ResourceData,'''') when '''' then FavName else s.ResourceData end FavName
+			,F.CreatedBy from COM_Favourite F with(nolock) join ADM_Assign M with(nolock) on F.ID=M.NodeID
+			LEFT JOIN COM_LanguageResources S  WITH(NOLOCK) ON S.ResourceName=F.FavName AND S.LanguageID=@LangID  
+			where F.TypeID=1 and M.CostCenterID=69 and (M.UserID=@UserID or M.RoleID=@RoleID)
+			group by ID,FavName,F.CreatedBy,s.ResourceData order by FavName
+		END
+
+		SELECT REPORTID FeatureActionID,REPORTNAME GroupName,IsGroup,ParentID GroupID FROM ADM_RevenUReports WITH(NOLOCK) 
+		where reportid>0 and (IsGroup=1 or (@UserID=1 or @RoleID=1 or reportid in 
+		(
+		SELECT R.ReportID FROM ADM_ReportsUserMap M with(nolock) 
+			inner join ADM_RevenUReports R with(nolock) on R.ReportID=M.ReportID and R.IsGroup=0
+		WHERE (ActionType=1 or ActionType=0) AND (UserID=@UserID or RoleID=@RoleID or GroupID IN (SELECT G.GID FROM COM_Groups G with(nolock) WHERE G.UserID=@UserID or G.RoleID=@RoleID))
+		UNION   ALL
+		SELECT SR.ReportID FROM ADM_ReportsUserMap M with(nolock) inner join ADM_RevenUReports R with(nolock) on R.ReportID=M.ReportID and R.IsGroup=1 and (M.ActionType=1 or M.ActionType=0)
+inner join ADM_RevenUReports SR with(nolock) on SR.lft between R.lft and R.rgt and SR.ReportID>0
+WHERE UserID=@UserID OR RoleID = @RoleID OR GroupID IN (SELECT GID FROM COM_Groups with(nolock) WHERE UserID=@UserID or RoleID=@RoleID)
+		)))
+		
+		SELECT L.NodeID,isnull(R.ResourceName,L.LookupName) LookupName FROM COM_LookupTypes L WITH(NOLOCK)
+		INNER JOIN adm_featureaction FA with(nolock) ON FA.FeatureID=44 and FA.FeatureActionTypeID=(100+L.NodeID*5)
+		INNER JOIN adm_featureactionrolemap FAR with(nolock) ON FA.FeatureActionID=FAR.FeatureActionID
+		LEFT JOIN COM_LanguageResources R WITH(NOLOCK) ON R.ResourceID=L.ResourceID AND R.LanguageID=@LangID
+		WHERE FAR.RoleID=@RoleID
+		ORDER BY LookupName
+
+		--
+		SELECT DISTINCT DashBoardID FeatureActionID,DashBoardName GroupName,IsGroup,ParentID GroupID FROM ADM_DashBoard WITH(NOLOCK) 
+		where (IsGroup=1 or (@UserID=1 or @RoleID=1 or reportid in 
+		(
+		SELECT R.DashBoardID FROM ADM_DashBoardUserRoleMap M with(nolock) 
+			inner join ADM_DashBoard R with(nolock) on R.DashBoardID=M.DashBoardID and R.IsGroup=0
+		WHERE (UserID=@UserID or RoleID=@RoleID or GroupID IN (SELECT G.GID FROM COM_Groups G with(nolock) WHERE G.UserID=@UserID or G.RoleID=@RoleID))
+		UNION   ALL
+		SELECT SR.DashBoardID FROM ADM_DashBoardUserRoleMap M with(nolock) inner join ADM_DashBoard R with(nolock) on R.DashBoardID=M.DashBoardID and R.IsGroup=1 
+inner join ADM_DashBoard SR with(nolock) on SR.lft between R.lft and R.rgt 
+WHERE UserID=@UserID OR RoleID = @RoleID OR GroupID IN (SELECT GID FROM COM_Groups with(nolock) WHERE UserID=@UserID or RoleID=@RoleID)
+		)))
+	END
+      
+SET NOCOUNT OFF;  
+RETURN 1  
+END TRY  
+BEGIN CATCH    
+--Return exception info [Message,Number,ProcedureName,LineNumber]    
+	IF ERROR_NUMBER()=50000  
+	BEGIN  
+		SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID  
+	END  
+	ELSE  
+	BEGIN  
+		SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine  
+		FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=-999 AND LanguageID=@LangID  
+	END
+	SET NOCOUNT OFF    
+	RETURN -999     
+END CATCH
+
+' 
+END
+GO
+/****** Object:  StoredProcedure [dbo].[spCOM_SetFavorite]    Script Date: 27-10-2026 12:51:27 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spCOM_SetFavorite]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'CREATE procedure [dbo].[spCOM_SetFavorite]  
+	@Data nvarchar(max)=null,
+	@FavID INT=0,
+	@FavName nvarchar(100),
+	@IsDefault bit,
+	@OptionsXML nvarchar(max), 
+	@UserName NVARCHAR(50),  
+	@UserID INT,  
+	@LangID int=1  
+AS    
+BEGIN TRANSACTION    
+BEGIN TRY  
+SET NOCOUNT ON;    
+   
+	--SP Required Parameters Check  
+	IF @UserID IS NULL OR @UserID=''''  
+	BEGIN  
+		RAISERROR(''-100'',16,1)  
+	END
+	DECLARE @TempResData TABLE(ID INT IDENTITY(1,1),FavID BIGINT,FeatureID BIGINT,ResourceData NVARCHAR(MAX),LanguageID INT,FeatureActionID int) 
+	declare @Dt float,@RID INT,@RName nvarchar(50),@ResID INT 
+	select @ResID=ISNULL(MAX(ResourceID),0) FROM com_languageresources with(nolock) --where ResourceID<500000  
+	set @Dt=CONVERT(FLOAT,GETDATE())
+--    select @FavID
+ IF(@Data<>''<XML></XML>'')
+ BEGIN
+	if (@FavID>0 OR @FavID=-1000)
+	begin
+		INSERT INTO @TempResData
+		SELECT F.FavID,f.FEATUREID,LR.ResourceData,LR.LanguageID,f.FeatureActionID FROM COM_Favourite F WITH(NOLOCK)
+		JOIN COM_LanguageResources LR WITH(NOLOCK) ON F.ResourceID=LR.ResourceID
+		WHERE F.FavID=@FavID and (F.TypeID=2 or F.TypeID=0)
+		
+		DELETE FROM LR FROM COM_Favourite F WITH(NOLOCK)
+		JOIN COM_LanguageResources LR WITH(NOLOCK) ON F.ResourceID=LR.ResourceID
+		WHERE F.FavID=@FavID and (F.TypeID=2 or F.TypeID=0)
+		
+		update COM_Favourite set FavName=@FavName,OptionsXML=@OptionsXML WHERE ID=@FavID
+		DELETE FROM COM_Favourite WHERE FavID=@FavID and (TypeID=2 or TypeID=0)
+	end
+	else
+	begin
+		if exists (select top 1 FavName from COM_Favourite with(nolock) where FavName=@FavName)
+		BEGIN  
+			RAISERROR(''-112'',16,1)  
+		END
+				  
+	    SET @ResID=@ResID+1
+		
+		insert into COM_Favourite(TypeID,FavID,FavName,FeatureID,FeatureactionID,IsReport,DisplayName,RowNo,ColumnNo,ShortCutKey,CreatedBy,CreatedDt,OptionsXML,ResourceID)
+		values(1,0,@FavName,0,0,0,'''',null,null,null,@UserName,@Dt,@OptionsXML,@ResID)
+		set @FavID=SCOPE_IDENTITY()
+	  
+	    INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[FEATURE])  
+	    VALUES(@ResID,@FavName,1,''English'',@FavName,''Favorites'')  
+	    INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[FEATURE])  
+  	    VALUES(@ResID,@FavName,2,''Arabic'',@FavName+''-AR'',''Favorites'')
+		if exists(select * from ADM_Laguages with(nolock) where LanguageID=3)
+		begin
+			INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[FEATURE])  
+  			VALUES(@ResID,@FavName,3,''Italian'',@FavName+''-IT'',''Favorites'')
+		END
+
+		insert into ADM_Assign(CostCenterID,NodeID,UserID,RoleID,GroupID,CreatedBy,CreatedDate)
+		select 69,@FavID,@UserID,0,0,@UserName,@Dt
+	end	
+	
+	DECLARE @XML XML,@COUNT INT,@I INT ,@R INT,@C INT,@DispName nvarchar(max),@FeatureID int ,@FeatureActionID int   
+	SET @XML=@Data  
+	
+	SELECT @COUNT=COUNT(A.value(''@FeatureActionID'',''INT'')),@I=1	FROM @XML.nodes(''/XML/Row'') as Data(A) 
+	WHILE(@I<=@COUNT)
+	BEGIN
+		SET @ResID=@ResID+1
+		INSERT INTO COM_Favourite(TypeID,FavID,FeatureactionID,DisplayName,RowNo,ColumnNo,IsReport,ShortCutKey,FavName,
+		CreatedBy,CreatedDt,FeatureID,Link,Category,ResourceID)  
+		SELECT 2,@FavID,A.value(''@FeatureActionID'',''INT''),  
+		A.value(''@DisplayName'',''nvarchar(300)''),  
+		A.value(''@R'',''int''),  
+		A.value(''@ColumnNo'',''int''),  
+		A.value(''@isReport'',''int''),  
+		A.value(''@ShortcutKey'',''nvarchar(300)''),  
+		@FavName,--A.value(''@FavoriteName'',''nvarchar(300)''),  
+		@UserName,@Dt
+		,A.value(''@FeatureID'',''INT'')
+		,A.value(''@Link'',''nvarchar(max)'')
+		,A.value(''@Category'',''nvarchar(100)''),@ResID
+		FROM @XML.nodes(''/XML/Row'') as Data(A) WHERE A.value(''@RowNo'',''INT'')=@I
+		--order by A.value(''@RowNo'',''INT'') ,	A.value(''@ColumnNo'',''INT'')
+		
+		SELECT @FeatureID=A.value(''@FeatureID'',''INT''),@FeatureActionID=A.value(''@FeatureActionID'',''INT'')
+		FROM @XML.nodes(''/XML/Row'') as Data(A) WHERE A.value(''@RowNo'',''INT'')=@I
+		
+		if(@IsDefault=1)
+		begin
+			declare @DefaultFavID INT
+			select @DefaultFavID=FavID from COM_Favourite with(nolock) where TypeID=3 and FeatureactionID=@UserID
+			if @DefaultFavID is null
+				insert into COM_Favourite(TypeID,FavID,FavName,FeatureID,FeatureactionID,IsReport,DisplayName,RowNo,ColumnNo,ShortCutKey,CreatedBy,CreatedDt,ResourceID)
+				values(3,@FavID,null,0,@UserID,0,'''',null,null,null,@UserName,@Dt,@ResID)
+			else
+				update COM_Favourite set FavID=@FavID WHERE TypeID=3 and FeatureactionID=@UserID
+		end
+		--		  
+		  INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[FEATURE])  
+		  SELECT @ResID,A.value(''@DisplayName'',''nvarchar(300)''),1,''English'',A.value(''@DisplayName'',''nvarchar(300)''),''Favorites''
+		  FROM @XML.nodes(''/XML/Row'') as Data(A) WHERE A.value(''@RowNo'',''INT'')=@I
+
+		  set @DispName=''''  
+		  if(@LangID=2 and isnull(@FeatureID,0)<>0)
+		  begin
+			set @DispName=isnull((select ResourceData	from @TempResData Where FeatureID=isnull(@FeatureID,0) and FeatureActionID=@FeatureActionID and FavID=@FavID and LanguageID=1),'''')
+			if(@DispName<>'''')
+				update COM_LanguageResources set ResourceData= @DispName WHere ResourceID=@ResID and LanguageID=1
+		  end
+
+		  INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[FEATURE])  
+		   SELECT @ResID,A.value(''@DisplayName'',''nvarchar(300)''),2,''Arabic'',A.value(''@DisplayName'',''nvarchar(300)''),''Favorites''
+		   FROM @XML.nodes(''/XML/Row'') as Data(A) WHERE A.value(''@RowNo'',''INT'')=@I
+		  --SELECT @ResID,A.value(''@DisplayName'',''nvarchar(300)''),2,''Arabic'',A.value(''@DisplayName'',''nvarchar(300)'')+''-AR'',''Favorites''
+		  --FROM @XML.nodes(''/XML/Row'') as Data(A) WHERE A.value(''@RowNo'',''INT'')=@I
+
+		  set @DispName=''''  
+		  if(@LangID=1 and isnull(@FeatureID,0)<>0)
+		  begin
+			set @DispName=isnull((select ResourceData from @TempResData Where FeatureID=isnull(@FeatureID,0) and FeatureActionID=@FeatureActionID and FavID=@FavID and LanguageID=2),'''')
+			if(@DispName<>'''')
+				update COM_LanguageResources set ResourceData = Replace(@DispName,''-AR'','''') WHere ResourceID=@ResID and LanguageID=2
+		  end
+
+		  if exists(select * from ADM_Laguages with(nolock) where LanguageID=3)
+		  begin
+			  INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[FEATURE])  
+			  SELECT @ResID,A.value(''@DisplayName'',''nvarchar(300)''),3,''Italian'',A.value(''@DisplayName'',''nvarchar(300)'')+''-IR'',''Favorites''
+			  FROM @XML.nodes(''/XML/Row'') as Data(A) WHERE A.value(''@RowNo'',''INT'')=@I
+		  END
+		SET @I=@I+1
+	END
+	
+  
+	--
+	select * from COM_Favourite with(nolock) where FavID=@FavID
+  END	
+
+COMMIT TRANSACTION    
+--ROLLBACK TRANSACTION  
+ SET NOCOUNT OFF;    
+ SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock)     
+WHERE ErrorNumber=100 AND LanguageID=@LangID      
+RETURN @FavID
+END TRY    
+BEGIN CATCH    
+ --Return exception info [Message,Number,ProcedureName,LineNumber]    
+ IF ERROR_NUMBER()=50000  
+ BEGIN   
+  SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID  
+ END  
+ ELSE  
+ BEGIN  
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine  
+  FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=-999 AND LanguageID=@LangID  
+ END  
+ ROLLBACK TRANSACTION  
+ SET NOCOUNT OFF    
+ RETURN -999     
+END CATCH
+' 
+END
+GO

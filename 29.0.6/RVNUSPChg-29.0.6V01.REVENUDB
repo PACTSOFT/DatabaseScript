@@ -1,0 +1,796 @@
+--Ibrahim
+/****** Object:  StoredProcedure [dbo].[spACC_GetAssetManagementDetails]    Script Date: 10/9/2026 3:39:52 PM ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spACC_GetAssetManagementDetails]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spACC_GetAssetManagementDetails]
+GO
+/****** Object:  StoredProcedure [dbo].[spACC_AssetDispose]    Script Date: 10/9/2026 3:39:52 PM ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spACC_AssetDispose]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spACC_AssetDispose]
+GO
+/****** Object:  StoredProcedure [dbo].[spACC_AssetDispose]    Script Date: 10/9/2026 3:39:52 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spACC_AssetDispose]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'CREATE  PROCEDURE [dbo].[spACC_AssetDispose]
+@AssetID INT,      
+@DisposeDate datetime,
+@COSTCENTERID INT,      
+@JVXML  NVARCHAR(max) = NULL, 
+@Post BIT ,
+@TypeID int,  
+@DocuXML NVARCHAR(max) = NULL,   
+@DocSave NVARCHAR(max) = NULL,--Actual Dispose Screen XML
+@AssetDepreciationXML NVARCHAR(MAX)=null,
+@RecordType nvarchar(50),
+@CompanyGUID NVARCHAR(50),      
+@GUID NVARCHAR(50),      
+@UserName nvarchar(50),  
+@UserID INT=0,      
+@LangID int=1     
+AS      
+BEGIN TRANSACTION      
+	DECLARE @QUERYTEST NVARCHAR(100)  , @IROWNO NVARCHAR(100) , @TYPE NVARCHAR(100)    
+BEGIN TRY        
+	SET NOCOUNT ON;
+	DECLARE   @XML XML ,@ScopeID INT,@DXML XML , @AA XML, @DocXml nvarchar(max) , @return_value INT ,@DT datetime ,@Vendor INT,@PN nvarchar(50),@Ast INT
+	DECLARE @DEPID INT ,@DEPIDXML XML,  @VOUCHERNO NVARCHAR(200) ,@DocDate float ,@STATUSID INT,@AccDepr float,@AssetNetValue FLOAT, @ScheduleID INT,@DisposeXML xml
+	DECLARE @MPSNO NVARCHAR(MAX),@CDate float,@Prefix nvarchar(200) ,@i int,@Cnt int,@DeprSchID INT,@NetVal float
+	declare @DSVNO nvarchar(200),@DSDOCID INT,@DSCCID int,@DSName nvarchar(50),@DTTime float,@DisposeType int,
+	@DSDocPrefix nvarchar(50),@DSDocNumber nvarchar(500),@DTypeID INT,@Cv float,@Amt float,@id INT,@PV float,@DT_INT int,@CurrencyID INT,@AstLocTbl NVARCHAR(200),@SQL NVARCHAR(MAX),
+	@DisposeSIV INT,@DDefaultPostSIV INT
+
+	Set @DTTime=convert(float,getdate())
+	Set @DT=floor(@DTTime)
+
+	SELECT @DisposeSIV=Value FROM COM_CostCenterPreferences WITH(NOLOCK) WHERE CostCenterID=72 AND Name IN (''DisposeSIV'')
+	SELECT @DDefaultPostSIV=Value FROM COM_CostCenterPreferences WITH(NOLOCK) WHERE CostCenterID=72 AND Name IN (''DDefaultPostSIV'')
+
+	IF(@TypeID=2)--DISPOSE ADD/EDIT
+	BEGIN
+		set @DisposeXML=@DocSave
+		select @Cv=X.value(''@CurrentValue'',''Float''),@Amt=X.value(''@Amount'',''Float''),@PV=X.value(''@PurchaseValue'',''FLOAT'')
+				,@id=X.value(''@AssetID'',''INT''),@CDate=convert(float,X.value(''@Date'',''datetime'')),@DisposeType=X.value(''@Type'',''INT'')
+		from @DisposeXML.nodes(''/XML'') as Data(X)
+		
+		if(@DisposeType=1 or @DisposeType=3 or (@DisposeType=0 and @Cv-@Amt<0))
+			set @AssetNetValue=0
+		else
+			set @AssetNetValue=@Cv-@Amt
+
+		UPDATE ACC_Assets SET AssetNetValue=@AssetNetValue WHERE  AssetID=@id 
+		--Hold Schedule In Temp Table
+		if(@DisposeType=1 or @DisposeType=3)
+		begin
+			insert into ACC_AssetDeprSchTemp(DPScheduleID,AssetID,DeprStartDate,DeprEndDate,PurchaseValue,DepAmount,AccDepreciation
+				,AssetNetValue,DocID,VoucherNo,DocDate,StatusID,ActualDeprAmt)
+			select DPScheduleID,AssetID,DeprStartDate,DeprEndDate,PurchaseValue,DepAmount,AccDepreciation
+				,AssetNetValue,DocID,VoucherNo,DocDate,StatusID,ActualDeprAmt 
+			from ACC_AssetDepSchedule with(nolock) where AssetID=@AssetID and DocID is null --and @DisposeDate<=DeprStartDate
+		end
+
+		if(@RecordType=''NEW'')
+		begin
+			INSERT INTO ACC_AssetsHistory(HistoryTypeID,AssetManagementID,[Date],Amount,PolicyType,CurrentValue,Remarks,PostJV,DebitAccount,CreditAccount,GainAccount,LossAccount,DisposeClearingAccount,GUID,CreatedBy,CreatedDate)        
+			SELECT X.value(''@HistoryType'',''INT''),X.value(''@AssetID'',''INT''),convert(float,X.value(''@Date'',''datetime'')),X.value(''@Amount'',''Float'')
+				,X.value(''@Type'',''INT''),X.value(''@CurrentValue'',''Float''),   
+			   X.value(''@Remarks'',''NVARCHAR(500)''),X.value(''@PostJV'',''INT''), X.value(''@DebitAccount'',''INT''),X.value(''@CreditAccount'',''INT''),
+				X.value(''@GainAccount'',''INT''),X.value(''@LossAccount'',''INT''),X.value(''@LossAccount'',''INT''),
+				newid(),@UserID,@DTTime
+			FROM @DisposeXML.nodes(''/XML'') as Data(X) 
+			set @ScopeID=scope_identity()
+			
+			insert into ACC_AssetChanges(AssetID,ChangeType,ChangeName,StatusID,ChangeDate,AssetOldValue,ChangeValue,AssetNewValue,Descriptions,LocationID,GUID,CreatedBy,CreatedDate)
+			values(@AssetID,5,''Dispose'',1,@CDate,@Cv,@Amt,@AssetNetValue,@ScopeID,NULL,newid(),''ADMIN'',@DTTime)
+		end
+		else
+		begin
+			update ACC_AssetsHistory
+			set [Date]= convert(float,X.value(''@Date'',''datetime'')),
+				Amount= X.value(''@Amount'',''Float''), 
+				 PolicyType= X.value(''@Type'',''INT''),
+				 CurrentValue=X.value(''@CurrentValue'',''Float''),
+				 Remarks= X.value(''@Remarks'',''NVARCHAR(500)'') ,
+				 PostJV=X.value(''@PostJV'',''int''),
+				 DebitAccount=X.value(''@DebitAccount'',''INT''),
+				 CreditAccount=X.value(''@CreditAccount'',''INT''),
+				 GainAccount=X.value(''@GainAccount'',''INT''),
+				 LossAccount=X.value(''@LossAccount'',''INT''),
+				 DisposeClearingAccount=X.value(''@LossAccount'',''INT''),
+				 ModifiedBy=@UserID,ModifiedDate=@DTTime
+			from   @DisposeXML.nodes(''/XML'') as Data(X)
+			where HistoryID=X.value(''@HistoryID'',''int'')
+			set @ScopeID=1
+			
+			update ACC_AssetChanges
+			set ChangeDate=@CDate,AssetOldValue=@Cv,ChangeValue=@Amt,AssetNewValue=@AssetNetValue
+				,ModifiedBy=@UserID,ModifiedDate=@DTTime
+			from @DisposeXML.nodes(''/XML'') as Data(X)
+			where AssetID=@AssetID and Descriptions=X.value(''@HistoryID'',''int'')
+		end
+		--Depreciation changes
+		IF (@AssetDepreciationXML IS NOT NULL AND @AssetDepreciationXML <> '''')          
+		BEGIN
+			declare @DepXML xml
+			SET @DepXML=@AssetDepreciationXML     
+			IF EXISTS(select ASSETID from ACC_AssetDepSchedule with(nolock) where ASSETID=@AssetID)
+			BEGIN
+				 update A       
+				 set A.DepAmount=X.value(''@DepAmt'',''FLOAT''),
+					 A.AccDepreciation=X.value(''@AccDep'',''FLOAT''),
+					 A.AssetNetValue=X.value(''@NetValue'',''FLOAT'')
+				from ACC_AssetDepSchedule A with(nolock) inner join @DepXML.nodes(''/XML/Row'') as data(x) on A.DPScheduleID=x.value(''@ScheduleID'',''INT'')  
+				where x.value(''@ScheduleID'',''INT'') is not null    
+			END
+			ELSE
+			BEGIN
+				--DELETE  FROM [ACC_AssetDepSchedule] WHERE ASSETID = @AssetID AND DOCID IS NULL AND VOUCHERNO IS NULL AND STATUSID = 0   
+				INSERT INTO  [ACC_AssetDepSchedule]
+			   ([AssetID]    
+			   ,[DeprStartDate]    
+			   ,[DeprEndDate]    
+			   ,[DepAmount]    
+			   ,[AccDepreciation]    
+			   ,[AssetNetValue]    
+			   ,[PurchaseValue]    
+			   ,[DocID],[VoucherNo],[DocDate]
+			   ,[StatusID],[CreatedBy],[CreatedDate]
+			   ,ActualDeprAmt)    
+				SELECT @AssetID, convert(float,X.value(''@From'',''datetime'')) ,convert(float,X.value(''@To'',''datetime'')) ,X.value(''@DepAmt'',''FLOAT'') ,     
+				X.value(''@AccDep'',''FLOAT'') ,   X.value(''@NetValue'',''FLOAT'') ,@PV,NULL,NULL,NULL,ISNULL(X.value(''@StatusID'',''INT''), 0),           
+				@UserID,@DTTime,X.value(''@ActDepAmt'',''FLOAT'')
+				FROM @DepXML.nodes(''/XML/Row'') as Data(X)
+			END
+		END
+		
+		--Post Sales Document while Dispose
+
+		IF(@DisposeSIV > 40000 AND @DDefaultPostSIV=1 and @JVXML is not null and @JVXML<>'''')
+		BEGIN		
+			SET @XML = @JVXML
+
+			DECLARE @PrdID BIGINT,@RID BIGINT,@IsQtyIgnored INT,@SIVXML XML,@DocumentXML XML,@Numeric NVARCHAR(MAX),@Alpha NVARCHAR(MAX),@CostCenters NVARCHAR(MAX)
+			,@History NVARCHAR(100),@HistoryType INT
+			SELECT @HistoryType=X.value(''@HistoryType'',''INT''),@Type=X.value(''@Type'',''INT''),@History=X.value(''@History'',''NVARCHAR(100)'') FROM @DisposeXML.nodes(''/XML'') as Data(X) 
+			IF(@History=''Sale Full'')
+			BEGIN
+				SELECT @PrdID=UserDefaultValue FROM ADM_CostCenterDef WITH(NOLOCK) WHERE CostCenterID=@DisposeSIV AND SysColumnName=''ProductID''
+				SELECT @IsQtyIgnored=CONVERT(BIT,PrefValue) FROM COM_DocumentPreferences WITH(NOLOCK) WHERE CostCenterID=@DisposeSIV AND PREFNAME=''DonotupdateInventory''			
+
+				SELECT @RID=RoleID FROM ADM_UserRoleMap WITH(NOLOCK) WHERE UserID=@UserID AND Status=1
+				set @DT_INT=floor(convert(float,@DisposeDate))
+
+				declare @TblSIV as table(ID INT IDENTITY(1,1),SIVXML NVARCHAR(MAX),DocumentXML NVARCHAR(MAX))
+				insert into @TblSIV
+				SELECT CONVERT(NVARCHAR(MAX), X.query(''SIVXML'')),CONVERT(NVARCHAR(MAX), X.query(''DocumentXML''))
+				from @XML.nodes(''/JVXML/ROWS'') as Data(X) 
+			
+				select @SIVXML=SIVXML,@DocumentXML=DocumentXML from @TblSIV
+
+				SELECT @Numeric=CONVERT(NVARCHAR(MAX), X.query(''./Numeric'')),@Alpha=CONVERT(NVARCHAR(MAX), X.query(''./Alpha'')),@CostCenters=CONVERT(NVARCHAR(MAX), X.query(''./CostCenters''))
+				from @XML.nodes(''/JVXML/ROWS/DocumentXML/Row'') as T(X) 			
+			
+				SELECT @DocXml=''<Row><AccountsXML>
+				<Accounts DebitAccount="''+CONVERT(NVARCHAR,X.value(''@SaleDebitAccount'', ''INT''))+''" CreditAccount="''+CONVERT(NVARCHAR,X.value(''@SaleCreditAccount'', ''INT''))+''" Amount="''+CONVERT(NVARCHAR,X.value(''@SaleAmount'', ''FLOAT''))+''" AmtFc="''+CONVERT(NVARCHAR,X.value(''@SaleAmount'', ''FLOAT''))+''" CurrencyID="1" ExchangeRate="1"  DocSeqNo="1"  LineNarration=""  ></Accounts>
+				</AccountsXML><Transactions DocSeqNo="1"  DocDetailsID="0" LinkedInvDocDetailsID="0" LinkedFieldName="" ProductID="''+CONVERT(NVARCHAR,@PrdID)+''" Unit="1" 
+				UOMConversion="1" UOMConvertedQty="1" Quantity="1" Rate="''+CONVERT(NVARCHAR,X.value(''@SaleAmount'', ''FLOAT''))+''" Gross="''+CONVERT(NVARCHAR,X.value(''@SaleAmount'', ''FLOAT''))+''" IsScheme="" LineNarration="" RefNO="" IsQtyIgnored="''+CONVERT(NVARCHAR,@IsQtyIgnored)+''" AverageRate="0" StockValue="6" 
+				Net="6" StockValueFC="6" CurrencyID="1" ExchangeRate="1" ActDocDate="17/Sep/2026"  DebitAccount="''+CONVERT(NVARCHAR,X.value(''@SaleDebitAccount'', ''INT''))+''"  CreditAccount="''+CONVERT(NVARCHAR,X.value(''@SaleCreditAccount'', ''INT''))+''"  ></Transactions>
+				''+CONVERT(NVARCHAR(MAX),@Numeric)+'' ''+CONVERT(NVARCHAR(MAX),@Alpha)+'' ''+CONVERT(NVARCHAR(MAX),@CostCenters)+'' <EXTRAXML></EXTRAXML></Row>''
+				from @SIVXML.nodes(''/SIVXML/ROWS/Transactions'') as Data(X);
+			
+				--<Numeric Query=" " ></Numeric><Alpha Query=" " ></Alpha><CostCenters Query=" " ></CostCenters>
+			
+				EXEC [sp_GetDocPrefix] @DocXml,@DT_INT,@DisposeSIV,@Prefix output 
+				EXEC @return_value = [dbo].[spDOC_SetTempInvDoc]      
+							@CostCenterID = @DisposeSIV,      
+							@DocID = 0,      
+							@DocPrefix = @Prefix,      
+							@DocNumber = N'''',      
+							@DocDate = @DT_INT,      
+							@DueDate = NULL,      
+							@BillNo = '''',      
+							@InvDocXML =@DocXml,      
+							@BillWiseXML = N'''',     
+							@NotesXML = N'''',      
+							@AttachmentsXML = N'''',     
+							@ActivityXML  = N'''',     
+							@IsImport = 0,      
+							@LocationID = 0, --     
+							@DivisionID = 0, --     
+							@WID = 0,      
+							@RoleID = @RID,      
+							@DocAddress = N'''',-- N'''',    
+							@RefCCID = 72,    
+							@RefNodeid  = @AssetID,    
+							@CompanyGUID = @CompanyGUID,      
+							@UserName = @UserName,      
+							@UserID = @UserID,      
+							@LangID = @LangID
+
+				
+
+					INSERT INTO ACC_AssetsHistory(HistoryTypeID,AssetManagementID,[Date],Amount,PolicyType,CurrentValue,Remarks,PostJV,DebitAccount,CreditAccount,GainAccount,LossAccount
+					,DisposeClearingAccount,GUID,CreatedBy,CreatedDate,DocID,VoucherNo,CostCenterID,DocumentName,DocPrefix,DocNumber)
+					select @HistoryType,@AssetID,CONVERT(FLOAT,@DT_INT),X.value(''@SaleAmount'', ''FLOAT''),@Type,X.value(''@CurrentValue'', ''FLOAT''),'''',@DDefaultPostSIV,X.value(''@SaleDebitAccount'', ''INT''),X.value(''@SaleCreitAccount'', ''INT'') 
+					,0,0,0,newid(),@UserID,@DTTime,i.DocID,i.VoucherNo,i.CostCenterID,f.Name,i.DocPrefix,i.DocNumber FROM @SIVXML.nodes(''/SIVXML/ROWS/Transactions'') as Data(X)
+					join INV_DocDetails i with(nolock) on i.DocID=@return_value and DocSeqNo=1
+					join ADM_Features f with(nolock) on f.FeatureID=i.CostCenterID
+				
+					set @return_value=-1
+
+				
+					select @TypeID,@AssetID,CONVERT(FLOAT,@DT_INT),X.value(''@SaleAmount'', ''FLOAT''),0,X.value(''@CurrentValue'', ''FLOAT''),'''',@DDefaultPostSIV,X.value(''@SaleDebitAccount'', ''INT''),X.value(''@SaleCreitAccount'', ''INT'') 
+					,0,0,0,newid(),@UserID,@DTTime,i.DOCID,i.VOUCHERNO,i.CostCenterID,f.Name DocumentName,i.DocPrefix,i.DocNumber FROM @SIVXML.nodes(''/SIVXML/ROWS/Transactions'') as Data(X)
+					join INV_DocDetails i with(nolock) on i.DocID=@return_value and DocSeqNo=1
+					join ADM_Features f with(nolock) on f.FeatureID=i.CostCenterID
+			END
+		END
+
+		IF(@Post = 1 and @JVXML is not null and @JVXML<>'''')
+		BEGIN
+			SET @XML = @JVXML
+			
+			/******** FOR EDIT PENDING ************/
+			--if(@DocuXML is not null and @DocuXML<>'''') 
+			--Begin 
+			--	declare @DocUID int,@Amount float,@Date float,@DAccount INT,@CAccount INT	,@HistoryID int
+							 
+			--	select @DocUID=X.value(''@DocID'',''INT''),@Amount=X.value(''@Amount'',''Float''),
+			--		@Date=convert(float,X.value(''@Date'',''datetime'')),@DAccount=X.value(''@DebitAccount'',''INT''),
+			--		@CAccount=X.value(''@CreditAccount'',''INT'') 
+			--	from @DepXML.nodes(''/XML'') as Data(X) 
+						  
+			--	update acc_docdetails
+			--	set Amount=  @Amount,DocDate=@Date,
+			--	DebitAccount=@DAccount,AmountFC=@Amount
+			--	where DocID=@DocUID and CreditAccount=-99
+				
+			--	update acc_docdetails
+			--	set Amount=  @Amount,DocDate=@Date,
+			--	CreditAccount=@CAccount,AmountFC=@Amount
+			--	where DocID=@DocUID and DebitAccount=-99
+			--END
+			
+			declare @TblJV as table(ID INT IDENTITY(1,1),DocumentXML NVARCHAR(MAX),DeprSchID INT,Amount float,AccDepr float,Net float)
+			insert into @TblJV
+			SELECT CONVERT(NVARCHAR(MAX), X.query(''DocumentXML''))
+			,X.value(''@ScheduleID'',''INT''),X.value(''@Amount'',''float''),X.value(''@AccDepr'',''float''),X.value(''@Net'',''float'')
+			from @XML.nodes(''/JVXML/ROWS'') as Data(X)  
+
+			select @i=1,@Cnt=count(*) from @TblJV
+			while(@i<=@Cnt)
+			begin
+				SELECT @DocXml=DocumentXML,@DeprSchID=DeprSchID,@Amt=Amount,@AccDepr=AccDepr,@AssetNetValue=Net from @TblJV where ID=@i
+				
+				set @DT_INT=floor(convert(float,@DisposeDate))
+				
+				if(@DeprSchID is not null)
+				begin
+					if ''ScheduleDate''=(select Value from com_costcenterpreferences with(nolock) where costcenterid=72 and Name=''AssetDeprPostDate'')
+						select @DT_INT=floor(convert(float,@DisposeDate))-1
+				end
+				
+				SET @CurrencyID=1
+				IF((SELECT Value FROM COM_CostCenterPreferences WITH(NOLOCK) WHERE CostCenterID=72 AND Name=''AssetLocationDim'') <> '''' AND 
+				((SELECT Value FROM COM_CostCenterPreferences WITH(NOLOCK) WHERE CostCenterID=72 AND Name=''AssetLocationDim'')=
+				(SELECT Value FROM ADM_GlobalPreferences WITH(NOLOCK) WHERE Name=''DimensionwiseCurrency'')))
+				BEGIN
+					DECLARE @LocationID INT
+					SELECT @AstLocTbl=F.TableName FROM COM_CostCenterPreferences CP WITH(NOLOCK) 
+					JOIN ADM_Features F WITH(NOLOCK) ON F.FeatureID=CP.Value
+					WHERE CostCenterID=72 AND CP.Name=''AssetLocationDim''
+					select @LocationID=LocationID from acc_assets with(nolock)where AssetID=@AssetID
+					SET @SQL=''SELECT @CurrencyID=CurrencyID FROM ''+convert(nvarchar,@AstLocTbl)+'' WITH(NOLOCK) WHERE NodeID=''+convert(nvarchar,@Locationid)+''''
+					EXEC sp_executesql @SQL,N''@CurrencyID INT output'',@CurrencyID output
+				SET @DocXml=REPLACE(@DocXml,''CurrencyID="1"'',''CurrencyID="''+convert(nvarchar,@CurrencyID)+''"'')
+				END
+
+				EXEC [sp_GetDocPrefix] @DocXml,@DT_INT,@COSTCENTERID,@Prefix output 
+				
+				EXEC @return_value = [dbo].[spDOC_SetTempAccDocument]
+					@CostCenterID = @COSTCENTERID,
+					@DocID = 0,
+					@DocPrefix = @Prefix,
+					@DocNumber = N'''',
+					@DocDate = @DT_INT,
+					@DueDate =NULL,
+					@BillNo = NULL,
+					@InvDocXML = @DocXml,
+					@NotesXML =  N'''',
+					@AttachmentsXML =  N'''',
+					@ActivityXML = N'''',
+					@IsImport = 0,
+					@LocationID = 1,
+					@DivisionID = 1,
+					@WID = 0,
+					@RoleID = 1,
+					@RefCCID = 72,
+					@RefNodeid =@AssetID ,
+					@CompanyGUID = @CompanyGUID,
+					@UserName = @UserName,
+					@UserID = @UserID,
+					@LangID = @LangID
+			select @return_value jvreturn_value
+				if(@DeprSchID is not null)
+				begin
+					SELECT @VOUCHERNO=VoucherNo,@DocDate=DocDate,@STATUSID=STATUSID FROM ACC_DOCDETAILS with(nolock)
+					where costcenterid=@COSTCENTERID and docid=@return_value         
+					
+					UPDATE  ACC_AssetDepSchedule  
+					SET DOCID=@return_value,VOUCHERNO=@VOUCHERNO,Docdate=@DocDate,STATUSID=@STATUSID
+						,DepAmount=@Amt,DeprEndDate=floor(convert(float,@DisposeDate))-1,AccDepreciation=@AccDepr,AssetNetValue=@AssetNetValue
+					WHERE DPScheduleID=@DeprSchID
+					
+					--select * from ACC_AssetDepSchedule where assetid=@AssetID
+				end
+				else
+				begin
+					SELECT distinct D.VOUCHERNO,D.Docdate,D.DOCID,F.Name DocumentName,D.CostCenterID,
+					D.DocPrefix,D.DocNumber  FROM ACC_DOCDETAILS D with(nolock)
+					Left Join ADM_FEATURES F with(nolock) ON D.CostCenterID=F.FeatureID
+					WHERE DOCID=@return_value
+					select @return_value jvid
+					update ACC_AssetsHistory
+					set DocID=T.DOCID,VoucherNo=T.VOUCHERNO,CostCenterID=T.CostCenterID,DocumentName=T.DocumentName
+					,DocPrefix=T.DocPrefix,DocNumber=T.DocNumber
+					from 
+					(SELECT distinct D.VOUCHERNO,D.Docdate,D.DOCID,F.Name DocumentName,D.CostCenterID,
+						D.DocPrefix,D.DocNumber  FROM ACC_DOCDETAILS D with(nolock)
+						Left Join ADM_FEATURES F with(nolock) ON D.CostCenterID=F.FeatureID
+						WHERE DOCID=@return_value
+					) as T, ACC_AssetsHistory
+					where HistoryID=@ScopeID
+				end
+			
+				set @i=@i+1
+			END
+		END
+		
+		--Hold Schedule In Temp Table
+		if(@DisposeType=1 or @DisposeType=3)
+		begin
+			delete from ACC_AssetDepSchedule where AssetID=@AssetID and DocID is null -- and @DisposeDate<=DeprStartDate
+		end
+		
+	END--END OF DISPOSE
+/*
+select * from ACC_AssetsHistory where AssetManagementID=@AssetID
+select * from ACC_AssetChanges where assetid=@AssetID
+select * from ACC_AssetDepSchedule where assetid=@AssetID
+select * from ACC_AssetDeprSchTemp where assetid=@AssetID
+select top 10 * from acc_docdetails with(nolock) order by AccDocDetailsID desc
+*/
+
+COMMIT TRANSACTION       
+--ROLLBACK TRANSACTION       
+     
+SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock)     
+WHERE ErrorNumber=100 AND LanguageID=@LangID    
+SET NOCOUNT OFF;  
+RETURN @ScopeID
+
+END TRY        
+BEGIN CATCH        
+IF ERROR_NUMBER()=50000    
+ BEGIN    
+ SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock)     
+  WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID    
+ END    
+ ELSE IF ERROR_NUMBER()=547    
+ BEGIN    
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine FROM    
+	COM_ErrorMessages WITH(nolock)    
+  WHERE ErrorNumber=-110 AND LanguageID=@LangID    
+ END    
+ ELSE IF ERROR_NUMBER()=2627    
+ BEGIN    
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine FROM    
+	COM_ErrorMessages WITH(nolock)    
+  WHERE ErrorNumber=-116 AND LanguageID=@LangID    
+ END    
+ ELSE    
+ BEGIN    
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine    
+  FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=-999 AND LanguageID=@LangID    
+ END     
+ ROLLBACK TRANSACTION      
+ SET NOCOUNT OFF        
+ RETURN -999
+END CATCH   
+' 
+END
+GO
+/****** Object:  StoredProcedure [dbo].[spACC_GetAssetManagementDetails]    Script Date: 10/9/2026 3:39:52 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spACC_GetAssetManagementDetails]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N' CREATE procedure [dbo].[spACC_GetAssetManagementDetails]     
+ @AssetManagementID INT = 0,    
+ @UserID INT,    
+ @LangID int=1,
+ @RoleID INT= 0
+AS    
+BEGIN TRY     
+SET NOCOUNT ON    
+	
+	declare @SQL nvarchar(max),@AssetLocDim nvarchar(20),@AssetOwnerDim nvarchar(20),@AssetTrOwnerDim nvarchar(20)
+	
+	if @AssetManagementID!=0
+	begin
+		select @AssetLocDim=TableName from adm_features with(nolock) where FeatureID IN (select Value from com_costcenterpreferences with(nolock) where costcenterid=72 and Name=''AssetLocationDim'')
+		select @AssetOwnerDim=TableName from adm_features with(nolock) where FeatureID IN (select Value from com_costcenterpreferences with(nolock) where costcenterid=72 and Name=''AssetOwner'')
+		select @AssetTrOwnerDim=TableName from adm_features with(nolock) where FeatureID IN (select Value from com_costcenterpreferences with(nolock) where costcenterid=72 and Name=''OwnerTransfer'')
+	end
+	
+   --select * from ACC_Assets   
+    select AssetClassID,AssetClassName from ACC_AssetClass with(nolock)
+    
+    --Preferences Unused Table
+    select 1 Unused where 1!=1
+    
+    select * from ACC_DeprBook with(nolock)
+    
+     --Unused
+    if @AssetManagementID!=0 and @AssetOwnerDim!='''' and @AssetOwnerDim is not null
+	begin
+		set @SQL=''select H.HistoryID,L.Code,L.Name,H.HistoryNodeID,convert(datetime,FromDate) FromDate,convert(datetime,ToDate) ToDate,H.Remarks
+		from COM_HistoryDetails H with(nolock) 
+		inner join ''+@AssetOwnerDim+'' L with(nolock) on L.NodeID=H.HistoryNodeID
+		where H.CostCenterID=72 and H.NodeID=''+convert(nvarchar,@AssetManagementID)+'' and H.HistoryCCID=2
+		order by FromDate,H.HistoryID''
+		exec(@SQL)
+	end
+	else
+	begin
+		select 1 OwnerHistory where 1!=1
+	end
+    
+    select top(1) A.AssetID,A.[Description],   
+     A.AssetCode,   
+     A.AssetName,  
+     A.StatusID,  
+     A.SerialNo,   
+     A.DeprBookGroupID,  
+     A.ClassID,    
+     A.LocationID,  
+     A.EmployeeID,
+	 A.OwnerID,
+     case when (A.AssignedDate is null or A.AssignedDate=0) then null else (convert(datetime,A.AssignedDate)) end AssignedDate,   
+     A.PostingGroupID,   
+     A.EstimateLife,   
+     A.SalvageValueType,  
+     A.SalvageValueName,  
+     A.SalvageValue,   
+     A.IsComponent,  
+     A.ParentAssetID,   
+     A.PurchaseInvoiceNo,   
+     A.SupplierAccountID,   
+     A.AssetDepreciationJV ,  
+     A.PurchaseValue,   
+     case when (A.PurchaseDate is null or A.PurchaseDate=0) then null else (convert(datetime,A.PurchaseDate)) end PurchaseDate,   
+     A.DeprStartValue,   
+	 case when (A.DeprStartDate is null or A.DeprStartDate=0) then null else (convert(datetime,A.DeprStartDate)) end DeprStartDate,   
+     case when (A.DeprEndDate is null or A.DeprEndDate=0) then null else (convert(datetime,A.DeprEndDate)) end  DeprEndDate,   
+     case when (A.OriginalDeprStartDate is null or A.OriginalDeprStartDate=0) then null else (convert(datetime,A.OriginalDeprStartDate)) end OriginalDeprStartDate,
+     A.AssetNetValue,   
+     A.CalcDate,   
+     A.WarrantyNo,   
+     case when (A.WarrantyExpiryDate is null or A.WarrantyExpiryDate=0) then null else (convert(datetime,A.WarrantyExpiryDate))end WarrantyExpiryDate,   
+     A.IsMainCovered,   
+     A.MainVendorAccID,   
+     case when (A.NextServiceDate is null or A.NextServiceDate=0) then null else (convert(datetime,A.NextServiceDate))  end NextServiceDate,   
+     case when (A.MaintStartDate is null or A.MaintStartDate=0) then null else (convert(datetime,A.MaintStartDate)) end MaintStartDate,   
+     case when (A.MaintExpiryDate is null or A.MaintExpiryDate=0) then null else (convert(datetime,A.MaintExpiryDate)) end MaintExpiryDate,   
+     A.IsInsCovered,   
+     A.InsVendorAccID,   
+     A.InsPolicyNo,   
+     A.InsType,   
+     case when (A.InsEffectiveDate is null or A.InsEffectiveDate=0) then null else (convert(datetime,A.InsEffectiveDate)) end InsEffectiveDate,  
+     case when (A.InsExpiryDate is null or A.InsExpiryDate=0) then null else (convert(datetime,A.InsExpiryDate)) end InsExpiryDate,  
+     A.PreviousDepreciation,   
+     A.InsPremium,   
+     A.PolicyCoverage,   
+     A.InsNarration,   
+     A.Period,    
+     A.AssetDisposalJV,   
+     A.DepreciationMethod,   
+     A.AveragingMethod,A.GUID, ISNULL(A.CCID,0) AssetDimID,ISNULL(A.CCNodeID,0) AssetDimNodeID,A.ParentID,
+     A.IsDeprSchedule,ACC_AssetChanges.AssetNewValue as CurrentValue ,
+     A.DeprBookID,
+     A.PONo,case when (A.PODate is null or A.PODate=0) then null else (convert(datetime,A.PODate)) end PODate,
+     A.GRNNo,case when (A.GRNDate is null or A.GRNDate=0) then null else (convert(datetime,A.GRNDate)) end GRNDate,
+     A.CapitalizationNo,case when (A.CapitalizationDate is null or A.CapitalizationDate=0) then null else (convert(datetime,A.CapitalizationDate)) end CapitalizationDate,
+     A.TotalQtyPurchase,A.UOM,A.IncludeSalvageInDepr,
+     A.AcqnCostACCID,A.AccumDeprACCID,A.AcqnCostDispACCID,A.AccumDeprDispACCID,
+	 A.GainsDispACCID,A.LossDispACCID,A.MaintExpenseACCID,A.DeprExpenseACCID,
+	 A.CodePrefix,A.CodeNumber,A.Depth,A.WorkFlowID,A.WorkFlowLevel
+     from ACC_Assets A with(nolock)
+     LEFT JOIN ACC_AssetChanges with(nolock) on A.AssetID=ACC_AssetChanges.AssetID  
+     where A.AssetID=@AssetManagementID 
+     order by ACC_AssetChanges.AssetChangeID desc  
+    
+    --Asset Location Name
+	if @AssetManagementID!=0
+	begin
+		declare @AssLocation INT,@AssEmp INT,@AssOwnerID INT,@AssetLoc nvarchar(200),@AssetOwner nvarchar(200),@AssetTrOwner nvarchar(200)
+		select @AssLocation=LocationID,@AssEmp=EmployeeID,@AssOwnerID=OwnerID from ACC_Assets with(nolock) where AssetID=@AssetManagementID 
+		if @AssetLocDim!='''' and @AssetLocDim is not null
+		begin
+			set @SQL=''select @Name=Name from ''+@AssetLocDim +'' with(nolock) where NodeID=''+convert(nvarchar,isnull(@AssLocation,0))
+			EXEC sp_executesql @SQL,N''@Name nvarchar(200) OUTPUT'',@AssetLoc OUTPUT
+		end
+		
+		if @AssetOwnerDim!='''' and @AssetOwnerDim is not null
+		begin
+			set @SQL=''select @Name=Name from ''+@AssetOwnerDim +'' with(nolock) where NodeID=''+convert(nvarchar,isnull(@AssEmp,0))
+			EXEC sp_executesql @SQL,N''@Name nvarchar(200) OUTPUT'',@AssetOwner OUTPUT
+		end
+
+		if @AssetTrOwnerDim!='''' and @AssetTrOwnerDim is not null
+		begin
+			set @SQL=''select @Name=Name from ''+@AssetTrOwnerDim +'' with(nolock) where NodeID=''+convert(nvarchar,isnull(@AssOwnerID,0))
+			EXEC sp_executesql @SQL,N''@Name nvarchar(200) OUTPUT'',@AssetTrOwner OUTPUT
+		end
+
+		select @AssetLoc AssetLocation,@AssetOwner AssetOwner,@AssetTrOwner OwnerTransfer
+	end
+	else
+		select 1 AssetLocation where 1!=1
+    
+   
+   -- select A.*,convert(datetime,A.ChangeDate) as Date,L.Name as Location  from ACC_AssetChanges A,COM_Location L where A.AssetID=@AssetManagementID and convert(nvarchar(50),A.LocationID)=L.Code    
+      
+	select A.*,convert(datetime,A.ChangeDate) as Date,convert(datetime,A.CreatedDate) as CreatedDt
+	,(SELECT STUFF((SELECT '',''+VoucherNo FROM ACC_AssetsHistory WITH(NOLOCK) WHERE AssetManagementID=A.AssetID AND Date=A.ChangeDate FOR XML PATH('''')),1,1,'''')) DocNo 
+	from ACC_AssetChanges A with(nolock) 
+	where A.AssetID=@AssetManagementID order by A.ChangeDate
+      
+	if @AssetManagementID!=0 and @AssetLocDim is not null and @AssetLocDim!=''''
+	begin
+		set @SQL=''select H.HistoryID,L.Code,L.Name,H.HistoryNodeID,convert(datetime,FromDate) FromDate,convert(datetime,ToDate) ToDate,H.Remarks
+		from COM_HistoryDetails H with(nolock) 
+		inner join ''+@AssetLocDim+'' L with(nolock) on L.NodeID=H.HistoryNodeID
+		where H.CostCenterID=72 and H.NodeID=''+convert(nvarchar,@AssetManagementID)+'' and H.HistoryCCID=1
+		order by FromDate,H.HistoryID''
+		exec(@SQL)
+	end
+	else
+	begin
+		select 1 LocationHistory where 1!=1
+	end
+      
+    select top(1) convert(datetime,ACC_Assets.DeprStartDate) as DepStartDate,ACC_AssetChanges.AssetNewValue ,ACC_AssetChanges.AssetChangeID  
+    from ACC_Assets with(nolock) 
+    LEFT JOIN ACC_AssetChanges with(nolock) on ACC_Assets.AssetID=ACC_AssetChanges.AssetID   
+    where ACC_Assets.AssetID=@AssetManagementID order by ACC_AssetChanges.AssetChangeID desc  
+      
+    SELECT D.CostCenterID,L.ResourceData  
+   FROM ADM_DocumentTypes D WITH(NOLOCK)  
+   INNER JOIN ADM_RibbonView R with(nolock) ON R.FeatureID=D.CostCenterID  
+   LEFT JOIN COM_LanguageResources L with(nolock) ON L.ResourceID=R.FeatureActionResourceID AND L.LanguageID=@LangID   
+   WHERE D.DocumentType=17  
+   ORDER BY L.ResourceData   
+  
+	--Depreciation Values     
+	SELECT   dep.DPScheduleID ScheduleID,  CONVERT(DATETIME, dep.DeprStartDate ) AS FromDate  
+	,CONVERT(DATETIME, dep.DeprEndDate ) AS ToDate  
+	, dep.PurchaseValue   
+	, dep.DepAmount AS DeprAmt   
+	, dep.AccDepreciation AS accmDepr   
+	, dep.AssetNetValue AS NetValue  
+	,dep.DocID   
+	,dep.VoucherNo   
+	,dep.DocDate   
+	,dep.ActualDeprAmt
+	, Sts.status StatusID   
+	,dep.CreatedBy   
+	,dep.CreatedDate   
+	,dep.ModifiedBy   
+	,dep.ModifiedDate
+	,accdoc.CostCenterID CostCenterID  
+	,accdoc.DocPrefix  DocPrefix  
+	,accdoc.DocNumber  DocNumber  
+	, ADF.DocumentName DocumentName   
+	FROM  [ACC_AssetDepSchedule] dep with(nolock)   
+	LEFT JOIN Com_Status Sts with(nolock) on  Sts.StatusID =  dep.StatusID    
+	LEFT JOIN acc_docdetails accdoc with(nolock) on dep.docid = accdoc.docid  and accdoc.docseqno = 1   
+	LEFT join ADM_DocumentTypes ADF with(nolock) on accdoc.CostCenterID = ADF.CostCenterID    
+	where dep.AssetID=@AssetManagementID  order by CONVERT(DATETIME, dep.DeprStartDate ) asc   
+  
+	--History Details
+	select H.HistoryID,H.HistoryCCID CCID,H.HistoryNodeID,convert(datetime,FromDate) FromDate,convert(datetime,ToDate) ToDate,H.Remarks
+	from COM_HistoryDetails H with(nolock) 
+	where H.CostCenterID=72 and H.NodeID=@AssetManagementID and H.HistoryCCID>50000
+	order by FromDate,H.HistoryID
+
+	SELECT  DepreciationMethodID, Name  FROM ACC_DepreciationMethods with(nolock)
+
+	select *,case when [Date] is null then null else convert(datetime,[Date]) end as Datee,  
+		case when NextServiceDate is null then null else convert(datetime,NextServiceDate) end as MaintenanceNextServiceDate,  
+		case when StartDate is null then null else convert(datetime,StartDate) end as InsuranceStartDate,  
+		case when EndDate is null then null else convert(datetime,EndDate) end as InsuranceEndDate  
+	from ACC_AssetsHistory with(nolock) where AssetManagementID=@AssetManagementID  
+   
+	--Getting Notes  
+	SELECT  NoteID, Note, FeatureID, FeaturePK, CompanyGUID, GUID, CreatedBy, convert(datetime,CreatedDate) as CreatedDate,   
+	ModifiedBy, ModifiedDate, CostCenterID  
+	FROM   COM_Notes WITH(NOLOCK)   
+	WHERE FeatureID=72 and  FeaturePK=@AssetManagementID  
+
+	--Getting Files  
+	SELECT CONVERT(DATETIME,CreatedDate) CreatedDate,* FROM  COM_Files WITH(NOLOCK)   
+	WHERE FeatureID=72 and  FeaturePK=@AssetManagementID  
+
+	--Extra Fields  
+	SELECT * FROM  ACC_AssetsExtended WITH(NOLOCK)   
+	WHERE AssetID=@AssetManagementID  
+	
+
+	--Getting CostCenterMap  
+	SELECT * FROM COM_CCCCDATA with(nolock)
+	WHERE NodeID = @AssetManagementID AND CostCenterID  = 72  
+
+	--Asset Ower Transfer History
+	if @AssetManagementID!=0 and @AssetTrOwnerDim!='''' and @AssetTrOwnerDim is not null
+	begin
+		set @SQL=''select H.HistoryID,L.Code,L.Name,H.HistoryNodeID,convert(datetime,FromDate) FromDate,convert(datetime,ToDate) ToDate,H.Remarks
+		from COM_HistoryDetails H with(nolock) 
+		inner join ''+@AssetTrOwnerDim+'' L with(nolock) on L.NodeID=H.HistoryNodeID
+		where H.CostCenterID=72 and H.NodeID=''+convert(nvarchar,@AssetManagementID)+'' and H.HistoryCCID=3
+		order by FromDate,H.HistoryID''
+		exec(@SQL)
+	end
+	else
+	begin
+		select 1 OwnerHistory where 1!=1
+	end
+
+	Declare @WID INT,@Userlevel int,@StatusID int,@Level int,@canApprove bit,@canEdit bit,@Type int,@escDays int,@CreatedDate datetime
+		SELECT @StatusID=StatusID,@WID=WorkFlowID,@Level=WorkFlowLevel,@CreatedDate=CONVERT(datetime,createdDate)
+		FROM ACC_Assets WITH(NOLOCK) where AssetID=@AssetManagementID
+		if(@WID is not null and @WID>0)  
+		BEGIN  
+			SELECT @Userlevel=LevelID,@Type=[type] FROM [COM_WorkFlow]   WITH(NOLOCK)   
+			where WorkFlowID=@WID and  UserID =@UserID
+
+			if(@Userlevel is null)  
+				SELECT @Userlevel=LevelID,@Type=[type] FROM [COM_WorkFlow]  WITH(NOLOCK)    
+				where WorkFlowID=@WID and  RoleID =@RoleID
+
+			if(@Userlevel is null)       
+				SELECT @Userlevel=LevelID,@Type=[type] FROM [COM_WorkFlow] W WITH(NOLOCK)
+				JOIN COM_Groups G WITH(NOLOCK) on w.GroupID=g.GID     
+				where g.UserID=@UserID and WorkFlowID=@WID
+
+			if(@Userlevel is null)  
+				SELECT @Userlevel=LevelID,@Type=[type] FROM [COM_WorkFlow] W WITH(NOLOCK)
+				JOIN COM_Groups G WITH(NOLOCK) on w.GroupID=g.GID     
+				where g.RoleID =@RoleID and WorkFlowID=@WID
+			    
+				
+				print  ''@Userlevel''
+				print  @Userlevel
+			if(@Userlevel is null )  	
+				SELECT @Type= [type] FROM [COM_WorkFlow] WITH(NOLOCK) where WorkFlowID=@WID
+
+
+		set @canEdit=1  
+       print ''StatusID''
+	   print @StatusID
+	   print ''@Level''
+	   print @Level
+	    print  @Userlevel
+		print ''@WID''
+		print @WID
+		if(@StatusID =1002)  
+		begin  
+			if(@Userlevel is not null and  @Level is not null and @Userlevel<@level)  
+			begin  
+				set @canEdit=0   
+			end    
+		end
+		ELSE if(@StatusID=1003)
+		BEGIN
+		    if(@Userlevel is not null and  @Level is not null and @Userlevel<@level)  
+			begin  
+				set @canEdit=1
+			end
+			ELSE
+				set @canEdit=0
+		END
+			print ''@Userlevel''
+		
+		if(@StatusID=1001 or @StatusID=1002)  
+		begin    
+			if(@Userlevel is not null and  @Level is not null and @Userlevel>@level)  
+			begin
+				if(@Type=1 or @Level+1=@Userlevel)
+					set @canApprove=1   
+				ELSE
+				BEGIN
+					if exists(select EscDays FROM [COM_WorkFlow]
+					where workflowid=@WID and ApprovalMandatory=1 and LevelID<@Userlevel and LevelID>@Level)
+						set @canApprove=0
+					ELSE
+					BEGIN	
+						select @escDays=sum(escdays) from (select max(escdays) escdays from [COM_WorkFlow] WITH(NOLOCK) 
+						where workflowid=@WID and LevelID<@Userlevel and LevelID>@Level
+						group by LevelID) as t
+						 
+						set @CreatedDate=dateadd("d",@escDays,@CreatedDate)
+						
+						select @escDays=sum(escdays) from (select max(eschours) escdays from [COM_WorkFlow] WITH(NOLOCK) 
+						where workflowid=@WID and LevelID<@Userlevel and LevelID>@Level
+						group by LevelID) as t
+						
+						set @CreatedDate=dateadd("HH",@escDays,@CreatedDate)
+
+						select @escDays=sum(escdays) from (select max(escMins) escdays from [COM_WorkFlow] WITH(NOLOCK) 
+						where workflowid=@WID and LevelID<@Userlevel and LevelID>@Level
+						group by LevelID) as t
+						set @CreatedDate=dateadd("minute",@escDays,@CreatedDate)
+						
+						if (@CreatedDate<getdate())
+							set @canApprove=1   
+						ELSE
+							set @canApprove=0
+					END	
+				END	
+			end   
+			--else if(@Userlevel is not null and  @Level is not null and @Level=@Userlevel and @StatusID=1001)  
+			--begin
+			--	set @canApprove=1  
+			--end
+			else  
+				set @canApprove= 0   
+		end  		
+		else  
+			set @canApprove= 0   
+
+		IF @WID is not null and @WID>0
+		begin
+
+			
+			select @canEdit canEdit,@canApprove canApprove
+
+			SELECT CONVERT(DATETIME, A.CreatedDate) Date,A.WorkFlowLevel,
+			(SELECT TOP 1 LevelName FROM COM_WorkFlow L with(nolock) WHERE L.WorkFlowID=@WID AND L.LevelID=A.WorkFlowLevel) LevelName,
+			A.CreatedBy,A.StatusID,S.Status,A.Remarks,U.FirstName,U.LastName
+			FROM COM_Approvals A with(nolock),COM_Status S with(nolock),ADM_Users U 
+			with(nolock)
+			WHERE A.RowType=1 AND S.StatusID=A.StatusID AND CCID=72
+			AND CCNodeID=@AssetManagementID AND A.USERID=U.USERID
+			ORDER BY A.CreatedDate
+			
+			select @WID WID,levelID,LevelName from COM_WorkFlow with(nolock) 
+			where WorkFlowID=@WID
+			group by levelID,LevelName
+		end
+		
+		end 
+      
+   
+SET NOCOUNT OFF;    
+RETURN @AssetManagementID    
+END TRY    
+BEGIN CATCH      
+ IF ERROR_NUMBER()=50000    
+ BEGIN    
+  SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=@LangID    
+ END    
+ ELSE    
+ BEGIN    
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine    
+  FROM COM_ErrorMessages WITH(nolock) WHERE ErrorNumber=-999 AND LanguageID=@LangID    
+ END    
+SET NOCOUNT OFF      
+RETURN -999       
+END CATCH
+' 
+END
+GO

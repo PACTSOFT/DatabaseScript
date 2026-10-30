@@ -1,0 +1,5 @@
+--KHAJA
+
+UPDATE INV_GSTMapping SET DefColumnName='Address1' WHERE GSTColumnName='AddressLine1_Buyer' AND GSTType='UAEUBL' AND CostCenterID=0
+UPDATE INV_GSTMapping SET DefColumnName='City' WHERE GSTColumnName='City_Buyer' AND GSTType='UAEUBL' AND CostCenterID=0
+  UPDATE INV_GSTMapping SET DefReference=0 WHERE GSTColumnName='Identification_Seller' AND GSTType='UAEUBL' AND CostCenterID=0

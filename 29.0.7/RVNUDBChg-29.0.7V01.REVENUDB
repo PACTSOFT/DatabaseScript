@@ -1,0 +1,10 @@
+--KHAJA
+
+UPDATE INV_GSTMapping SET DefColumnName='dcCCNID61'
+WHERE GSTType='UAEUBL' AND GSTColumnName='VATCategory'
+UPDATE INV_GSTMapping SET DefColumnName='dcCCNID101'
+WHERE GSTType='UAEUBL' AND GSTColumnName='InvoiceType' and CostCenterID=0
+UPDATE INV_GSTMapping SET SysColumnName='dcCCNID101'
+WHERE GSTType='UAEUBL' AND GSTColumnName='InvoiceType' and CostCenterID<>0
+UPDATE INV_GSTMapping SET DefColumnName='dcCCNID104'
+WHERE GSTType='UAEUBL' AND GSTColumnName='VATExemptionReason'

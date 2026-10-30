@@ -1,0 +1,34 @@
+--CHARY
+
+
+
+IF NOT EXISTS(SELECT ID From ADM_Widgets WITH(NOLOCK) WHERE ID=133)
+BEGIN
+
+	DECLARE @lft bigint,@rgt bigint,@Selectedlft bigint,@Selectedrgt bigint,@Depth int,@ParentID bigint, @SelectedIsGroup bit
+	DECLARE @NoOfReports INT, @SelectedNodeID int
+
+	SET @NoOfReports=2
+	set @SelectedNodeID=1
+	--To Set Left,Right And Depth of Record
+	SELECT @SelectedIsGroup=IsGroup,@Selectedlft =lft,@Selectedrgt=rgt,@ParentID=ParentID,@Depth=Depth
+	from [ADM_Widgets] with(NOLOCK) where ID=@SelectedNodeID
+
+	IF(@SelectedIsGroup = 1)--Adding Node Under the Group
+	BEGIN
+		UPDATE [ADM_Widgets] SET rgt = rgt + @NoOfReports*2 WHERE rgt > @Selectedlft;
+		UPDATE [ADM_Widgets] SET lft = lft + @NoOfReports*2 WHERE lft > @Selectedlft;
+		SET @lft =  @Selectedlft + 1
+		SET @ParentID = @SelectedNodeID
+		SET @Depth = @Depth + 1
+	END
+
+	SET IDENTITY_INSERT [ADM_Widgets] ON
+	
+	INSERT INTO [ADM_Widgets] ([ID],[Name],[OptionsXML],[AccountsXML],[CreatedBy],[CreatedDate],[WType],[Depth],[ParentID],[lft],[rgt],[IsGroup])
+	SELECT 133,'PDC Receivables - Maturity Date','<Options><PDC>1</PDC><CurrencyType>1</CurrencyType></Options>','','ADMIN',convert(int,getdate()),133,@Depth,@ParentID,@lft,@lft+1,0  UNION ALL
+	SELECT 134,'PDC Payables - Maturity Date','<Options><PDC>1</PDC><CurrencyType>1</CurrencyType></Options>','','ADMIN',convert(int,getdate()),134,@Depth,@ParentID,@lft+2,@lft+3,0 
+	
+	SET IDENTITY_INSERT [ADM_Widgets] OFF
+END
+

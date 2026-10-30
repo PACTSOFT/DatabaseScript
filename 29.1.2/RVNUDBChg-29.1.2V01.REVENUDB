@@ -1,0 +1,6 @@
+--Ibrahim
+
+IF NOT EXISTS(SELECT * FROM sys.tables t join sys.columns c on t.object_id=c.object_id WHERE t.name='ACC_AssetsHistory' AND c.name='Narration')
+BEGIN
+	ALTER TABLE ACC_AssetsHistory ADD Narration NVARCHAR(500) NULL
+END

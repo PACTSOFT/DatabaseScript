@@ -1,0 +1,7 @@
+--khaja
+
+update INV_GSTMapping set DefReference=0 WHERE GSTType='UAEUBL' and CostCenterID=0 and isnull(DefColumnName,'')='' and DefReference>0
+
+UPDATE INV_GSTMapping SET DefColumnName='',DefReference=0
+WHERE GSTType='UAEUBL' and CostCenterID=0 and ValueType='Seller' 
+and GSTColumnName in ('IdentifierScheme_Seller','RegIdentification_Seller','RegistrationType_Seller','RegistrationAgency_Seller')

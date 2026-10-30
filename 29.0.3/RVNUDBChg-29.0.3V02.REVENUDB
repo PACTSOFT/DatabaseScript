@@ -1,0 +1,12 @@
+--KHAJA
+
+UPDATE INV_GSTMapping SET IsRequired='M' where GSTColumnName='City_Seller' and GSTType='UAEUBL'
+
+UPDATE INV_GSTMapping SET DefColumnName='',DefReference=0
+where GSTType='UAEUBL' AND ValueType='Seller' AND GSTColumnName LIKE '%_Representative' AND CostCenterID=0
+
+UPDATE INV_GSTMapping SET DefColumnName='',DefReference=0
+where GSTType='UAEUBL' AND ValueType='Buyer' AND GSTColumnName LIKE '%_Delivery' AND CostCenterID=0
+
+UPDATE INV_GSTMapping SET DefReference=2
+where GSTType='UAEUBL' AND ValueType='Buyer' AND GSTColumnName LIKE '%_Buyer' AND CostCenterID=0 AND DefReference>2

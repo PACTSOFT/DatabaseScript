@@ -1,0 +1,1198 @@
+--KHASIM
+
+
+
+SET NOCOUNT ON;
+SET XACT_ABORT ON;
+
+DECLARE @ApplyChanges bit = 1;
+
+BEGIN TRY
+    BEGIN TRANSACTION;
+
+    CREATE TABLE #FeatureIconMap
+    (
+        FeatureId            int            NOT NULL PRIMARY KEY,
+        FeatureName          nvarchar(500)  NULL,
+        FeatureCategory      varchar(40)    NOT NULL,
+        SuggestedWebIcon     varchar(220)   NOT NULL,
+        AlternativeWebIcon   varchar(220)   NULL,
+        Confidence           varchar(20)    NULL,
+        RecommendationReason nvarchar(1000) NULL
+    );
+
+    INSERT INTO #FeatureIconMap
+    (
+        FeatureId, FeatureName, FeatureCategory,
+        SuggestedWebIcon, AlternativeWebIcon,
+        Confidence, RecommendationReason
+    )
+    VALUES
+        (1, N'Pact', N'NORMAL FEATURE', N'fa-light fa-handshake', N'fa-light fa-file-contract', N'High', N'Agreement / business pact'),
+        (2, N'Account', N'NORMAL FEATURE', N'fa-light fa-book', N'fa-light fa-book-open', N'High', N'Accounting / ledger'),
+        (3, N'Product', N'NORMAL FEATURE', N'fa-light fa-boxes-stacked', N'fa-light fa-barcode', N'High', N'Products / inventory'),
+        (6, N'Role', N'NORMAL FEATURE', N'fa-light fa-shield-halved', N'fa-light fa-lock', N'High', N'Security role'),
+        (7, N'User', N'NORMAL FEATURE', N'fa-light fa-user', N'fa-light fa-id-card', N'High', N'User account'),
+        (8, N'Cost Center', N'NORMAL FEATURE', N'fa-light fa-sitemap', N'fa-light fa-folder-tree', N'High', N'Organizational cost center'),
+        (10, N'Global Preferences', N'NORMAL FEATURE', N'fa-light fa-gears', N'fa-light fa-sliders', N'High', N'Global settings'),
+        (11, N'UOM', N'NORMAL FEATURE', N'fa-light fa-ruler-combined', N'fa-light fa-pen-ruler', N'High', N'Unit of measure'),
+        (12, N'Currency', N'NORMAL FEATURE', N'fa-light fa-coins', N'fa-light fa-money-bill', N'High', N'Currency'),
+        (16, N'Batch', N'NORMAL FEATURE', N'fa-light fa-boxes-stacked', N'fa-light fa-warehouse', N'High', N'Batch inventory'),
+        (18, N'Code Definition', N'NORMAL FEATURE', N'fa-light fa-code', N'fa-light fa-file-code', N'High', N'Code definition'),
+        (26, N'CostCenter GridView', N'NORMAL FEATURE', N'fa-light fa-table-cells-large', N'fa-light fa-list', N'High', N'Grid view'),
+        (27, N'CostCenter ListView', N'NORMAL FEATURE', N'fa-light fa-list', N'fa-light fa-clipboard-list', N'High', N'List view'),
+        (28, N'CostCenter QuickView', N'NORMAL FEATURE', N'fa-light fa-bolt', N'fa-light fa-gears', N'High', N'Quick view'),
+        (39, N'Administration', N'NORMAL FEATURE', N'fa-light fa-gears', N'fa-light fa-sliders', N'High', N'Administration'),
+        (40, N'Price Chart', N'NORMAL FEATURE', N'fa-light fa-chart-line', N'fa-light fa-file-chart-column', N'High', N'Price analytics'),
+        (41, N'PushNotification', N'NORMAL FEATURE', N'fa-light fa-bell', N'fa-light fa-circle-info', N'High', N'Push notifications'),
+        (43, N'Document Designer', N'NORMAL FEATURE', N'fa-light fa-pen-ruler', N'fa-light fa-file-lines', N'High', N'Document design'),
+        (44, N'Lookups', N'NORMAL FEATURE', N'fa-light fa-magnifying-glass', N'fa-light fa-circle-question', N'High', N'Lookup/search'),
+        (45, N'Tax Chart', N'NORMAL FEATURE', N'fa-light fa-percent', N'fa-light fa-money-bill', N'High', N'Tax'),
+        (47, N'Email', N'NORMAL FEATURE', N'fa-light fa-envelope', N'fa-light fa-comments', N'High', N'Email'),
+        (48, N'SMS', N'NORMAL FEATURE', N'fa-light fa-comment-sms', N'fa-light fa-comments', N'High', N'SMS'),
+        (49, N'Bulk Edit', N'NORMAL FEATURE', N'fa-light fa-pen-to-square', N'fa-light fa-file-lines', N'High', N'Bulk edit'),
+        (50, N'Reports', N'NORMAL FEATURE', N'fa-light fa-file-chart-column', N'fa-light fa-chart-line', N'High', N'Reports / analytics'),
+        (61, N'DocumentFlowDefinition', N'NORMAL FEATURE', N'fa-light fa-route', N'fa-light fa-file-lines', N'High', N'Document flow definition'),
+        (65, N'Contacts', N'NORMAL FEATURE', N'fa-light fa-address-book', N'fa-light fa-users', N'High', N'Contacts'),
+        (69, N'Favorites', N'NORMAL FEATURE', N'fa-light fa-star', N'fa-light fa-award', N'High', N'Favorites'),
+        (71, N'Machines', N'NORMAL FEATURE', N'fa-light fa-gears', N'fa-light fa-sliders', N'High', N'Machines'),
+        (72, N'Asset Management', N'NORMAL FEATURE', N'fa-light fa-building-columns', N'fa-light fa-sliders', N'High', N'Asset management'),
+        (73, N'Cases', N'NORMAL FEATURE', N'fa-light fa-folder-open', N'fa-light fa-briefcase', N'Medium', N'Cases'),
+        (74, N'Asset Class', N'NORMAL FEATURE', N'fa-light fa-layer-group', N'fa-light fa-sitemap', N'High', N'Asset classification'),
+        (75, N'Depreciation Book', N'NORMAL FEATURE', N'fa-light fa-book', N'fa-light fa-book-open', N'High', N'Depreciation book'),
+        (76, N'Bill Of Materials', N'NORMAL FEATURE', N'fa-light fa-list-check', N'fa-light fa-receipt', N'High', N'Bill of materials'),
+        (77, N'FA Posting Group', N'NORMAL FEATURE', N'fa-light fa-calculator', N'fa-light fa-percent', N'High', N'Fixed-asset posting group'),
+        (78, N'Manufacturing Order', N'NORMAL FEATURE', N'fa-light fa-industry', N'fa-light fa-clipboard-list', N'High', N'Manufacturing order'),
+        (81, N'Contract', N'NORMAL FEATURE', N'fa-light fa-file-contract', N'fa-light fa-file-signature', N'High', N'Contract'),
+        (82, N'Service Types', N'NORMAL FEATURE', N'fa-light fa-screwdriver-wrench', N'fa-light fa-gears', N'High', N'Service types'),
+        (83, N'CRM Customers', N'NORMAL FEATURE', N'fa-light fa-users', N'fa-light fa-address-book', N'High', N'CRM customers'),
+        (84, N'Service Contract', N'NORMAL FEATURE', N'fa-light fa-file-contract', N'fa-light fa-file-signature', N'High', N'Service contract'),
+        (86, N'Leads', N'NORMAL FEATURE', N'fa-light fa-user-plus', N'fa-light fa-users', N'High', N'Sales leads'),
+        (88, N'Campaign', N'NORMAL FEATURE', N'fa-light fa-bullhorn', N'fa-light fa-bell', N'High', N'Marketing campaign'),
+        (89, N'Opportunity', N'NORMAL FEATURE', N'fa-light fa-bullseye', N'fa-light fa-building', N'High', N'Sales opportunity'),
+        (90, N'Short Fall', N'NORMAL FEATURE', N'fa-light fa-triangle-exclamation', N'fa-light fa-circle-info', N'High', N'Shortfall / exception'),
+        (91, N'Team', N'NORMAL FEATURE', N'fa-light fa-users', N'fa-light fa-address-book', N'High', N'Team'),
+        (92, N'Property', N'NORMAL FEATURE', N'fa-light fa-building', N'fa-light fa-house-user', N'High', N'Property'),
+        (93, N'Units', N'NORMAL FEATURE', N'fa-light fa-door-closed', N'fa-light fa-building', N'High', N'Property units'),
+        (94, N'Tenant', N'NORMAL FEATURE', N'fa-light fa-house-user', N'fa-light fa-building', N'High', N'Tenant'),
+        (95, N'Sales Contract', N'NORMAL FEATURE', N'fa-light fa-file-signature', N'fa-light fa-file-contract', N'High', N'Sales contract'),
+        (96, N'Manage', N'NORMAL FEATURE', N'fa-light fa-list-check', N'fa-light fa-sliders', N'Medium', N'Manage'),
+        (97, N'Customize', N'NORMAL FEATURE', N'fa-light fa-sliders', N'fa-light fa-gears', N'High', N'Customize'),
+        (100, N'Groups', N'NORMAL FEATURE', N'fa-light fa-users-gear', N'fa-light fa-user-gear', N'High', N'Groups / permissions'),
+        (101, N'Budget', N'NORMAL FEATURE', N'fa-light fa-wallet', N'fa-light fa-credit-card', N'High', N'Budget'),
+        (103, N'Quotation', N'NORMAL FEATURE', N'fa-light fa-file-signature', N'fa-light fa-file-contract', N'High', N'Quotation'),
+        (104, N'Purchase Contract', N'NORMAL FEATURE', N'fa-light fa-file-contract', N'fa-light fa-file-signature', N'High', N'Purchase contract'),
+        (105, N'Barcode Designer', N'NORMAL FEATURE', N'fa-light fa-barcode', N'fa-light fa-cube', N'High', N'Barcode designer'),
+        (106, N'Payment Terms', N'NORMAL FEATURE', N'fa-light fa-calendar-days', N'fa-light fa-money-check-dollar', N'High', N'Payment terms / schedule'),
+        (108, N'Pole Display', N'NORMAL FEATURE', N'fa-light fa-display', N'fa-light fa-mobile-screen-button', N'High', N'Customer/pole display'),
+        (109, N'Cheque Discount', N'NORMAL FEATURE', N'fa-light fa-percent', N'fa-light fa-money-check-dollar', N'High', N'Cheque discount'),
+        (117, N'DashBoard', N'NORMAL FEATURE', N'fa-light fa-gauge-high', N'fa-light fa-file-chart-column', N'High', N'Dashboard'),
+        (129, N'Unit Reservation', N'NORMAL FEATURE', N'fa-light fa-key', N'fa-light fa-percent', N'High', N'Unit reservation'),
+        (130, N'Data Locking', N'NORMAL FEATURE', N'fa-light fa-lock', N'fa-light fa-shield-halved', N'High', N'Data locking'),
+        (131, N'Document Flow', N'NORMAL FEATURE', N'fa-light fa-route', N'fa-light fa-file-lines', N'High', N'Document flow'),
+        (132, N'Sticky Notes', N'NORMAL FEATURE', N'fa-light fa-note-sticky', N'fa-light fa-file-lines', N'High', N'Notes'),
+        (141, N'Biometric', N'NORMAL FEATURE', N'fa-light fa-fingerprint', N'fa-light fa-id-card', N'High', N'Biometric'),
+        (145, N'CRM-Products', N'NORMAL FEATURE', N'fa-light fa-boxes-stacked', N'fa-light fa-barcode', N'High', N'CRM products'),
+        (147, N'Adjust Bills', N'NORMAL FEATURE', N'fa-light fa-sliders', N'fa-light fa-receipt', N'High', N'Bill adjustment'),
+        (148, N'Definition of Batch', N'NORMAL FEATURE', N'fa-light fa-boxes-stacked', N'fa-light fa-warehouse', N'High', N'Batch definition'),
+        (149, N'Cheque Books', N'NORMAL FEATURE', N'fa-light fa-money-check', N'fa-light fa-money-check-dollar', N'High', N'Cheque books'),
+        (150, N'Enquiry', N'NORMAL FEATURE', N'fa-light fa-magnifying-glass', N'fa-light fa-circle-question', N'High', N'Enquiry'),
+        (151, N'Schemes & Discounts', N'NORMAL FEATURE', N'fa-light fa-tags', N'fa-light fa-tag', N'High', N'Schemes / discounts'),
+        (153, N'Dimension Mapping', N'NORMAL FEATURE', N'fa-light fa-diagram-project', N'fa-light fa-chart-gantt', N'High', N'Dimension mapping'),
+        (160, N'Update Resources', N'NORMAL FEATURE', N'fa-light fa-arrows-rotate', N'fa-light fa-calendar-check', N'High', N'Refresh/update resources'),
+        (162, N'Import', N'NORMAL FEATURE', N'fa-light fa-file-import', N'fa-light fa-arrow-up-from-bracket', N'High', N'Import'),
+        (164, N'Generate Bills', N'NORMAL FEATURE', N'fa-light fa-file-invoice-dollar', N'fa-light fa-receipt', N'High', N'Billing'),
+        (199, N'Widgets', N'NORMAL FEATURE', N'fa-light fa-table-cells-large', N'fa-light fa-list', N'High', N'Widgets'),
+        (200, N'List of Reports', N'NORMAL FEATURE', N'fa-light fa-file-chart-column', N'fa-light fa-chart-line', N'High', N'Report catalog'),
+        (201, N'Query', N'NORMAL FEATURE', N'fa-light fa-magnifying-glass', N'fa-light fa-circle-question', N'Medium', N'Query/search'),
+        (202, N'Menu', N'NORMAL FEATURE', N'fa-light fa-bars', N'fa-light fa-list', N'High', N'Menu'),
+        (256, N'Set Payroll Date', N'NORMAL FEATURE', N'fa-light fa-calendar-days', N'fa-light fa-money-check-dollar', N'High', N'Payroll date'),
+        (257, N'MRP', N'NORMAL FEATURE', N'fa-light fa-boxes-stacked', N'fa-light fa-warehouse', N'High', N'Material requirements planning'),
+        (258, N'Post Payroll', N'NORMAL FEATURE', N'fa-light fa-circle-check', N'fa-light fa-money-check-dollar', N'High', N'Post payroll'),
+        (259, N'POS Close', N'NORMAL FEATURE', N'fa-light fa-cash-register', N'fa-light fa-receipt', N'High', N'POS close'),
+        (260, N'Consolidated Monthly Payroll', N'NORMAL FEATURE', N'fa-light fa-money-check-dollar', N'fa-light fa-credit-card', N'High', N'Payroll'),
+        (261, N'Payslip', N'NORMAL FEATURE', N'fa-light fa-file-invoice-dollar', N'fa-light fa-receipt', N'High', N'Payslip'),
+        (262, N'Income Tax Declarations', N'NORMAL FEATURE', N'fa-light fa-file-lines', N'fa-light fa-percent', N'High', N'Tax declaration'),
+        (263, N'Income Tax Amount Limit', N'NORMAL FEATURE', N'fa-light fa-percent', N'fa-light fa-money-bill', N'High', N'Tax limit'),
+        (264, N'Income Tax Computation', N'NORMAL FEATURE', N'fa-light fa-calculator', N'fa-light fa-percent', N'High', N'Tax computation'),
+        (266, N'Post Attendance/Time Sheet To Daily Attendance', N'NORMAL FEATURE', N'fa-light fa-calendar-check', N'fa-light fa-user-clock', N'High', N'Attendance posting'),
+        (267, N'Attendance Calendar', N'NORMAL FEATURE', N'fa-light fa-calendar-check', N'fa-light fa-user-clock', N'High', N'Attendance calendar'),
+        (269, N'Document Fields Mapping', N'NORMAL FEATURE', N'fa-light fa-diagram-project', N'fa-light fa-file-lines', N'High', N'Field mapping'),
+        (400, N'Documents', N'DOCUMENT ROOT', N'fa-light fa-folder-tree', N'fa-light fa-file-lines', N'High', N'Documents root / document hierarchy'),
+        (495, N'Cheque / Cash Collection', N'NORMAL FEATURE', N'fa-light fa-money-bill-wave', N'fa-light fa-money-check-dollar', N'High', N'Cash / cheque collection'),
+        (498, N'Reports List', N'NORMAL FEATURE', N'fa-light fa-file-chart-column', N'fa-light fa-chart-line', N'High', N'Reports list'),
+        (499, N'DashBoards List', N'NORMAL FEATURE', N'fa-light fa-chart-line', N'fa-light fa-file-chart-column', N'High', N'Dashboard catalog'),
+        (500, N'General', N'NORMAL FEATURE', N'fa-light fa-sliders', N'fa-light fa-circle-info', N'Medium', N'General settings'),
+        (501, N'Sales', N'NORMAL FEATURE', N'fa-light fa-chart-line', N'fa-light fa-file-chart-column', N'High', N'Sales'),
+        (505, N'MT940', N'NORMAL FEATURE', N'fa-light fa-file-code', N'fa-light fa-code', N'High', N'MT940 bank statement file'),
+        (506, N'WebConfig', N'NORMAL FEATURE', N'fa-light fa-gears', N'fa-light fa-sliders', N'High', N'Web configuration'),
+        (507, N'ScheduleAvgRateReconcile', N'NORMAL FEATURE', N'fa-light fa-calendar-check', N'fa-light fa-calendar-days', N'High', N'Scheduled reconciliation'),
+        (508, N'Tenant App Alert', N'NORMAL FEATURE', N'fa-light fa-bell', N'fa-light fa-building', N'High', N'Tenant app alerts'),
+        (509, N'MobilePreferences', N'NORMAL FEATURE', N'fa-light fa-mobile-screen-button', N'fa-light fa-sliders', N'High', N'Mobile preferences'),
+        (510, N'OrganizationChart', N'NORMAL FEATURE', N'fa-light fa-sitemap', N'fa-light fa-folder-tree', N'High', N'Organization chart'),
+        (511, N'Print Layouts', N'NORMAL FEATURE', N'fa-light fa-print', N'fa-light fa-file-pdf', N'High', N'Print layouts'),
+        (512, N'BluetoothLayout', N'NORMAL FEATURE', N'fa-brands fa-bluetooth-b', N'fa-light fa-mobile-screen-button', N'High', N'Bluetooth layout'),
+        (1000, N'Calendar', N'NORMAL FEATURE', N'fa-light fa-calendar-days', N'fa-light fa-calendar-check', N'High', N'Calendar'),
+        (1003, N'Calendar', N'NORMAL FEATURE', N'fa-light fa-calendar-days', N'fa-light fa-calendar-check', N'High', N'Calendar'),
+        (40000, N'Posted Document', N'NORMAL FEATURE', N'fa-light fa-file-circle-check', N'fa-light fa-file-lines', N'High', N'Posted documents'),
+        (40001, N'Purchase Invoice', N'MAIN DOCUMENT', N'fa-light fa-file-invoice-dollar', N'fa-light fa-receipt', N'High', N'Purchase invoice'),
+        (40002, N'Purchase Order', N'MAIN DOCUMENT', N'fa-light fa-cart-shopping', N'fa-light fa-clipboard-list', N'High', N'Purchase order'),
+        (40003, N'Opening Stock', N'MAIN DOCUMENT', N'fa-light fa-boxes-stacked', N'fa-light fa-warehouse', N'High', N'Opening stock'),
+        (40004, N'Goods Received Note', N'MAIN DOCUMENT', N'fa-light fa-truck-ramp-box', N'fa-light fa-truck', N'High', N'Goods receipt'),
+        (40005, N'Stock Trasfer', N'MAIN DOCUMENT', N'fa-light fa-right-left', N'fa-light fa-warehouse', N'High', N'Stock transfer'),
+        (40006, N'Credit Note Voucher', N'MAIN DOCUMENT', N'fa-light fa-file-circle-minus', N'fa-light fa-receipt', N'High', N'Credit note'),
+        (40007, N'Sales Order', N'MAIN DOCUMENT', N'fa-light fa-cart-shopping', N'fa-light fa-clipboard-list', N'High', N'Sales order'),
+        (40008, N'Shortage Of Stock', N'MAIN DOCUMENT', N'fa-light fa-triangle-exclamation', N'fa-light fa-warehouse', N'High', N'Stock shortage'),
+        (40009, N'Sales Quotation', N'MAIN DOCUMENT', N'fa-light fa-file-signature', N'fa-light fa-file-contract', N'High', N'Sales quotation'),
+        (40010, N'Debit Note', N'MAIN DOCUMENT', N'fa-light fa-file-circle-plus', N'fa-light fa-file-lines', N'High', N'Debit note'),
+        (40011, N'Tenancy Contract Invoice', N'MAIN DOCUMENT', N'fa-light fa-file-invoice-dollar', N'fa-light fa-receipt', N'High', N'Tenancy invoice'),
+        (40012, N'Dchallan', N'MAIN DOCUMENT', N'fa-light fa-truck', N'fa-light fa-route', N'High', N'Delivery challan'),
+        (40013, N'ExcessOfStock', N'MAIN DOCUMENT', N'fa-light fa-boxes-stacked', N'fa-light fa-warehouse', N'High', N'Excess stock'),
+        (40014, N'Postdated Payment Default', N'MAIN DOCUMENT', N'fa-light fa-clock', N'fa-light fa-money-check-dollar', N'High', N'Post-dated payment'),
+        (40015, N'Contract Income Reversal', N'MAIN DOCUMENT', N'fa-light fa-arrow-rotate-left', N'fa-light fa-file-circle-minus', N'High', N'Income reversal'),
+        (40016, N'Opening Balance', N'MAIN DOCUMENT', N'fa-light fa-scale-balanced', N'fa-light fa-briefcase', N'High', N'Opening balance'),
+        (40017, N'Journal Voucher Others', N'MAIN DOCUMENT', N'fa-light fa-book', N'fa-light fa-receipt', N'High', N'Journal voucher'),
+        (40018, N'Contract Income', N'MAIN DOCUMENT', N'fa-light fa-money-bill-wave', N'fa-light fa-file-contract', N'High', N'Contract income'),
+        (40019, N'Postdated Receipt Default', N'MAIN DOCUMENT', N'fa-light fa-calendar-days', N'fa-light fa-file-invoice-dollar', N'High', N'Post-dated receipt'),
+        (40020, N'Credit Note(Payment Type)', N'MAIN DOCUMENT', N'fa-light fa-file-circle-minus', N'fa-light fa-money-check-dollar', N'High', N'Credit note'),
+        (40021, N'Debit Note(Receipt Type)', N'MAIN DOCUMENT', N'fa-light fa-file-circle-plus', N'fa-light fa-file-invoice-dollar', N'High', N'Debit note'),
+        (40022, N'Cash Receipt Voucher', N'MAIN DOCUMENT', N'fa-light fa-money-bill-wave', N'fa-light fa-receipt', N'High', N'Cash receipt'),
+        (40023, N'Cash Payment Voucher - Rent', N'MAIN DOCUMENT', N'fa-light fa-money-bill-transfer', N'fa-light fa-receipt', N'High', N'Cash payment'),
+        (40024, N'Sales Enquiry', N'MAIN DOCUMENT', N'fa-light fa-magnifying-glass', N'fa-light fa-circle-question', N'High', N'Sales enquiry'),
+        (40025, N'Material Requisition', N'MAIN DOCUMENT', N'fa-light fa-clipboard-list', N'fa-light fa-list-check', N'High', N'Material requisition'),
+        (40026, N'Purchase Enquiry', N'MAIN DOCUMENT', N'fa-light fa-magnifying-glass', N'fa-light fa-circle-question', N'High', N'Purchase enquiry'),
+        (40027, N'Supplier Quotation', N'MAIN DOCUMENT', N'fa-light fa-file-signature', N'fa-light fa-file-contract', N'High', N'Supplier quotation'),
+        (40028, N'Credit Note (JV Type)', N'MAIN DOCUMENT', N'fa-light fa-file-circle-minus', N'fa-light fa-file-lines', N'High', N'Credit note JV'),
+        (40029, N'Debit Note (JV Type)', N'MAIN DOCUMENT', N'fa-light fa-file-circle-plus', N'fa-light fa-file-lines', N'High', N'Debit note JV'),
+        (40030, N'Stock Journal', N'MAIN DOCUMENT', N'fa-light fa-book-open', N'fa-light fa-warehouse', N'High', N'Stock journal'),
+        (40031, N'Physical Stock Taking', N'MAIN DOCUMENT', N'fa-light fa-clipboard-check', N'fa-light fa-warehouse', N'High', N'Physical stock count'),
+        (40032, N'Physical Stock Posting', N'MAIN DOCUMENT', N'fa-light fa-boxes-stacked', N'fa-light fa-warehouse', N'High', N'Physical stock posting'),
+        (40045, N'Project Plan', N'MAIN DOCUMENT', N'fa-light fa-diagram-project', N'fa-light fa-chart-gantt', N'High', N'Project plan'),
+        (40046, N'Resource Plan', N'MAIN DOCUMENT', N'fa-light fa-users-gear', N'fa-light fa-user-gear', N'High', N'Resource plan'),
+        (40051, N'List Of Holidays', N'MAIN DOCUMENT', N'fa-light fa-calendar-days', N'fa-light fa-calendar-check', N'High', N'Holiday calendar'),
+        (40052, N'General Timings', N'MAIN DOCUMENT', N'fa-light fa-clock', N'fa-light fa-circle-info', N'High', N'General timings'),
+        (40053, N'Weekly Offs', N'MAIN DOCUMENT', N'fa-light fa-calendar-xmark', N'fa-light fa-calendar-minus', N'High', N'Weekly off'),
+        (40054, N'Monthly Payroll', N'MAIN DOCUMENT', N'fa-light fa-money-check-dollar', N'fa-light fa-credit-card', N'High', N'Monthly payroll'),
+        (40055, N'Loan Opening Balance', N'MAIN DOCUMENT', N'fa-light fa-building-columns', N'fa-light fa-building', N'High', N'Loan opening balance'),
+        (40056, N'Apply Loan', N'MAIN DOCUMENT', N'fa-light fa-file-circle-plus', N'fa-light fa-file-lines', N'High', N'Loan application'),
+        (40057, N'Loan Repayment', N'MAIN DOCUMENT', N'fa-light fa-money-bill-transfer', N'fa-light fa-money-check-dollar', N'High', N'Loan repayment'),
+        (40058, N'Leave Encashment', N'MAIN DOCUMENT', N'fa-light fa-money-bill-wave', N'fa-light fa-money-check-dollar', N'High', N'Leave encashment'),
+        (40059, N'Compensatory Leave', N'MAIN DOCUMENT', N'fa-light fa-calendar-plus', N'fa-light fa-user-clock', N'High', N'Compensatory leave'),
+        (40060, N'Topup Leaves', N'MAIN DOCUMENT', N'fa-light fa-calendar-plus', N'fa-light fa-user-clock', N'High', N'Top-up leave'),
+        (40061, N'Vacation Management', N'MAIN DOCUMENT', N'fa-light fa-umbrella-beach', N'fa-light fa-sliders', N'High', N'Vacation management'),
+        (40062, N'Apply Leave', N'MAIN DOCUMENT', N'fa-light fa-calendar-plus', N'fa-light fa-user-clock', N'High', N'Leave application'),
+        (40063, N'Consolidated Leave', N'MAIN DOCUMENT', N'fa-light fa-calendar-days', N'fa-light fa-user-clock', N'High', N'Consolidated leave'),
+        (40064, N'Forecast', N'MAIN DOCUMENT', N'fa-light fa-chart-line', N'fa-light fa-file-chart-column', N'High', N'Forecast'),
+        (40065, N'Join From Vacation', N'MAIN DOCUMENT', N'fa-light fa-person-circle-check', N'fa-light fa-id-card', N'High', N'Return from vacation'),
+        (40066, N'Hours Definition Chart', N'MAIN DOCUMENT', N'fa-light fa-clock', N'fa-light fa-calendar-days', N'High', N'Working hours'),
+        (40067, N'Daily Attendance', N'MAIN DOCUMENT', N'fa-light fa-calendar-check', N'fa-light fa-user-clock', N'High', N'Daily attendance'),
+        (40068, N'Recording Of Data', N'MAIN DOCUMENT', N'fa-light fa-database', N'fa-light fa-file-lines', N'High', N'Data recording'),
+        (40069, N'Apply Resignation', N'MAIN DOCUMENT', N'fa-light fa-right-from-bracket', N'fa-light fa-door-open', N'High', N'Resignation'),
+        (40070, N'CheckList', N'MAIN DOCUMENT', N'fa-light fa-list-check', N'fa-light fa-money-check-dollar', N'High', N'Checklist'),
+        (40071, N'Post Past Salary Details', N'MAIN DOCUMENT', N'fa-light fa-clock-rotate-left', N'fa-light fa-arrow-rotate-left', N'High', N'Past salary history'),
+        (40072, N'Apply Vacation', N'MAIN DOCUMENT', N'fa-light fa-plane', N'fa-light fa-route', N'High', N'Vacation request'),
+        (40073, N'Leave Adjustment as Vacation', N'MAIN DOCUMENT', N'fa-light fa-sliders', N'fa-light fa-user-clock', N'High', N'Leave adjustment'),
+        (40074, N'Income Tax Definition', N'MAIN DOCUMENT', N'fa-light fa-percent', N'fa-light fa-money-bill', N'High', N'Income tax'),
+        (40075, N'Gratuity Settings', N'MAIN DOCUMENT', N'fa-light fa-coins', N'fa-light fa-sliders', N'High', N'Gratuity'),
+        (40076, N'Perquisites Entry (12BA)', N'MAIN DOCUMENT', N'fa-light fa-gift', N'fa-light fa-award', N'High', N'Perquisites'),
+        (40077, N'Payroll Lock / Unlock', N'MAIN DOCUMENT', N'fa-light fa-lock', N'fa-light fa-money-check-dollar', N'High', N'Payroll lock'),
+        (40078, N'TDS Details Entry', N'MAIN DOCUMENT', N'fa-light fa-file-invoice-dollar', N'fa-light fa-receipt', N'High', N'TDS details'),
+        (40079, N'Attendance Dimension Wise', N'MAIN DOCUMENT', N'fa-light fa-users', N'fa-light fa-user-clock', N'High', N'Attendance by dimension'),
+        (40080, N'Dues Entry', N'MAIN DOCUMENT', N'fa-light fa-money-bill', N'fa-light fa-coins', N'High', N'Dues'),
+        (40081, N'Assign Leaves', N'MAIN DOCUMENT', N'fa-light fa-calendar-plus', N'fa-light fa-user-clock', N'High', N'Assign leave'),
+        (40082, N'Apply Request', N'MAIN DOCUMENT', N'fa-light fa-paper-plane', N'fa-light fa-envelope', N'High', N'Apply request'),
+        (40083, N'Issue Request', N'MAIN DOCUMENT', N'fa-light fa-arrow-up-from-bracket', N'fa-light fa-file-import', N'High', N'Issue request'),
+        (40084, N'Return Request', N'MAIN DOCUMENT', N'fa-light fa-arrow-rotate-left', N'fa-light fa-file-circle-minus', N'High', N'Return request'),
+        (40085, N'Bulk Appraisals', N'MAIN DOCUMENT', N'fa-light fa-star', N'fa-light fa-award', N'High', N'Bulk appraisal'),
+        (40086, N'Time off Request', N'MAIN DOCUMENT', N'fa-light fa-calendar-xmark', N'fa-light fa-calendar-minus', N'High', N'Time-off request'),
+        (40087, N'Employee wise Work Sheet', N'MAIN DOCUMENT', N'fa-light fa-clipboard-list', N'fa-light fa-id-card', N'High', N'Employee worksheet'),
+        (40088, N'Project wise Work Sheet', N'MAIN DOCUMENT', N'fa-light fa-clipboard-list', N'fa-light fa-chart-gantt', N'High', N'Project worksheet'),
+        (40089, N'Attendance', N'MAIN DOCUMENT', N'fa-light fa-calendar-check', N'fa-light fa-user-clock', N'High', N'Attendance'),
+        (40090, N'Time Sheet', N'MAIN DOCUMENT', N'fa-light fa-clock', N'fa-light fa-calendar-days', N'High', N'Timesheet'),
+        (40091, N'Salary Certificate', N'MAIN DOCUMENT', N'fa-light fa-file-pdf', N'fa-light fa-file-lines', N'High', N'Salary certificate'),
+        (40092, N'Shift Assign', N'MAIN DOCUMENT', N'fa-light fa-user-clock', N'fa-light fa-calendar-check', N'High', N'Shift assignment'),
+        (40093, N'Shift Request', N'MAIN DOCUMENT', N'fa-light fa-calendar-plus', N'fa-light fa-user-clock', N'High', N'Shift request'),
+        (40094, N'Consider LOP to Service Days', N'MAIN DOCUMENT', N'fa-light fa-calendar-minus', N'fa-light fa-calendar-xmark', N'Medium', N'LOP/service days'),
+        (40095, N'Final Settlement', N'MAIN DOCUMENT', N'fa-light fa-handshake', N'fa-light fa-file-contract', N'High', N'Final settlement'),
+        (40096, N'Lates Configuration', N'MAIN DOCUMENT', N'fa-light fa-clock', N'fa-light fa-sliders', N'High', N'Late configuration'),
+        (40097, N'Lates Processing', N'MAIN DOCUMENT', N'fa-light fa-gears', N'fa-light fa-sliders', N'High', N'Late processing'),
+        (40098, N'Delegation', N'MAIN DOCUMENT', N'fa-light fa-right-left', N'fa-light fa-arrows-rotate', N'High', N'Delegation'),
+        (40099, N'Regularization of Attendance', N'MAIN DOCUMENT', N'fa-light fa-calendar-check', N'fa-light fa-user-clock', N'High', N'Attendance regularization'),
+        (40100, N'Travel Request', N'MAIN DOCUMENT', N'fa-light fa-plane', N'fa-light fa-route', N'High', N'Travel request'),
+        (40101, N'Travel Expenses', N'MAIN DOCUMENT', N'fa-light fa-receipt', N'fa-light fa-file-invoice-dollar', N'High', N'Travel expenses'),
+        (40102, N'Non-Travel Expenses', N'MAIN DOCUMENT', N'fa-light fa-receipt', N'fa-light fa-file-invoice-dollar', N'High', N'Non-travel expenses'),
+        (40103, N'On Duty', N'MAIN DOCUMENT', N'fa-light fa-briefcase', N'fa-light fa-file-contract', N'High', N'On-duty'),
+        (40104, N'AMC Agreement', N'MAIN DOCUMENT', N'fa-light fa-file-contract', N'fa-light fa-file-signature', N'High', N'AMC agreement'),
+        (40105, N'Consolidated Vacation', N'MAIN DOCUMENT', N'fa-light fa-umbrella-beach', N'fa-light fa-calendar-check', N'High', N'Vacation'),
+        (40201, N'Service Request', N'MAIN DOCUMENT', N'fa-light fa-headset', N'fa-light fa-comments', N'High', N'Service request'),
+        (40202, N'Preventive Maintenance Contract', N'MAIN DOCUMENT', N'fa-light fa-shield-halved', N'fa-light fa-file-contract', N'High', N'Preventive maintenance contract'),
+        (40203, N'Preventive Service Request', N'MAIN DOCUMENT', N'fa-light fa-screwdriver-wrench', N'fa-light fa-gears', N'High', N'Preventive service request'),
+        (40993, N'POS Return', N'MAIN DOCUMENT', N'fa-light fa-arrow-rotate-left', N'fa-light fa-file-circle-minus', N'High', N'POS return'),
+        (40994, N'POS', N'MAIN DOCUMENT', N'fa-light fa-cash-register', N'fa-light fa-receipt', N'High', N'Point of sale'),
+        (40995, N'Machine Expenses', N'MAIN DOCUMENT', N'fa-light fa-gears', N'fa-light fa-sliders', N'High', N'Machine expenses'),
+        (40996, N'Production Expenses', N'MAIN DOCUMENT', N'fa-light fa-industry', N'fa-light fa-gears', N'High', N'Production expenses'),
+        (40997, N'Service Contract', N'MAIN DOCUMENT', N'fa-light fa-file-contract', N'fa-light fa-file-signature', N'High', N'Service contract'),
+        (40998, N'Issue To Production', N'MAIN DOCUMENT', N'fa-light fa-arrow-right', N'fa-light fa-industry', N'High', N'Issue to production'),
+        (40999, N'Receipt From Production', N'MAIN DOCUMENT', N'fa-light fa-box', N'fa-light fa-file-invoice-dollar', N'High', N'Receipt from production'),
+        (50001, N'Division', N'NORMAL FEATURE', N'fa-light fa-sitemap', N'fa-light fa-folder-tree', N'High', N'Division'),
+        (50002, N'BU', N'NORMAL FEATURE', N'fa-light fa-building', N'fa-light fa-building-columns', N'High', N'Business unit'),
+        (50003, N'To BU', N'NORMAL FEATURE', N'fa-light fa-right-left', N'fa-light fa-arrows-rotate', N'High', N'Business-unit transfer'),
+        (50004, N'Department', N'NORMAL FEATURE', N'fa-light fa-sitemap', N'fa-light fa-folder-tree', N'High', N'Department'),
+        (50005, N'Landlord', N'NORMAL FEATURE', N'fa-light fa-building-user', N'fa-light fa-house-user', N'High', N'Landlord'),
+        (50006, N'R - SalesMan', N'NORMAL FEATURE', N'fa-light fa-user-tie', N'fa-light fa-id-card', N'High', N'Salesperson'),
+        (50007, N'Type of Supplier And Customer AMC', N'NORMAL FEATURE', N'fa-light fa-handshake', N'fa-light fa-address-book', N'Medium', N'Supplier/customer type'),
+        (50008, N'Payment Terms', N'NORMAL FEATURE', N'fa-light fa-calendar-days', N'fa-light fa-money-check-dollar', N'High', N'Payment terms / schedule'),
+        (50009, N'Tower', N'NORMAL FEATURE', N'fa-light fa-building', N'fa-light fa-building-columns', N'High', N'Property tower'),
+        (50010, N'Unit - Flat', N'NORMAL FEATURE', N'fa-light fa-door-open', N'fa-light fa-building', N'High', N'Flat / unit'),
+        (50011, N'Tenant - Customer', N'NORMAL FEATURE', N'fa-light fa-user', N'fa-light fa-address-book', N'High', N'Tenant/customer'),
+        (50012, N'AMC Types', N'NORMAL FEATURE', N'fa-light fa-screwdriver-wrench', N'fa-light fa-gears', N'High', N'AMC type'),
+        (50013, N'Mode of Payment', N'NORMAL FEATURE', N'fa-light fa-credit-card', N'fa-light fa-money-check-dollar', N'High', N'Payment mode'),
+        (50014, N'Bounce Status', N'NORMAL FEATURE', N'fa-light fa-circle-xmark', N'fa-light fa-ban', N'High', N'Bounce status'),
+        (50015, N'Unit Type (Master)', N'NORMAL FEATURE', N'fa-light fa-shapes', N'fa-light fa-building', N'High', N'Unit type master'),
+        (50016, N'Particulars', N'NORMAL FEATURE', N'fa-light fa-list', N'fa-light fa-clipboard-list', N'Medium', N'Particulars'),
+        (50017, N'Termination Reason', N'NORMAL FEATURE', N'fa-light fa-ban', N'fa-light fa-circle-xmark', N'High', N'Termination reason'),
+        (50018, N'Unit Type', N'NORMAL FEATURE', N'fa-light fa-shapes', N'fa-light fa-building', N'High', N'Unit type'),
+        (50019, N'Tracking No', N'NORMAL FEATURE', N'fa-light fa-location-dot', N'fa-light fa-route', N'Medium', N'Tracking number'),
+        (50020, N'Project Name', N'NORMAL FEATURE', N'fa-light fa-diagram-project', N'fa-light fa-chart-gantt', N'High', N'Project'),
+        (50021, N'Payment Type', N'NORMAL FEATURE', N'fa-light fa-money-check-dollar', N'fa-light fa-credit-card', N'High', N'Payment type'),
+        (50022, N'Lead Source', N'NORMAL FEATURE', N'fa-light fa-bullhorn', N'fa-light fa-bell', N'High', N'Lead source'),
+        (50023, N'Asset Master', N'NORMAL FEATURE', N'fa-light fa-building-columns', N'fa-light fa-building', N'High', N'Asset master'),
+        (50024, N'Lead Source Data', N'NORMAL FEATURE', N'fa-light fa-database', N'fa-light fa-file-lines', N'High', N'Lead-source data'),
+        (50025, N'Hold Status', N'NORMAL FEATURE', N'fa-light fa-pause', N'fa-light fa-clock', N'High', N'Hold status'),
+        (50026, N'Type of Work', N'NORMAL FEATURE', N'fa-light fa-hammer', N'fa-light fa-screwdriver-wrench', N'High', N'Work type'),
+        (50027, N'Cheque Issuer', N'NORMAL FEATURE', N'fa-light fa-signature', N'fa-light fa-money-check-dollar', N'High', N'Cheque issuer'),
+        (50028, N'Technician Name', N'NORMAL FEATURE', N'fa-light fa-user-gear', N'fa-light fa-users-gear', N'High', N'Technician'),
+        (50029, N'MORNo', N'NORMAL FEATURE', N'fa-light fa-hashtag', N'fa-light fa-tag', N'Medium', N'Reference number'),
+        (50030, N'Flat Ispection', N'NORMAL FEATURE', N'fa-light fa-magnifying-glass', N'fa-light fa-circle-question', N'High', N'Flat inspection'),
+        (50031, N'Maintenance-Sub.Contractor', N'NORMAL FEATURE', N'fa-light fa-user-gear', N'fa-light fa-file-contract', N'High', N'Maintenance subcontractor'),
+        (50032, N'Special Conditions', N'NORMAL FEATURE', N'fa-light fa-triangle-exclamation', N'fa-light fa-circle-info', N'High', N'Special conditions'),
+        (50033, N'Property Incharge', N'NORMAL FEATURE', N'fa-light fa-user-tie', N'fa-light fa-building', N'High', N'Property in-charge'),
+        (50034, N'EmpMaster', N'NORMAL FEATURE', N'fa-light fa-users', N'fa-light fa-address-book', N'High', N'Employee master'),
+        (50035, N'AttachmentType', N'NORMAL FEATURE', N'fa-light fa-paperclip', N'fa-light fa-file-lines', N'High', N'Attachment type'),
+        (50036, N'MO Status', N'NORMAL FEATURE', N'fa-light fa-bars-progress', N'fa-light fa-chart-line', N'High', N'Manufacturing-order status'),
+        (50037, N'PO', N'NORMAL FEATURE', N'fa-light fa-cart-shopping', N'fa-light fa-clipboard-list', N'High', N'Purchase order'),
+        (50038, N'Cheque Status', N'NORMAL FEATURE', N'fa-light fa-money-check-dollar', N'fa-light fa-credit-card', N'High', N'Cheque status'),
+        (50039, N'Type of Prospect', N'NORMAL FEATURE', N'fa-light fa-user-plus', N'fa-light fa-users', N'High', N'Prospect type'),
+        (50040, N'Case', N'NORMAL FEATURE', N'fa-light fa-briefcase', N'fa-light fa-scale-balanced', N'Medium', N'Case'),
+        (50041, N'Cheque Held By', N'NORMAL FEATURE', N'fa-light fa-user', N'fa-light fa-money-check-dollar', N'High', N'Cheque custodian'),
+        (50042, N'Meter Number', N'NORMAL FEATURE', N'fa-light fa-gauge', N'fa-light fa-gauge-high', N'High', N'Meter'),
+        (50043, N'FurnitureMaster', N'NORMAL FEATURE', N'fa-light fa-couch', N'fa-light fa-building', N'High', N'Furniture master'),
+        (50044, N'VATPostingType', N'NORMAL FEATURE', N'fa-light fa-percent', N'fa-light fa-money-bill', N'High', N'VAT posting type'),
+        (50045, N'PropertyType', N'NORMAL FEATURE', N'fa-light fa-building', N'fa-light fa-house-user', N'High', N'Property type'),
+        (50046, N'Amc Invoice', N'NORMAL FEATURE', N'fa-light fa-file-invoice-dollar', N'fa-light fa-receipt', N'High', N'AMC invoice'),
+        (50047, N'Category', N'NORMAL FEATURE', N'fa-light fa-tags', N'fa-light fa-tag', N'High', N'Category'),
+        (50048, N'Sub Category', N'NORMAL FEATURE', N'fa-light fa-tag', N'fa-light fa-tags', N'High', N'Subcategory'),
+        (50049, N'Warehouse', N'NORMAL FEATURE', N'fa-light fa-warehouse', N'fa-light fa-boxes-stacked', N'High', N'Warehouse'),
+        (50050, N'MobileID', N'NORMAL FEATURE', N'fa-light fa-mobile-screen-button', N'fa-light fa-display', N'High', N'Mobile ID'),
+        (50051, N'Employee Master', N'NORMAL FEATURE', N'fa-light fa-id-card', N'fa-light fa-users', N'High', N'Employee master'),
+        (50052, N'PayrollComponent', N'NORMAL FEATURE', N'fa-light fa-money-check-dollar', N'fa-light fa-credit-card', N'High', N'Payroll component'),
+        (50053, N'Grade', N'NORMAL FEATURE', N'fa-light fa-award', N'fa-light fa-star', N'High', N'Grade'),
+        (50054, N'Customize Payroll', N'NORMAL FEATURE', N'fa-light fa-sliders', N'fa-light fa-money-check-dollar', N'High', N'Payroll customization'),
+        (50058, N'Country', N'NORMAL FEATURE', N'fa-light fa-globe', N'fa-light fa-map', N'High', N'Country'),
+        (50059, N'State', N'NORMAL FEATURE', N'fa-light fa-map', N'fa-light fa-location-dot', N'High', N'State / region'),
+        (50060, N'Tax Category', N'NORMAL FEATURE', N'fa-light fa-percent', N'fa-light fa-money-bill', N'High', N'Tax category'),
+        (50061, N'Sales & Purchase Type', N'NORMAL FEATURE', N'fa-light fa-cart-shopping', N'fa-light fa-clipboard-list', N'High', N'Sales/purchase type'),
+        (50062, N'VAT Account Type', N'NORMAL FEATURE', N'fa-light fa-percent', N'fa-light fa-money-bill', N'High', N'VAT account type'),
+        (50068, N'Banks', N'NORMAL FEATURE', N'fa-light fa-building-columns', N'fa-light fa-money-check-dollar', N'High', N'Banks'),
+        (50069, N'Designation', N'NORMAL FEATURE', N'fa-light fa-user-tie', N'fa-light fa-palette', N'High', N'Designation'),
+        (50070, N'Vat Unit Type ', N'NORMAL FEATURE', N'fa-light fa-percent', N'fa-light fa-money-bill', N'High', N'VAT unit type'),
+        (50073, N'Shifts', N'NORMAL FEATURE', N'fa-light fa-clock', N'fa-light fa-user-clock', N'High', N'Work shifts'),
+        (50091, N'Goods&Service_Type', N'NORMAL FEATURE', N'fa-light fa-boxes-stacked', N'fa-light fa-warehouse', N'High', N'Goods/service type'),
+        (50092, N'Product_Classification', N'NORMAL FEATURE', N'fa-light fa-folder-tree', N'fa-light fa-barcode', N'High', N'Product classification'),
+        (50093, N'Unit_Of_Measures', N'NORMAL FEATURE', N'fa-light fa-ruler-combined', N'fa-light fa-building', N'High', N'Units of measure'),
+        (50094, N'Registration_Type', N'NORMAL FEATURE', N'fa-light fa-id-card', N'fa-light fa-user', N'High', N'Registration type'),
+        (50095, N'Transaction_Type', N'NORMAL FEATURE', N'fa-light fa-right-left', N'fa-light fa-arrows-rotate', N'High', N'Transaction type'),
+        (50096, N'Identifier_Scheme', N'NORMAL FEATURE', N'fa-light fa-fingerprint', N'fa-light fa-id-card', N'High', N'Identifier scheme'),
+        (50097, N'InvoiceObject_Schemes', N'NORMAL FEATURE', N'fa-light fa-file-invoice', N'fa-light fa-receipt', N'High', N'Invoice object scheme'),
+        (50098, N'CreditNote_Reason', N'NORMAL FEATURE', N'fa-light fa-circle-info', N'fa-light fa-file-lines', N'High', N'Credit-note reason'),
+        (50099, N'Payment_Type', N'NORMAL FEATURE', N'fa-light fa-credit-card', N'fa-light fa-money-check-dollar', N'High', N'Payment type'),
+        (50100, N'Billing_Frequency', N'NORMAL FEATURE', N'fa-light fa-calendar-days', N'fa-light fa-receipt', N'High', N'Billing frequency'),
+        (50101, N'Invoice_Type', N'NORMAL FEATURE', N'fa-light fa-receipt', N'fa-light fa-file-invoice-dollar', N'High', N'Invoice type'),
+        (50102, N'Charges_Reason', N'NORMAL FEATURE', N'fa-light fa-circle-info', N'fa-light fa-circle-question', N'High', N'Charge reason'),
+        (50103, N'Allowance_Reason', N'NORMAL FEATURE', N'fa-light fa-circle-info', N'fa-light fa-circle-question', N'High', N'Allowance reason'),
+        (50150, N'Property Location', N'NORMAL FEATURE', N'fa-light fa-location-dot', N'fa-light fa-building', N'High', N'Property location'),
+        (50151, N'Property Block', N'NORMAL FEATURE', N'fa-light fa-building', N'fa-light fa-shield-halved', N'High', N'Property block'),
+        (50152, N'Floor', N'NORMAL FEATURE', N'fa-light fa-layer-group', N'fa-light fa-sitemap', N'High', N'Floor'),
+        (50153, N'Unit Section', N'NORMAL FEATURE', N'fa-light fa-table-cells-large', N'fa-light fa-building', N'Medium', N'Unit section'),
+        (50154, N'Asset', N'NORMAL FEATURE', N'fa-light fa-building-columns', N'fa-light fa-building', N'High', N'Asset'),
+        (50155, N'Request Type', N'NORMAL FEATURE', N'fa-light fa-list-check', N'fa-light fa-clipboard-check', N'High', N'Request type'),
+        (50156, N'Service Category', N'NORMAL FEATURE', N'fa-light fa-tags', N'fa-light fa-tag', N'High', N'Service category'),
+        (50157, N'Service Sub Category', N'NORMAL FEATURE', N'fa-light fa-tag', N'fa-light fa-tags', N'High', N'Service subcategory'),
+        (50158, N'Supervisor', N'NORMAL FEATURE', N'fa-light fa-user-tie', N'fa-light fa-id-card', N'High', N'Supervisor'),
+        (50159, N'Technician', N'NORMAL FEATURE', N'fa-light fa-user-gear', N'fa-light fa-users-gear', N'High', N'Technician'),
+        (50160, N'FMWorkStatus', N'NORMAL FEATURE', N'fa-light fa-bars-progress', N'fa-light fa-chart-line', N'High', N'FM work status'),
+        (50161, N'ServiceRequestNo', N'NORMAL FEATURE', N'fa-light fa-hashtag', N'fa-light fa-tag', N'High', N'Service request number'),
+        (50162, N'FeedBack', N'NORMAL FEATURE', N'fa-light fa-comments', N'fa-light fa-comment-sms', N'High', N'Feedback'),
+        (50163, N'ChargeableTo', N'NORMAL FEATURE', N'fa-light fa-receipt', N'fa-light fa-file-invoice-dollar', N'Medium', N'Chargeable-to'),
+        (50164, N'ServiceType', N'NORMAL FEATURE', N'fa-light fa-screwdriver-wrench', N'fa-light fa-gears', N'High', N'Service type'),
+        (50170, N'TEMP-Vendor', N'NORMAL FEATURE', N'fa-light fa-user-clock', N'fa-light fa-address-book', N'High', N'Temporary vendor'),
+        (51000, N'Pos Registers', N'NORMAL FEATURE', N'fa-light fa-cash-register', N'fa-light fa-receipt', N'High', N'POS registers'),
+        (51001, N'Pack Dimension', N'NORMAL FEATURE', N'fa-light fa-box-open', N'fa-light fa-box', N'High', N'Pack dimension'),
+        (51002, N'Bin Dim', N'NORMAL FEATURE', N'fa-light fa-boxes-stacked', N'fa-light fa-warehouse', N'High', N'Bin dimension'),
+        (51003, N'POdim', N'NORMAL FEATURE', N'fa-light fa-cart-shopping', N'fa-light fa-clipboard-list', N'Medium', N'Purchase-order dimension'),
+        (51004, N'Legal Status', N'NORMAL FEATURE', N'fa-light fa-scale-balanced', N'fa-light fa-briefcase', N'High', N'Legal status'),
+        (51005, N'Amc Status', N'NORMAL FEATURE', N'fa-light fa-shield-halved', N'fa-light fa-lock', N'High', N'AMC status'),
+        (51006, N'Pos Registers', N'NORMAL FEATURE', N'fa-light fa-cash-register', N'fa-light fa-receipt', N'High', N'POS registers'),
+        (51007, N'Department', N'NORMAL FEATURE', N'fa-light fa-sitemap', N'fa-light fa-folder-tree', N'High', N'Department'),
+        (51008, N'Division', N'NORMAL FEATURE', N'fa-light fa-sitemap', N'fa-light fa-folder-tree', N'High', N'Division'),
+        (51009, N'Gift Voucher', N'NORMAL FEATURE', N'fa-light fa-gift', N'fa-light fa-receipt', N'High', N'Gift voucher'),
+        (51010, N'WBS', N'NORMAL FEATURE', N'fa-light fa-diagram-project', N'fa-light fa-chart-gantt', N'High', N'Work breakdown structure'),
+        (51011, N'Phases', N'NORMAL FEATURE', N'fa-light fa-chart-gantt', N'fa-light fa-diagram-project', N'High', N'Project phases'),
+        (51012, N'Task Master', N'NORMAL FEATURE', N'fa-light fa-list-check', N'fa-light fa-chart-gantt', N'High', N'Task master'),
+        (51013, N'Question', N'NORMAL FEATURE', N'fa-light fa-circle-question', N'fa-light fa-circle-info', N'High', N'Question'),
+        (51014, N'Stock Code', N'NORMAL FEATURE', N'fa-light fa-barcode', N'fa-light fa-warehouse', N'High', N'Stock code'),
+        (51015, N'Container', N'NORMAL FEATURE', N'fa-light fa-box', N'fa-light fa-box-open', N'High', N'Container'),
+        (51016, N'Bom Dim', N'NORMAL FEATURE', N'fa-light fa-cube', N'fa-light fa-boxes-stacked', N'High', N'BOM dimension'),
+        (51017, N'Stage Dim', N'NORMAL FEATURE', N'fa-light fa-layer-group', N'fa-light fa-sitemap', N'High', N'Stage dimension'),
+        (51018, N'Job dim', N'NORMAL FEATURE', N'fa-light fa-briefcase', N'fa-light fa-file-contract', N'High', N'Job dimension'),
+        (51019, N'Size', N'NORMAL FEATURE', N'fa-light fa-ruler-horizontal', N'fa-light fa-ruler-combined', N'High', N'Size'),
+        (51020, N'Color', N'NORMAL FEATURE', N'fa-light fa-palette', N'fa-light fa-sliders', N'High', N'Color'),
+        (51021, N'sssss', N'NORMAL FEATURE', N'fa-light fa-keyboard', N'fa-light fa-circle-question', N'Low', N'Unclear/test feature; current name gives no business semantics'),
+        (51022, N'Payment Terms Dim', N'NORMAL FEATURE', N'fa-light fa-calendar-days', N'fa-light fa-money-check-dollar', N'High', N'Payment terms dimension'),
+        (51023, N'QUALITY DIM', N'NORMAL FEATURE', N'fa-light fa-shield-halved', N'fa-light fa-lock', N'High', N'Quality dimension'),
+        (51024, N'Test Report', N'NORMAL FEATURE', N'fa-light fa-clipboard-check', N'fa-light fa-file-chart-column', N'High', N'Test/quality report'),
+        (51025, N'contacts', N'NORMAL FEATURE', N'fa-light fa-address-book', N'fa-light fa-users', N'High', N'Contacts'),
+        (51026, N'Bimetric', N'NORMAL FEATURE', N'fa-light fa-fingerprint', N'fa-light fa-id-card', N'High', N'Biometric');
+
+    /* FA4 syntax/name -> native FA6 canonical name. */
+    CREATE TABLE #FA4AliasMap
+    (
+        AliasName         varchar(150) NOT NULL PRIMARY KEY,
+        CanonicalFA6Name  varchar(150) NOT NULL
+    );
+
+    INSERT INTO #FA4AliasMap (AliasName, CanonicalFA6Name)
+    VALUES
+        (N'address-book-o', N'address-book'),
+        (N'arrow-circle-o-down', N'circle-down'),
+        (N'arrows-v', N'up-down'),
+        (N'bank', N'building-columns'),
+        (N'building-o', N'building'),
+        (N'calendar', N'calendar-days'),
+        (N'calendar-check-o', N'calendar-check'),
+        (N'calendar-o', N'calendar'),
+        (N'calendar-plus-o', N'calendar-plus'),
+        (N'calendar-times-o', N'calendar-xmark'),
+        (N'check-square-o', N'square-check'),
+        (N'clock-o', N'clock'),
+        (N'dashboard', N'gauge'),
+        (N'exchange', N'right-left'),
+        (N'file-code-o', N'file-code'),
+        (N'file-excel-o', N'file-excel'),
+        (N'file-pdf-o', N'file-pdf'),
+        (N'file-text', N'file-lines'),
+        (N'file-text-o', N'file-lines'),
+        (N'files-o', N'copy'),
+        (N'folder-open-o', N'folder-open'),
+        (N'hand-paper-o', N'hand'),
+        (N'handshake-o', N'handshake'),
+        (N'id-card-o', N'id-card'),
+        (N'mail-forward', N'share'),
+        (N'map-marker', N'location-dot'),
+        (N'map-o', N'map'),
+        (N'mobile', N'mobile-screen-button'),
+        (N'money', N'money-bill-1'),
+        (N'paper-plane-o', N'paper-plane'),
+        (N'pencil-square-o', N'pen-to-square'),
+        (N'refresh', N'arrows-rotate'),
+        (N'rotate-left', N'arrow-rotate-left'),
+        (N'shield', N'shield-blank'),
+        (N'sign-out', N'right-from-bracket'),
+        (N'star-o', N'star'),
+        (N'sun-o', N'sun'),
+        (N'tachometer', N'gauge'),
+        (N'ticket', N'ticket-simple'),
+        (N'times-rectangle', N'rectangle-xmark'),
+        (N'trash', N'trash-can'),
+        (N'user-circle-o', N'circle-user'),
+        (N'user-o', N'user');
+
+    /* v4-only aliases that can also appear with a modern style prefix. */
+    CREATE TABLE #FA4AliasAnyPrefix
+    (
+        AliasName         varchar(150) NOT NULL PRIMARY KEY,
+        CanonicalFA6Name  varchar(150) NOT NULL
+    );
+
+    INSERT INTO #FA4AliasAnyPrefix (AliasName, CanonicalFA6Name)
+    VALUES
+        (N'address-book-o', N'address-book'),
+        (N'building-o', N'building'),
+        (N'calendar-check-o', N'calendar-check'),
+        (N'calendar-o', N'calendar'),
+        (N'calendar-plus-o', N'calendar-plus'),
+        (N'calendar-times-o', N'calendar-xmark'),
+        (N'check-square-o', N'square-check'),
+        (N'clock-o', N'clock'),
+        (N'dashboard', N'gauge'),
+        (N'file-code-o', N'file-code'),
+        (N'file-excel-o', N'file-excel'),
+        (N'file-pdf-o', N'file-pdf'),
+        (N'file-text', N'file-lines'),
+        (N'file-text-o', N'file-lines'),
+        (N'files-o', N'copy'),
+        (N'folder-open-o', N'folder-open'),
+        (N'hand-paper-o', N'hand'),
+        (N'handshake-o', N'handshake'),
+        (N'id-card-o', N'id-card'),
+        (N'mail-forward', N'share'),
+        (N'map-marker', N'location-dot'),
+        (N'map-o', N'map'),
+        (N'mobile', N'mobile-screen-button'),
+        (N'money', N'money-bill-1'),
+        (N'paper-plane-o', N'paper-plane'),
+        (N'pencil-square-o', N'pen-to-square'),
+        (N'refresh', N'arrows-rotate'),
+        (N'rotate-left', N'arrow-rotate-left'),
+        (N'shield', N'shield-blank'),
+        (N'sign-out', N'right-from-bracket'),
+        (N'star-o', N'star'),
+        (N'sun-o', N'sun'),
+        (N'tachometer', N'gauge'),
+        (N'ticket', N'ticket-simple'),
+        (N'times-rectangle', N'rectangle-xmark'),
+        (N'trash', N'trash-can'),
+        (N'user-circle-o', N'circle-user'),
+        (N'user-o', N'user');
+
+    /* FA5 name -> native FA6 canonical name. */
+    CREATE TABLE #FA5AliasMap
+    (
+        AliasName         varchar(150) NOT NULL PRIMARY KEY,
+        CanonicalFA6Name  varchar(150) NOT NULL
+    );
+
+    INSERT INTO #FA5AliasMap (AliasName, CanonicalFA6Name)
+    VALUES
+        (N'arrow-circle-up', N'circle-arrow-up'),
+        (N'arrows-v', N'arrows-up-down'),
+        (N'balance-scale', N'scale-balanced'),
+        (N'bank', N'building-columns'),
+        (N'box-up', N'square-this-way-up'),
+        (N'cog', N'gear'),
+        (N'exchange', N'arrow-right-arrow-left'),
+        (N'exclamation-triangle', N'triangle-exclamation'),
+        (N'history', N'clock-rotate-left'),
+        (N'home', N'house'),
+        (N'line-chart', N'chart-line'),
+        (N'list-alt', N'rectangle-list'),
+        (N'magic', N'wand-magic'),
+        (N'minus-square', N'square-minus'),
+        (N'paint-brush', N'paintbrush'),
+        (N'plus-circle', N'circle-plus'),
+        (N'plus-square', N'square-plus'),
+        (N'question-circle', N'circle-question'),
+        (N'search', N'magnifying-glass'),
+        (N'search-plus', N'magnifying-glass-plus'),
+        (N'shopping-bag', N'bag-shopping'),
+        (N'shopping-basket', N'basket-shopping'),
+        (N'shopping-cart', N'cart-shopping'),
+        (N'shuttle-van', N'van-shuttle'),
+        (N'sticky-note', N'note-sticky'),
+        (N'tasks', N'list-check'),
+        (N'th', N'table-cells'),
+        (N'th-large', N'table-cells-large'),
+        (N'times-circle', N'circle-xmark'),
+        (N'undo', N'arrow-rotate-left'),
+        (N'university', N'building-columns'),
+        (N'user-circle', N'circle-user'),
+        (N'user-times', N'user-xmark'),
+        (N'volume-up', N'volume-high');
+
+    /* Brand names must use Font Awesome Brands, not Classic. */
+    CREATE TABLE #BrandIconMap
+    (
+        AliasName        varchar(150) NOT NULL PRIMARY KEY,
+        CanonicalName    varchar(150) NOT NULL
+    );
+
+    INSERT INTO #BrandIconMap (AliasName, CanonicalName)
+    VALUES
+        (N'bluetooth', N'bluetooth'),
+        (N'bluetooth-b', N'bluetooth-b');
+
+    /* Verified native FA6 names observed in this inventory. */
+    CREATE TABLE #VerifiedNativeFA6Name
+    (
+        IconName varchar(150) NOT NULL PRIMARY KEY
+    );
+
+    INSERT INTO #VerifiedNativeFA6Name (IconName)
+    VALUES
+        (N'address-card'),
+        (N'alarm-clock'),
+        (N'arrow-right'),
+        (N'arrow-turn-down-left'),
+        (N'arrow-turn-down-right'),
+        (N'arrow-up-right-dots'),
+        (N'arrows-split-up-and-left'),
+        (N'asterisk'),
+        (N'award'),
+        (N'bag-shopping'),
+        (N'ban'),
+        (N'barcode'),
+        (N'barcode-read'),
+        (N'bars'),
+        (N'bars-progress'),
+        (N'bed'),
+        (N'bell-concierge'),
+        (N'bell-exclamation'),
+        (N'bolt'),
+        (N'bolt-lightning'),
+        (N'book'),
+        (N'bookmark'),
+        (N'border-all'),
+        (N'box-check'),
+        (N'box-heart'),
+        (N'box-open'),
+        (N'briefcase'),
+        (N'briefcase-blank'),
+        (N'broom-ball'),
+        (N'building'),
+        (N'buildings'),
+        (N'bullhorn'),
+        (N'bullseye'),
+        (N'calculator'),
+        (N'calendar'),
+        (N'calendar-arrow-down'),
+        (N'calendar-minus'),
+        (N'calendar-users'),
+        (N'calendar-xmark'),
+        (N'cart-arrow-down'),
+        (N'cart-arrow-up'),
+        (N'cart-flatbed'),
+        (N'cart-plus'),
+        (N'cart-shopping-fast'),
+        (N'cart-xmark'),
+        (N'cash-register'),
+        (N'certificate'),
+        (N'chart-gantt'),
+        (N'chart-line-up'),
+        (N'check'),
+        (N'circle-info'),
+        (N'circle-question'),
+        (N'clipboard'),
+        (N'clipboard-check'),
+        (N'clipboard-question'),
+        (N'clipboard-user'),
+        (N'clone'),
+        (N'code'),
+        (N'code-pull-request'),
+        (N'comment'),
+        (N'comment-dollar'),
+        (N'comment-dots'),
+        (N'comment-heart'),
+        (N'couch'),
+        (N'credit-card'),
+        (N'cube'),
+        (N'cubes'),
+        (N'database'),
+        (N'desktop'),
+        (N'diagram-cells'),
+        (N'divide'),
+        (N'door-closed'),
+        (N'door-open'),
+        (N'download'),
+        (N'dumpster'),
+        (N'engine-warning'),
+        (N'envelope'),
+        (N'envelope-open-text'),
+        (N'eraser'),
+        (N'eye'),
+        (N'file-chart-column'),
+        (N'file-code'),
+        (N'file-invoice'),
+        (N'file-minus'),
+        (N'file-signature'),
+        (N'file-spreadsheet'),
+        (N'file-user'),
+        (N'file-xmark'),
+        (N'filter'),
+        (N'fingerprint'),
+        (N'folder'),
+        (N'folder-open'),
+        (N'folder-tree'),
+        (N'font-case'),
+        (N'gavel'),
+        (N'gear'),
+        (N'gears'),
+        (N'gem'),
+        (N'gift'),
+        (N'gift-card'),
+        (N'globe'),
+        (N'grid-horizontal'),
+        (N'hammer'),
+        (N'hand-holding-hand'),
+        (N'handshake-angle'),
+        (N'hashtag'),
+        (N'hourglass-end'),
+        (N'house-building'),
+        (N'house-chimney-window'),
+        (N'house-signal'),
+        (N'house-user'),
+        (N'id-badge'),
+        (N'id-card'),
+        (N'industry'),
+        (N'input-numeric'),
+        (N'island-tropical'),
+        (N'key'),
+        (N'key-skeleton'),
+        (N'keyboard'),
+        (N'list'),
+        (N'list-ol'),
+        (N'list-ul'),
+        (N'lock'),
+        (N'magnifying-glass-location'),
+        (N'mobile-screen'),
+        (N'money-check'),
+        (N'network-wired'),
+        (N'palette'),
+        (N'paperclip'),
+        (N'passport'),
+        (N'pause'),
+        (N'pencil'),
+        (N'percent'),
+        (N'plane'),
+        (N'plane-departure'),
+        (N'plane-tail'),
+        (N'print'),
+        (N'receipt'),
+        (N'reply'),
+        (N'reply-all'),
+        (N'route'),
+        (N'route-interstate'),
+        (N'ruler-combined'),
+        (N'ruler-horizontal'),
+        (N'shapes'),
+        (N'shuffle'),
+        (N'signature'),
+        (N'signature-lock'),
+        (N'sitemap'),
+        (N'sliders'),
+        (N'sparkles'),
+        (N'square-poll-vertical'),
+        (N'star'),
+        (N'suitcase'),
+        (N'tag'),
+        (N'tags'),
+        (N'tree'),
+        (N'trophy'),
+        (N'truck'),
+        (N'truck-container'),
+        (N'user'),
+        (N'user-clock'),
+        (N'user-crown'),
+        (N'user-headset'),
+        (N'user-plus'),
+        (N'user-tie-hair'),
+        (N'user-vneck'),
+        (N'users'),
+        (N'users-viewfinder'),
+        (N'vector-square'),
+        (N'vial'),
+        (N'wallet'),
+        (N'warehouse'),
+        (N'wrench');
+
+    CREATE TABLE #KnownInvalidFA6BaseName
+    (
+        IconName varchar(150) NOT NULL PRIMARY KEY
+    );
+
+    INSERT INTO #KnownInvalidFA6BaseName (IconName)
+    VALUES
+        (N'handshake-verify'),
+        (N'gear-play'),
+        (N'user-wrench'),
+        (N'boxes-flat'),
+        (N'calendar-repeat'),
+        (N'box-container');
+
+    CREATE TABLE #DirectPlan
+    (
+        RibbonViewId          int            NOT NULL PRIMARY KEY,
+        FeatureId             int            NOT NULL,
+        FeatureName           nvarchar(500)  NULL,
+        FeatureCategory       varchar(40)    NOT NULL,
+        CurrentWebIcon        varchar(500)   NULL,
+        SyntaxEra             varchar(30)    NOT NULL,
+        DetectedStyle         varchar(30)    NOT NULL,
+        ParsedIconName        varchar(150)   NULL,
+        BaseNameStatus        varchar(40)    NOT NULL,
+        CanonicalFA6IconName  varchar(150)   NULL,
+        SuggestedWebIcon      varchar(220)   NULL,
+        AlternativeWebIcon    varchar(220)   NULL,
+        ReplacementWebIcon    varchar(220)   NULL,
+        Action                varchar(180)   NOT NULL
+    );
+
+    ;WITH Live AS
+    (
+        SELECT
+            RV.RibbonViewId,
+            RV.FeatureId,
+            F.Name AS FeatureName,
+            M.FeatureCategory,
+            RV.WebIcon,
+            M.SuggestedWebIcon,
+            M.AlternativeWebIcon
+        FROM dbo.ADM_RibbonView RV
+        INNER JOIN dbo.ADM_Features F
+            ON F.FeatureId = RV.FeatureId
+        INNER JOIN #FeatureIconMap M
+            ON M.FeatureId = RV.FeatureId
+    )
+    INSERT INTO #DirectPlan
+    (
+        RibbonViewId, FeatureId, FeatureName, FeatureCategory,
+        CurrentWebIcon, SyntaxEra, DetectedStyle, ParsedIconName,
+        BaseNameStatus, CanonicalFA6IconName,
+        SuggestedWebIcon, AlternativeWebIcon,
+        ReplacementWebIcon, Action
+    )
+    SELECT
+        L.RibbonViewId,
+        L.FeatureId,
+        L.FeatureName,
+        L.FeatureCategory,
+        L.WebIcon,
+        ParseInfo.SyntaxEra,
+        ParseInfo.DetectedStyle,
+        Parsed.IconName,
+
+        CASE
+            WHEN MissingInfo.IsMissing = 1 THEN 'MISSING'
+            WHEN Brand.CanonicalName IS NOT NULL THEN 'BRAND'
+            WHEN ParseInfo.SyntaxEra = 'FA4_LEGACY'
+                 AND A4.CanonicalFA6Name IS NOT NULL THEN 'V4_ALIAS'
+            WHEN ParseInfo.SyntaxEra = 'FA4_LEGACY'
+                 AND A5.CanonicalFA6Name IS NOT NULL THEN 'V5_ALIAS'
+            WHEN ParseInfo.SyntaxEra <> 'FA4_LEGACY'
+                 AND A4Any.CanonicalFA6Name IS NOT NULL THEN 'V4_ALIAS'
+            WHEN A5.CanonicalFA6Name IS NOT NULL THEN 'V5_ALIAS'
+            WHEN InvalidName.IconName IS NOT NULL THEN 'INVALID_FA6_BASE_NAME'
+            WHEN Native.IconName IS NOT NULL THEN 'FA6_NATIVE'
+            WHEN Parsed.IconName IS NULL THEN 'MALFORMED'
+            ELSE 'UNVERIFIED_PRO_OR_CUSTOM'
+        END,
+
+        CASE
+            WHEN Brand.CanonicalName IS NOT NULL THEN Brand.CanonicalName
+            WHEN ParseInfo.SyntaxEra = 'FA4_LEGACY'
+                 AND A4.CanonicalFA6Name IS NOT NULL THEN A4.CanonicalFA6Name
+            WHEN ParseInfo.SyntaxEra = 'FA4_LEGACY'
+                 AND A5.CanonicalFA6Name IS NOT NULL THEN A5.CanonicalFA6Name
+            WHEN ParseInfo.SyntaxEra <> 'FA4_LEGACY'
+                 AND A4Any.CanonicalFA6Name IS NOT NULL THEN A4Any.CanonicalFA6Name
+            WHEN A5.CanonicalFA6Name IS NOT NULL THEN A5.CanonicalFA6Name
+            WHEN InvalidName.IconName IS NOT NULL THEN NULL
+            WHEN Native.IconName IS NOT NULL THEN Native.IconName
+            ELSE Parsed.IconName
+        END,
+
+        L.SuggestedWebIcon,
+        L.AlternativeWebIcon,
+
+        CASE
+            /* Missing normal/main -> approved feature suggestion. */
+            WHEN MissingInfo.IsMissing = 1
+                THEN L.SuggestedWebIcon
+
+            /* Brands always use Brands family. */
+            WHEN Brand.CanonicalName IS NOT NULL
+                 AND
+                 (
+                    ParseInfo.DetectedStyle <> 'BRANDS'
+                    OR Parsed.IconName <> Brand.CanonicalName
+                 )
+                THEN 'fa-brands fa-' + Brand.CanonicalName
+
+            /* FA4 syntax: official v4 alias. */
+            WHEN ParseInfo.SyntaxEra = 'FA4_LEGACY'
+                 AND A4.CanonicalFA6Name IS NOT NULL
+                THEN 'fa-light fa-' + A4.CanonicalFA6Name
+
+            /* FA4 syntax containing a name later renamed in v6. */
+            WHEN ParseInfo.SyntaxEra = 'FA4_LEGACY'
+                 AND A5.CanonicalFA6Name IS NOT NULL
+                THEN 'fa-light fa-' + A5.CanonicalFA6Name
+
+            /* Native name but old generic FA4 prefix: preserve identity. */
+            WHEN ParseInfo.SyntaxEra = 'FA4_LEGACY'
+                 AND Native.IconName IS NOT NULL
+                THEN 'fa-light fa-' + Native.IconName
+
+            /* Modern prefix but v4-only compatibility alias in the base name. */
+            WHEN ParseInfo.SyntaxEra <> 'FA4_LEGACY'
+                 AND A4Any.CanonicalFA6Name IS NOT NULL
+                THEN 'fa-light fa-' + A4Any.CanonicalFA6Name
+
+            /* Modern prefix using a v5 name renamed in v6. */
+            WHEN A5.CanonicalFA6Name IS NOT NULL
+                THEN 'fa-light fa-' + A5.CanonicalFA6Name
+
+            /* Confirmed invalid/nonexistent FA6 base name. */
+            WHEN InvalidName.IconName IS NOT NULL
+                THEN L.SuggestedWebIcon
+
+            /* Native modern FA6 pair: keep. */
+            WHEN Native.IconName IS NOT NULL
+                 AND ParseInfo.DetectedStyle IN
+                     ('SOLID','REGULAR','LIGHT','THIN','BRANDS')
+                THEN NULL
+
+            WHEN Native.IconName IS NOT NULL
+                THEN 'fa-light fa-' + Native.IconName
+
+
+            ELSE NULL
+        END,
+
+        CASE
+            WHEN MissingInfo.IsMissing = 1
+                THEN 'FILL MISSING ICON WITH SUGGESTED'
+            WHEN Brand.CanonicalName IS NOT NULL
+                 AND
+                 (
+                    ParseInfo.DetectedStyle <> 'BRANDS'
+                    OR Parsed.IconName <> Brand.CanonicalName
+                 )
+                THEN 'REPAIR BRAND FAMILY/NAME'
+            WHEN ParseInfo.SyntaxEra = 'FA4_LEGACY'
+                 AND A4.CanonicalFA6Name IS NOT NULL
+                THEN 'CANONICALIZE V4 ALIAS TO NATIVE FA6 PRO LIGHT'
+            WHEN ParseInfo.SyntaxEra = 'FA4_LEGACY'
+                 AND A5.CanonicalFA6Name IS NOT NULL
+                THEN 'CANONICALIZE V5 ALIAS TO NATIVE FA6 PRO LIGHT'
+            WHEN ParseInfo.SyntaxEra = 'FA4_LEGACY'
+                 AND Native.IconName IS NOT NULL
+                THEN 'NORMALIZE LEGACY PREFIX; PRESERVE ICON IDENTITY'
+            WHEN ParseInfo.SyntaxEra <> 'FA4_LEGACY'
+                 AND A4Any.CanonicalFA6Name IS NOT NULL
+                THEN 'CANONICALIZE V4 BASE ALIAS TO NATIVE FA6 PRO LIGHT'
+            WHEN A5.CanonicalFA6Name IS NOT NULL
+                THEN 'CANONICALIZE V5 BASE ALIAS TO NATIVE FA6 PRO LIGHT'
+            WHEN InvalidName.IconName IS NOT NULL
+                THEN 'REPLACE INVALID/NONEXISTENT FA6 BASE NAME WITH SUGGESTED'
+
+            WHEN Native.IconName IS NOT NULL
+                 AND ParseInfo.DetectedStyle IN
+                     ('SOLID','REGULAR','LIGHT','THIN','BRANDS')
+                THEN 'KEEP VALID NATIVE FA6 ICON'
+            WHEN Native.IconName IS NOT NULL
+                THEN 'REPAIR PREFIX; PRESERVE ICON IDENTITY'
+            WHEN Parsed.IconName IS NULL
+                THEN 'MANUAL REVIEW - UNPARSEABLE'
+            ELSE
+                'MANUAL REVIEW - UNVERIFIED PRO/CUSTOM BASE NAME'
+        END
+
+    FROM Live L
+
+    OUTER APPLY
+    (
+        SELECT CASE
+            WHEN L.WebIcon IS NULL
+              OR LTRIM(RTRIM(L.WebIcon)) = ''
+              OR UPPER(LTRIM(RTRIM(L.WebIcon))) IN ('NULL','N/A','NA','NONE')
+            THEN 1 ELSE 0 END AS IsMissing
+    ) MissingInfo
+
+    OUTER APPLY
+    (
+        SELECT
+            CASE
+                WHEN ' ' + LTRIM(RTRIM(ISNULL(L.WebIcon,''))) + ' '
+                     LIKE '% fa %'
+                     AND LTRIM(RTRIM(ISNULL(L.WebIcon,''))) NOT LIKE 'fa-%'
+                    THEN 'FA4_LEGACY'
+                ELSE 'CURRENT_OR_SHORTHAND'
+            END AS SyntaxEra,
+
+            CASE
+                WHEN L.WebIcon LIKE '%fa-brands%' OR
+                     LTRIM(RTRIM(ISNULL(L.WebIcon,''))) LIKE 'fab %'
+                    THEN 'BRANDS'
+                WHEN L.WebIcon LIKE '%fa-light%' OR
+                     LTRIM(RTRIM(ISNULL(L.WebIcon,''))) LIKE 'fal %'
+                    THEN 'LIGHT'
+                WHEN L.WebIcon LIKE '%fa-regular%' OR
+                     LTRIM(RTRIM(ISNULL(L.WebIcon,''))) LIKE 'far %'
+                    THEN 'REGULAR'
+                WHEN L.WebIcon LIKE '%fa-thin%' OR
+                     LTRIM(RTRIM(ISNULL(L.WebIcon,''))) LIKE 'fat %'
+                    THEN 'THIN'
+                WHEN L.WebIcon LIKE '%fa-solid%' OR
+                     LTRIM(RTRIM(ISNULL(L.WebIcon,''))) LIKE 'fas %'
+                    THEN 'SOLID'
+                WHEN ' ' + LTRIM(RTRIM(ISNULL(L.WebIcon,''))) + ' '
+                     LIKE '% fa %'
+                    THEN 'LEGACY_FA'
+                ELSE 'UNKNOWN'
+            END AS DetectedStyle
+    ) ParseInfo
+
+    OUTER APPLY
+(
+    SELECT TOP (1)
+        SUBSTRING(S.IconValue, 4, 150) AS IconName
+    FROM
+    (
+        SELECT
+            X.N.value('.', 'VARCHAR(150)') AS IconValue
+        FROM
+        (
+            SELECT CAST(
+                '<X>' +
+                REPLACE(
+                    LTRIM(RTRIM(ISNULL(L.WebIcon, ''))),
+                    ' ',
+                    '</X><X>'
+                ) +
+                '</X>' AS XML
+            ) AS XmlData
+        ) D
+        CROSS APPLY D.XmlData.nodes('/X') X(N)
+    ) S
+    WHERE S.IconValue LIKE 'fa-%'
+      AND S.IconValue NOT IN
+      (
+          'fa-classic','fa-solid','fa-regular','fa-light','fa-thin',
+          'fa-brands','fa-duotone','fa-sharp','fa-sharp-duotone',
+          'fa-fw','fa-border','fa-spin','fa-pulse','fa-beat','fa-fade',
+          'fa-beat-fade','fa-bounce','fa-flip','fa-shake',
+          'fa-spin-pulse','fa-spin-reverse','fa-2xs','fa-xs','fa-sm',
+          'fa-lg','fa-xl','fa-2xl','fa-1x','fa-2x','fa-3x','fa-4x',
+          'fa-5x','fa-6x','fa-7x','fa-8x','fa-9x','fa-10x'
+      )
+    ORDER BY LEN(S.IconValue) DESC
+) Parsed
+    LEFT JOIN #FA4AliasMap A4
+        ON A4.AliasName = Parsed.IconName
+
+    LEFT JOIN #FA4AliasAnyPrefix A4Any
+        ON A4Any.AliasName = Parsed.IconName
+
+    LEFT JOIN #FA5AliasMap A5
+        ON A5.AliasName = Parsed.IconName
+
+    LEFT JOIN #BrandIconMap Brand
+        ON Brand.AliasName = Parsed.IconName
+
+    LEFT JOIN #KnownInvalidFA6BaseName InvalidName
+        ON InvalidName.IconName = Parsed.IconName
+
+    LEFT JOIN #VerifiedNativeFA6Name Native
+        ON Native.IconName = Parsed.IconName;
+
+    ;WITH MainDocumentRaw AS
+    (
+        SELECT
+            DT.DocumentType,
+            DT.CostCenterID AS MainFeatureId,
+            F.Name AS MainFeatureName
+        FROM dbo.ADM_DocumentTypes DT
+        INNER JOIN dbo.ADM_Features F
+            ON F.FeatureId = DT.CostCenterID
+        WHERE F.ParentFeatureId = 400
+          AND DT.CostCenterID BETWEEN 40001 AND 40999
+    ),
+    MainUnique AS
+    (
+        SELECT
+            DocumentType,
+            MIN(MainFeatureId) AS MainFeatureId,
+            COUNT(DISTINCT MainFeatureId) AS MainCount
+        FROM MainDocumentRaw
+        GROUP BY DocumentType
+    ),
+    MainEffectiveIcon AS
+    (
+        SELECT
+            U.DocumentType,
+            U.MainFeatureId,
+            MAX(F.Name) AS MainFeatureName,
+            MIN
+            (
+                CASE
+                    WHEN COALESCE(NULLIF(LTRIM(RTRIM(P.ReplacementWebIcon)), ''), RV.WebIcon) IS NULL
+                      OR LTRIM(RTRIM(COALESCE(P.ReplacementWebIcon, RV.WebIcon))) = ''
+                      OR UPPER(LTRIM(RTRIM(COALESCE(P.ReplacementWebIcon, RV.WebIcon))))
+                           IN ('NULL','N/A','NA','NONE')
+                    THEN NULL
+                    ELSE COALESCE(P.ReplacementWebIcon, RV.WebIcon)
+                END
+            ) AS EffectiveMainWebIcon,
+            COUNT
+            (
+                DISTINCT
+                CASE
+                    WHEN COALESCE(NULLIF(LTRIM(RTRIM(P.ReplacementWebIcon)), ''), RV.WebIcon) IS NULL
+                      OR LTRIM(RTRIM(COALESCE(P.ReplacementWebIcon, RV.WebIcon))) = ''
+                      OR UPPER(LTRIM(RTRIM(COALESCE(P.ReplacementWebIcon, RV.WebIcon))))
+                           IN ('NULL','N/A','NA','NONE')
+                    THEN NULL
+                    ELSE COALESCE(P.ReplacementWebIcon, RV.WebIcon)
+                END
+            ) AS DistinctUsableMainIconCount
+        FROM MainUnique U
+        INNER JOIN dbo.ADM_Features F
+            ON F.FeatureId = U.MainFeatureId
+        LEFT JOIN dbo.ADM_RibbonView RV
+            ON RV.FeatureId = U.MainFeatureId
+        LEFT JOIN #DirectPlan P
+            ON P.RibbonViewId = RV.RibbonViewId
+        WHERE U.MainCount = 1
+        GROUP BY U.DocumentType, U.MainFeatureId
+    )
+    SELECT
+        ChildRV.RibbonViewId,
+        ChildF.FeatureId AS ChildFeatureId,
+        ChildF.Name AS ChildFeatureName,
+        ChildDT.DocumentType,
+        MEI.MainFeatureId,
+        MEI.MainFeatureName,
+        ChildRV.WebIcon AS CurrentChildWebIcon,
+        MEI.EffectiveMainWebIcon AS RequiredChildWebIcon,
+        FM.SuggestedWebIcon,
+        FM.AlternativeWebIcon,
+
+        CASE
+            WHEN MEI.DistinctUsableMainIconCount <> 1
+                THEN 'BLOCKED - MAIN ICON NOT UNIQUE/USABLE'
+            WHEN NULLIF(LTRIM(RTRIM(MEI.EffectiveMainWebIcon)), '') IS NULL
+                THEN 'BLOCKED - MAIN ICON MISSING'
+            WHEN ChildRV.WebIcon IS NULL
+              OR LTRIM(RTRIM(ChildRV.WebIcon)) = ''
+              OR UPPER(LTRIM(RTRIM(ChildRV.WebIcon)))
+                   IN ('NULL','N/A','NA','NONE')
+                THEN 'FILL EMPTY CHILD ICON FROM MAIN'
+            ELSE
+                'KEEP EXISTING CHILD ICON'
+        END AS ChildAction
+
+    INTO #ChildDocumentPlan
+
+    FROM dbo.ADM_RibbonView ChildRV
+    INNER JOIN dbo.ADM_Features ChildF
+        ON ChildF.FeatureId = ChildRV.FeatureId
+    INNER JOIN dbo.ADM_DocumentTypes ChildDT
+        ON ChildDT.CostCenterID = ChildF.FeatureId
+    INNER JOIN MainEffectiveIcon MEI
+        ON MEI.DocumentType = ChildDT.DocumentType
+    LEFT JOIN #FeatureIconMap FM
+        ON FM.FeatureId = MEI.MainFeatureId
+    WHERE ChildF.ParentFeatureId = 400
+      AND ChildF.FeatureId >= 41000;
+
+    IF @ApplyChanges = 0
+    BEGIN
+        SELECT
+            RibbonViewId,
+            FeatureId,
+            FeatureName,
+            FeatureCategory,
+            CurrentWebIcon,
+            SyntaxEra,
+            DetectedStyle,
+            ParsedIconName,
+            BaseNameStatus,
+            CanonicalFA6IconName,
+            SuggestedWebIcon,
+            AlternativeWebIcon,
+            ReplacementWebIcon,
+            Action
+        FROM #DirectPlan
+        ORDER BY
+            CASE WHEN ReplacementWebIcon IS NULL THEN 1 ELSE 0 END,
+            FeatureId,
+            RibbonViewId;
+
+        SELECT *
+        FROM #ChildDocumentPlan
+        ORDER BY DocumentType, MainFeatureId, ChildFeatureId, RibbonViewId;
+
+        ROLLBACK TRANSACTION;
+        RETURN;
+    END;
+
+
+    DECLARE @DirectUpdated int = 0;
+    DECLARE @ChildUpdated int = 0;
+
+    UPDATE RV
+       SET RV.WebIcon = P.ReplacementWebIcon
+    FROM dbo.ADM_RibbonView RV
+    INNER JOIN #DirectPlan P
+        ON P.RibbonViewId = RV.RibbonViewId
+    WHERE P.ReplacementWebIcon IS NOT NULL
+      AND NULLIF(LTRIM(RTRIM(P.ReplacementWebIcon)), '') IS NOT NULL
+      AND ISNULL(RV.WebIcon, '') <> ISNULL(P.ReplacementWebIcon, '');
+
+    SET @DirectUpdated = @@ROWCOUNT;
+
+    UPDATE ChildRV
+       SET ChildRV.WebIcon = CP.RequiredChildWebIcon
+    FROM dbo.ADM_RibbonView ChildRV
+    INNER JOIN #ChildDocumentPlan CP
+        ON CP.RibbonViewId = ChildRV.RibbonViewId
+    WHERE CP.ChildAction = 'FILL EMPTY CHILD ICON FROM MAIN'
+      AND NULLIF(LTRIM(RTRIM(CP.RequiredChildWebIcon)), '') IS NOT NULL
+      AND
+      (
+           ChildRV.WebIcon IS NULL
+        OR LTRIM(RTRIM(ChildRV.WebIcon)) = ''
+        OR UPPER(LTRIM(RTRIM(ChildRV.WebIcon)))
+             IN ('NULL','N/A','NA','NONE')
+      );
+
+    SET @ChildUpdated = @@ROWCOUNT;
+
+    COMMIT TRANSACTION;
+
+    PRINT 'Font Awesome 6 Pro native icon remediation completed.';
+    PRINT 'Direct/main rows updated: ' + CAST(@DirectUpdated AS varchar(20));
+    PRINT 'Missing child rows filled: ' + CAST(@ChildUpdated AS varchar(20));
+
+	IF OBJECT_ID('TEMPDB..#ChangeDocumentPlan') IS NOT NULL 
+	  DROP TABLE #ChangeDocumentPlan
+
+	IF OBJECT_ID('TEMPDB..#FeatureIconMap') IS NOT NULL 
+	  DROP TABLE #FeatureIconMap
+
+	IF OBJECT_ID('TEMPDB..#FA4AliasMap') IS NOT NULL 
+	  DROP TABLE #FA4AliasMap
+
+	IF OBJECT_ID('TEMPDB..#FA4AliasAnyPrefix') IS NOT NULL 
+	  DROP TABLE #FA4AliasAnyPrefix
+
+	IF OBJECT_ID('TEMPDB..#FA5AliasMap') IS NOT NULL 
+	  DROP TABLE #FA5AliasMap
+
+	IF OBJECT_ID('TEMPDB..#BrandIconMap') IS NOT NULL 
+	  DROP TABLE #BrandIconMap
+
+	IF OBJECT_ID('TEMPDB..#VerifiedNativeFA6Name') IS NOT NULL 
+	  DROP TABLE #VerifiedNativeFA6Name
+
+	IF OBJECT_ID('TEMPDB..#KnownInvalidFA6BaseName') IS NOT NULL 
+	  DROP TABLE #KnownInvalidFA6BaseName
+
+
+	IF OBJECT_ID('TEMPDB..#DirectPlan') IS NOT NULL 
+	  DROP TABLE #DirectPlan
+
+	 
+	IF OBJECT_ID('TEMPDB..#ChildDocumentPlan') IS NOT NULL 
+	  DROP TABLE #ChildDocumentPlan
+
+
+END TRY
+BEGIN CATCH
+    IF @@TRANCOUNT > 0
+        ROLLBACK TRANSACTION;
+    THROW;
+END CATCH;
+
+
+

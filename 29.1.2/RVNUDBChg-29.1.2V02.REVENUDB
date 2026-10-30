@@ -1,0 +1,7 @@
+--khaja
+
+delete from ADM_GlobalPreferences  WHERE  [Name] in ('UAEEINVAuthApiUrl','UAEEINVClientId','UAEEINVClientSecretId','ASP')
+INSERT INTO INV_GSTMapping (GSTType,ValueType,GSTColumnName,CostCenterID,SysColumnName,IsCalc,Reference,DefColumnName,DefReference,IsRequired)
+VALUES('UAEUBL','Seller','UserName',0,'',0,0,'acAlpha25',4,'M')
+INSERT INTO INV_GSTMapping (GSTType,ValueType,GSTColumnName,CostCenterID,SysColumnName,IsCalc,Reference,DefColumnName,DefReference,IsRequired)
+VALUES('UAEUBL','Seller','Password',0,'',0,0,'acAlpha24',4,'M')

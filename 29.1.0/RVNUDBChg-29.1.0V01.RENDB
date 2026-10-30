@@ -1,0 +1,12 @@
+--Ikram
+if not exists(select * from adm_featureaction
+where featureactionid=208)
+BEGIN
+	set identity_insert adm_featureaction ON
+	insert into adm_featureaction(FeatureActionID,Name,FeatureID,FeatureActionTypeID,ApplicationID,CreatedDate,CreatedBy)
+	values(208,'Resave cancelled contract',104,465,1,22,'Admin')
+	set identity_insert adm_featureaction OFF
+
+	insert into adm_featureactionrolemap(RoleID,FeatureActionID,CreatedBy,CreatedDate)
+	values(1,208,'admin',22)
+end

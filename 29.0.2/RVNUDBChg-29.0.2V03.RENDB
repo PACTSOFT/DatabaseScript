@@ -1,0 +1,6 @@
+--Ikram
+declare @Rid int
+select @Rid=ResourceID from COM_CostCenterPreferences
+where Name='ShowOnlyAvailable' and CostCenterID=95
+insert into COM_CostCenterPreferences(CostCenterID,FeatureID,ResourceID,Name,Value,GUID,CreatedBy,CreatedDate,DefaultValue)
+values(129,129,@Rid,'ShowOnlyAvailable','false','guid','admin',convert(float,getdate()),'false')
