@@ -1,0 +1,88 @@
+--Ikram
+alter table REN_Property add ContractType int 
+alter table REN_Units add ContractType int 
+alter table REN_Contract add ContractType int 
+alter table REN_Quotation add ContractType int 
+
+alter table REN_Contract_history add ContractType int 
+alter table REN_Quotation_history add ContractType int
+alter table REN_Unitshistory add ContractType int
+
+
+declare @Rid int
+select @Rid=MAX(ResourceID) from COM_LanguageResources 
+
+set @Rid=@Rid+1
+
+set identity_insert [ADM_CostCenterDef] ON
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'ContractType',1,'English','Contract Type','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+ 
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'ContractType',2,'Arabic','Contract Type','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+INSERT [dbo].[ADM_CostCenterDef] ([CostCenterID], [CostCenterColID], [ResourceID], [CostCenterName], [SysTableName], [UserColumnName], [SysColumnName], [ColumnTypeSeqNumber], [UserColumnType], [ColumnDataType], [UserDefaultValue], [UserProbableValues], [ColumnOrder], [IsMandatory], [IsEditable], [IsVisible], [IsCostCenterUserDefined], [IsColumnUserDefined], [IsCCDeleted], [IsColumnDeleted], [ColumnCostCenterID], [ColumnCCListViewTypeID], [FetchMaxRows], [IsColumnGroup], [ColumnGroupNumber], [SectionSeqNumber], [SectionID], [SectionName], [RowNo], [ColumnNo], [ColumnSpan], [IsColumnInUse], [UIWidth], [CompanyGUID], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate], [IsUnique], [IsForeignKey], [ParentCostCenterID], [ParentCostCenterColID], [IsValidReportBuilderCol], [ParentCostCenterSysName], [ParentCostCenterColSysName], [ParentCCDefaultColID], [LinkData], [LocalReference], [Decimal], [TextFormat], [Filter], [IsRepeat], [LastValueVouchers], [IsnoTab], [dependancy], [dependanton], [IsTransfer], [DbFilter], [CrFilter], [ShowInQuickAdd], [QuickAddOrder], [Calculate], [Cformula], [IsReEvaluate], [IgnoreChar], [WaterMark])
+VALUES (92,55194,  @Rid, N'Contract', N'REN_Property', N'Contract Type', N'ContractType', 0, N'COMBOBOX', N'String', N'', N'', 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, NULL, 0, NULL, 100, NULL, NULL, 8, 1, 1, 1, 100, N'CompanyGUID', N'094D7155-54D7-4F7E-8CC2-AF40F8226858', N'', N'ADMIN', 22, NULL, NULL, 0, 1, NULL, 0, 1, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, 649, NULL)
+
+set @Rid=@Rid+1
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'ContractType',1,'English','Contract Type','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+ 
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'ContractType',2,'Arabic','Contract Type','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+INSERT [dbo].[ADM_CostCenterDef] ([CostCenterID], [CostCenterColID], [ResourceID], [CostCenterName], [SysTableName], [UserColumnName], [SysColumnName], [ColumnTypeSeqNumber], [UserColumnType], [ColumnDataType], [UserDefaultValue], [UserProbableValues], [ColumnOrder], [IsMandatory], [IsEditable], [IsVisible], [IsCostCenterUserDefined], [IsColumnUserDefined], [IsCCDeleted], [IsColumnDeleted], [ColumnCostCenterID], [ColumnCCListViewTypeID], [FetchMaxRows], [IsColumnGroup], [ColumnGroupNumber], [SectionSeqNumber], [SectionID], [SectionName], [RowNo], [ColumnNo], [ColumnSpan], [IsColumnInUse], [UIWidth], [CompanyGUID], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate], [IsUnique], [IsForeignKey], [ParentCostCenterID], [ParentCostCenterColID], [IsValidReportBuilderCol], [ParentCostCenterSysName], [ParentCostCenterColSysName], [ParentCCDefaultColID], [LinkData], [LocalReference], [Decimal], [TextFormat], [Filter], [IsRepeat], [LastValueVouchers], [IsnoTab], [dependancy], [dependanton], [IsTransfer], [DbFilter], [CrFilter], [ShowInQuickAdd], [QuickAddOrder], [Calculate], [Cformula], [IsReEvaluate], [IgnoreChar], [WaterMark])
+VALUES (93, 55193, @Rid, N'Contract', N'REN_Units', N'Contract Type', N'ContractType', 0, N'COMBOBOX', N'String', N'', N'', 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, NULL, 0, NULL, 100, NULL, NULL, 8, 1, 1, 1, 100, N'CompanyGUID', N'094D7155-54D7-4F7E-8CC2-AF40F8226858', N'', N'ADMIN', 22, NULL, NULL, 0, 1, NULL, 0, 1, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, 649, NULL)
+
+
+set @Rid=@Rid+1
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'ContractType',1,'English','Contract Type','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+ 
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'ContractType',2,'Arabic','Contract Type','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+INSERT [dbo].[ADM_CostCenterDef] ([CostCenterID], [CostCenterColID], [ResourceID], [CostCenterName], [SysTableName], [UserColumnName], [SysColumnName], [ColumnTypeSeqNumber], [UserColumnType], [ColumnDataType], [UserDefaultValue], [UserProbableValues], [ColumnOrder], [IsMandatory], [IsEditable], [IsVisible], [IsCostCenterUserDefined], [IsColumnUserDefined], [IsCCDeleted], [IsColumnDeleted], [ColumnCostCenterID], [ColumnCCListViewTypeID], [FetchMaxRows], [IsColumnGroup], [ColumnGroupNumber], [SectionSeqNumber], [SectionID], [SectionName], [RowNo], [ColumnNo], [ColumnSpan], [IsColumnInUse], [UIWidth], [CompanyGUID], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate], [IsUnique], [IsForeignKey], [ParentCostCenterID], [ParentCostCenterColID], [IsValidReportBuilderCol], [ParentCostCenterSysName], [ParentCostCenterColSysName], [ParentCCDefaultColID], [LinkData], [LocalReference], [Decimal], [TextFormat], [Filter], [IsRepeat], [LastValueVouchers], [IsnoTab], [dependancy], [dependanton], [IsTransfer], [DbFilter], [CrFilter], [ShowInQuickAdd], [QuickAddOrder], [Calculate], [Cformula], [IsReEvaluate], [IgnoreChar], [WaterMark])
+VALUES (95, 55192, @Rid, N'Contract', N'REN_Contract', N'Contract Type', N'ContractType', 0, N'COMBOBOX', N'String', N'', N'', 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, NULL, 0, NULL, 100, NULL, NULL, 8, 1, 1, 1, 100, N'CompanyGUID', N'094D7155-54D7-4F7E-8CC2-AF40F8226858', N'', N'ADMIN', 22, NULL, NULL, 0, 1, NULL, 0, 1, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, 649, NULL)
+
+
+set @Rid=@Rid+1
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'ContractType',1,'English','Contract Type','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+ 
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'ContractType',2,'Arabic','Contract Type','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+INSERT [dbo].[ADM_CostCenterDef] ([CostCenterID], [CostCenterColID], [ResourceID], [CostCenterName], [SysTableName], [UserColumnName], [SysColumnName], [ColumnTypeSeqNumber], [UserColumnType], [ColumnDataType], [UserDefaultValue], [UserProbableValues], [ColumnOrder], [IsMandatory], [IsEditable], [IsVisible], [IsCostCenterUserDefined], [IsColumnUserDefined], [IsCCDeleted], [IsColumnDeleted], [ColumnCostCenterID], [ColumnCCListViewTypeID], [FetchMaxRows], [IsColumnGroup], [ColumnGroupNumber], [SectionSeqNumber], [SectionID], [SectionName], [RowNo], [ColumnNo], [ColumnSpan], [IsColumnInUse], [UIWidth], [CompanyGUID], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate], [IsUnique], [IsForeignKey], [ParentCostCenterID], [ParentCostCenterColID], [IsValidReportBuilderCol], [ParentCostCenterSysName], [ParentCostCenterColSysName], [ParentCCDefaultColID], [LinkData], [LocalReference], [Decimal], [TextFormat], [Filter], [IsRepeat], [LastValueVouchers], [IsnoTab], [dependancy], [dependanton], [IsTransfer], [DbFilter], [CrFilter], [ShowInQuickAdd], [QuickAddOrder], [Calculate], [Cformula], [IsReEvaluate], [IgnoreChar], [WaterMark])
+VALUES (103, 55191, @Rid, N'Contract', N'REN_Quotation', N'Contract Type', N'ContractType', 0, N'COMBOBOX', N'String', N'', N'', 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, NULL, 0, NULL, 100, NULL, NULL, 8, 1, 1, 1, 100, N'CompanyGUID', N'094D7155-54D7-4F7E-8CC2-AF40F8226858', N'', N'ADMIN', 22, NULL, NULL, 0, 1, NULL, 0, 1, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, 649, NULL)
+
+
+set @Rid=@Rid+1
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'ContractType',1,'English','Contract Type','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+ 
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'ContractType',2,'Arabic','Contract Type','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+INSERT [dbo].[ADM_CostCenterDef] ([CostCenterID], [CostCenterColID], [ResourceID], [CostCenterName], [SysTableName], [UserColumnName], [SysColumnName], [ColumnTypeSeqNumber], [UserColumnType], [ColumnDataType], [UserDefaultValue], [UserProbableValues], [ColumnOrder], [IsMandatory], [IsEditable], [IsVisible], [IsCostCenterUserDefined], [IsColumnUserDefined], [IsCCDeleted], [IsColumnDeleted], [ColumnCostCenterID], [ColumnCCListViewTypeID], [FetchMaxRows], [IsColumnGroup], [ColumnGroupNumber], [SectionSeqNumber], [SectionID], [SectionName], [RowNo], [ColumnNo], [ColumnSpan], [IsColumnInUse], [UIWidth], [CompanyGUID], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate], [IsUnique], [IsForeignKey], [ParentCostCenterID], [ParentCostCenterColID], [IsValidReportBuilderCol], [ParentCostCenterSysName], [ParentCostCenterColSysName], [ParentCCDefaultColID], [LinkData], [LocalReference], [Decimal], [TextFormat], [Filter], [IsRepeat], [LastValueVouchers], [IsnoTab], [dependancy], [dependanton], [IsTransfer], [DbFilter], [CrFilter], [ShowInQuickAdd], [QuickAddOrder], [Calculate], [Cformula], [IsReEvaluate], [IgnoreChar], [WaterMark])
+VALUES (129, 55190, @Rid, N'Contract', N'REN_Quotation', N'Contract Type', N'ContractType', 0, N'COMBOBOX', N'String', N'', N'', 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, NULL, 0, NULL, 100, NULL, NULL, 8, 1, 1, 1, 100, N'CompanyGUID', N'094D7155-54D7-4F7E-8CC2-AF40F8226858', N'', N'ADMIN', 22, NULL, NULL, 0, 1, NULL, 0, 1, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, 649, NULL)
+
+set identity_insert [ADM_CostCenterDef] OFF
+
+set @Rid=@Rid+1
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'DefaultStartTime',1,'English','Default StartTime','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+insert into COM_CostCenterPreferences(CostCenterID,FeatureID,ResourceID,Name,Value,GUID,CreatedBy,CreatedDate,DefaultValue)
+values(95,95,@Rid,'DefaultStartTime','','guid','admin',22,'')
+
+
+set @Rid=@Rid+1
+
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'PayTypefrmReser',1,'English','Default EndTime','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+insert into COM_CostCenterPreferences(CostCenterID,FeatureID,ResourceID,Name,Value,GUID,CreatedBy,CreatedDate,DefaultValue)
+values(95,95,@Rid,'DefaultEndTime','','guid','admin',22,'')

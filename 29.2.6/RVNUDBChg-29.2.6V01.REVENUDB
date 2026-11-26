@@ -1,0 +1,37 @@
+--Waseem 
+INSERT INTO ADM_FeatureAction(Name,ResourceID,FeatureID,FeatureActionTypeID,ApplicationID,Status,CreatedDate,CreatedBy) 
+SELECT N'Activity_Create', L.ResourceID,F.FeatureID,900,1,1,CONVERT(FLOAT,GETDATE()),N'Admin'
+FROM ADM_Features F WITH(NOLOCK)
+JOIN COM_LanguageResources L WITH(NOLOCK) ON L.ResourceName='Activity_Create' AND L.LanguageID=1
+WHERE FeatureID>50000  AND IsEnabled=1 AND FeatureID NOT IN (50051,50054)
+INSERT INTO [ADM_FeatureActionRoleMap]([RoleID],[FeatureActionID],[Status],[CreatedBy],[CreatedDate])
+SELECT 1,[FeatureActionID],1,CreatedBy,CreatedDate FROM ADM_FeatureAction WITH(NOLOCK) WHERE FeatureID>50000 AND Name='Activity_Create'   AND FeatureID NOT IN (50051,50054)
+
+INSERT INTO ADM_FeatureAction(Name,ResourceID,FeatureID,FeatureActionTypeID,ApplicationID,Status,CreatedDate,CreatedBy) 
+SELECT N'Activity_Edit', L.ResourceID,F.FeatureID,900,1,1,CONVERT(FLOAT,GETDATE()),N'Admin'
+FROM ADM_Features F WITH(NOLOCK)
+JOIN COM_LanguageResources L WITH(NOLOCK) ON L.ResourceName='Activity_Edit' AND L.LanguageID=1
+WHERE FeatureID>50000  AND IsEnabled=1 AND FeatureID NOT IN (50051,50054)
+INSERT INTO [ADM_FeatureActionRoleMap]([RoleID],[FeatureActionID],[Status],[CreatedBy],[CreatedDate])
+SELECT 1,[FeatureActionID],1,CreatedBy,CreatedDate FROM ADM_FeatureAction WITH(NOLOCK) WHERE FeatureID>50000 AND FeatureID NOT IN (50051,50054) AND Name='Activity_Edit'
+
+
+INSERT INTO ADM_FeatureAction(Name,ResourceID,FeatureID,FeatureActionTypeID,ApplicationID,Status,CreatedDate,CreatedBy) 
+SELECT N'Activity_Delete', L.ResourceID,F.FeatureID,900,1,1,CONVERT(FLOAT,GETDATE()),N'Admin'
+FROM ADM_Features F WITH(NOLOCK)
+JOIN COM_LanguageResources L WITH(NOLOCK) ON L.ResourceName='Activity_Delete' AND L.LanguageID=1
+WHERE FeatureID>50000  AND IsEnabled=1 AND FeatureID NOT IN (50051,50054)
+INSERT INTO [ADM_FeatureActionRoleMap]([RoleID],[FeatureActionID],[Status],[CreatedBy],[CreatedDate])
+SELECT 1,[FeatureActionID],1,CreatedBy,CreatedDate FROM ADM_FeatureAction WITH(NOLOCK) WHERE FeatureID>50000 AND FeatureID NOT IN (50051,50054) AND Name='Activity_Delete'
+
+INSERT INTO ADM_FeatureAction(Name,ResourceID,FeatureID,FeatureActionTypeID,ApplicationID,Status,CreatedDate,CreatedBy) 
+SELECT N'ReSchedule', L.ResourceID,F.FeatureID,900,1,1,CONVERT(FLOAT,GETDATE()),N'Admin'
+FROM ADM_Features F WITH(NOLOCK)
+JOIN COM_LanguageResources L WITH(NOLOCK) ON L.ResourceName='ReSchedule' AND L.LanguageID=1
+WHERE FeatureID>50000  AND IsEnabled=1 AND FeatureID NOT IN (50051,50054)
+INSERT INTO [ADM_FeatureActionRoleMap]([RoleID],[FeatureActionID],[Status],[CreatedBy],[CreatedDate])
+SELECT 1,[FeatureActionID],1,CreatedBy,CreatedDate FROM ADM_FeatureAction WITH(NOLOCK) WHERE FeatureID>50000 AND FeatureID NOT IN (50051,50054) AND Name='ReSchedule'
+ 
+
+ 
+ 

@@ -1,0 +1,46 @@
+--KHASIM
+
+BEGIN TRY
+BEGIN TRANSACTION;
+DECLARE @SQL NVARCHAR(MAX) = N'';
+ SELECT @SQL = @SQL +
+  N'ALTER TABLE '
+    + QUOTENAME(s.name) + N'.'
+      + QUOTENAME(t.name)
+      + N' DROP CONSTRAINT '
+        + QUOTENAME(dc.name) + N';'
+          + CHAR(13) + CHAR(10)
+ FROM sys.default_constraints dc
+ INNER JOIN sys.tables t
+ON t.object_id = dc.parent_object_id
+ INNER JOIN sys.schemas s
+ON s.schema_id = t.schema_id
+ INNER JOIN sys.columns c
+ON c.object_id = dc.parent_object_id
+AND c.column_id = dc.parent_column_id
+ WHERE s.name = 'dbo'
+ AND t.name IN(
+            'ADM_CostCenterDef',
+            'ADM_CostCenterDef_History'
+          )
+AND c.name IN('MinChar', 'MaxChar');
+
+ IF LEN(@SQL) > 0
+ EXEC sp_executesql @SQL;
+
+UPDATE dbo.ADM_CostCenterDef set Minchar = NULL,MaxChar = NULL WHERE MinChar = 0 and MaxChar = 0
+
+ ALTER TABLE dbo.ADM_CostCenterDef
+  ALTER COLUMN MinChar INT NULL;
+ ALTER TABLE dbo.ADM_CostCenterDef
+ ALTER COLUMN MaxChar INT NULL;
+ ALTER TABLE dbo.ADM_CostCenterDef_History
+  ALTER COLUMN MinChar INT NULL;
+ ALTER TABLE dbo.ADM_CostCenterDef_History
+ ALTER COLUMN MaxChar INT NULL;
+ COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+ IF @@TRANCOUNT > 0
+  ROLLBACK TRANSACTION;
+END CATCH;

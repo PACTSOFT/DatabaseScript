@@ -1,0 +1,109 @@
+--Ibrahim
+/****** Object:  StoredProcedure [dbo].[spCOM_SetTreeStructure]    Script Date: 11/11/2026 5:24:32 PM ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spCOM_SetTreeStructure]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[spCOM_SetTreeStructure]
+GO
+/****** Object:  StoredProcedure [dbo].[spCOM_SetTreeStructure]    Script Date: 11/11/2026 5:24:32 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spCOM_SetTreeStructure]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'-- =============================================    
+-- Author:  Ikram    
+-- Create date: 22 Apr 2015
+-- Description: Sort  
+-- Example :    
+-- [spCOM_SetTreeStructure]  199
+-- =============================================    
+CREATE procedure [dbo].[spCOM_SetTreeStructure]  
+ @CostcenterID INT,  
+ @CCNodeID INT=0,   
+ @ColumnName nvarchar(200)='''',
+ @CurDepth INT=0,
+ @lft INT=0 output
+AS    
+BEGIN TRANSACTION    
+BEGIN TRY    
+SET NOCOUNT ON;  
+  
+  --Declaration Section  
+  declare @i INT,@cnt INT,@diff INT,@nodeid INT,@isgrp bit,@Depth  int
+  declare @tab table(id INT identity(1,1),NodeID INT,isgrp bit)  
+  declare @PrimKey nvarchar(200),@TableName nvarchar(200),@sql nvarchar(max)  
+  
+	select @TableName=tablename,@PrimKey=PrimaryKey from adm_features with(nolock) where featureid=@CostcenterID  
+	  
+	set @sql=''select ''+@PrimKey+'',isgroup from ''+@TableName+'' with(nolock) 
+	where ParentID=''+convert(nvarchar,@CCNodeID)+''    and ''+@PrimKey+''>0
+	order by lft''
+  
+    set @Depth=@CurDepth+1
+ print @sql
+  insert into @tab  
+  exec(@sql)  
+      
+  set @i=0  
+  select @cnt=count(id) from @tab  
+      
+  while(@i<@cnt)  
+  begin  
+   set @i=@i+1  
+   select @nodeid=nodeid,@isgrp=isgrp from @tab  
+   where id=@i  
+  
+   set @lft=@lft+1  
+  
+   if(@isgrp=1)  
+   begin  
+	  set @sql=''update ''+@TableName+''  
+	   set lft=''+convert(nvarchar,@lft)+'',Depth=''+convert(nvarchar,@CurDepth)+''
+	   where ''+@PrimKey+''=''+convert(nvarchar,@nodeid) 
+	   exec(@sql)  
+	      
+	   
+    
+    exec [spCOM_SetTreeStructure] @CostcenterID,@nodeid,@ColumnName,@Depth,@lft OUTPUT 
+    
+      set @sql=''update ''+@TableName+''  
+	   set rgt=''+convert(nvarchar,@lft+1)+''  
+	   where ''+@PrimKey+''=''+convert(nvarchar,@nodeid) 
+   end 
+   ELSE
+	   set @sql=''update ''+@TableName+''  
+	   set lft=''+convert(nvarchar,@lft)+'',rgt=''+convert(nvarchar,@lft+1)+'',Depth=''+convert(nvarchar,@CurDepth)+''
+	   where ''+@PrimKey+''=''+convert(nvarchar,@nodeid)  
+    
+   exec(@sql)  
+   if(@CostcenterID=2)
+   begin
+	if exists(select * from ACC_Accounts with(nolock) where accountid<0 and (lft>0 or rgt>0))
+		update ACC_Accounts set lft=0,rgt=0 where accountid<0
+   end
+   set @lft=@lft+1  
+     
+  end  
+   
+COMMIT TRANSACTION   
+SET NOCOUNT OFF;     
+RETURN 1  
+END TRY  
+BEGIN CATCH    
+ --Return exception info [Message,Number,ProcedureName,LineNumber]    
+ IF ERROR_NUMBER()=50000  
+ BEGIN  
+  SELECT ErrorMessage,ErrorNumber FROM COM_ErrorMessages WITH(NOLOCK) WHERE ErrorNumber=ERROR_MESSAGE() AND LanguageID=1  
+ END  
+ ELSE  
+ BEGIN  
+  SELECT ErrorMessage, ERROR_MESSAGE() AS ServerMessage,ERROR_NUMBER() as ErrorNumber, ERROR_PROCEDURE()as ProcedureName, ERROR_LINE() AS ErrorLine  
+ FROM COM_ErrorMessages WITH(NOLOCK) WHERE ErrorNumber=-999 AND LanguageID=1  
+ END  
+ROLLBACK TRANSACTION  
+SET NOCOUNT OFF    
+RETURN -999     
+END CATCH
+' 
+END
+GO

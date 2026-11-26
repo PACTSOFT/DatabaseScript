@@ -1,0 +1,22 @@
+--Waseem
+DECLARE @CRID BIGINT,@ERID BIGINT,@DRID BIGINT,@FID BIGINT,@I INT=1,@cnt INT,@Fatid INT,@RSID INT
+SELECT @ERID=ResourceID FROM COM_LanguageResources WITH(NOLOCK) WHERE ResourceName='Activity' AND LanguageID=1
+ 
+DECLARE @TAB TABLE(ID INT IDENTITY(1,1),FID BIGINT)
+INSERT INTO @TAB
+SELECT FeatureID FROM ADM_Features WITH(NOLOCK) WHERE   FeatureID>50000  AND IsEnabled=1 AND FeatureID NOT IN (50051,50054)
+DECLARE @TabOrder INT  
+SELECT @cnt=COUNT(*) FROM @TAB
+WHILE(@I<=@Cnt)
+BEGIN
+SELECT @FID=FID FROM @TAB WHERE ID=@I
+
+SELECT @TabOrder = ISNULL(MAX(TABORDER),0) +1 FROM ADM_CostCenterTab WITH(NOLOCK) WHERE COSTCENTERID=@FID
+IF NOT EXISTS(SELECT * FROM ADM_CostCenterTab WITH(NOLOCK) where CostCenterID=@FID AND CCTabName='Activities' AND IsTabUserDefined=0)
+BEGIN
+	INSERT INTO [ADM_CostCenterTab]([CCTabName],[CostCenterID],[ResourceID],[TabOrder],[IsVisible],[IsTabUserDefined],[GroupOrder],[GroupVisible])
+	VALUES('Activities',@FID,@ERID,@TabOrder,1,0,15,1)
+END
+	SET @I=@I+1
+END
+ 

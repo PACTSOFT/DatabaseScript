@@ -1,0 +1,11 @@
+--Ibrahim
+
+ if not exists(select * from adm_featureaction where FeatureID=83 AND Name='API')
+BEGIN
+	 INSERT INTO ADM_FeatureAction(Name,ResourceID,FeatureID,FeatureActionTypeID,ApplicationID,Description,Status,CreatedDate,CreatedBy)
+	 SELECT Name,ResourceID,83,FeatureActionTypeID,ApplicationID,Description,Status,CONVERT(float,GETDATE()),CreatedBy 
+	 FROM ADM_FeatureAction WITH(NOLOCK) WHERE FeatureID=40001 AND Name='API' 
+
+	 INSERT INTO ADM_FeatureActionRoleMap(RoleID,FeatureActionID,Description,Status,CreatedBy,CreatedDate)
+	 SELECT 1,FeatureActionID,NULL,NULL,'ADMIN',CONVERT(FLOAT,GETDATE()) FROM ADM_FeatureAction WITH(NOLOCK) WHERE FeatureID=83 AND Name='API'
+end

@@ -1,0 +1,69 @@
+--Sameer
+DECLARE @CostCenterColID INT,@Rid INT
+
+DECLARE @FeatureID INT,@FeatureName nvarchar(500)
+
+SET @FeatureID=50001
+
+while(@FeatureID<50200)
+BEGIN
+set @FeatureID=@FeatureID+1
+select @FeatureName = Name from adm_features where featureid = @FeatureID
+DECLARE @SQL NVARCHAR(MAX)
+
+SELECT @Rid=MAX([ResourceID])+1 FROM [Com_LanguageResources] WITH(NOLOCK)
+
+if exists(select * from sys.columns where object_id('com_cc'+convert(varchar,@FeatureID))=object_id and name='PasswordAlpha')
+BEGIN
+	if not exists(select * from sys.columns where object_id('com_cc'+convert(varchar,@FeatureID))=object_id and name='MultipleDevices')
+	BEGIN
+		SET @SQL='ALTER TABLE com_cc'+convert(varchar,@FeatureID)+' ADD MultipleDevices bit default 0 with values;'
+		EXEC (@SQL)
+		
+				SELECT @Rid=MAX([ResourceID])+1 FROM [Com_LanguageResources] WITH(NOLOCK)
+			
+				INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+				VALUES(@rid,'Multiple Devices',1,'English','Multiple DevicesAlpha','448BFA36',NULL,'ADMIN',4,NULL,NULL,'')
+
+				INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+				VALUES(@rid,'Multiple Devices',2,'Arabic','Multiple Devices','448BFA36',NULL,'ADMIN',4,NULL,NULL,'')
+
+				SELECT @CostCenterColID=MAX(CostCenterColID)+1 FROM [adm_costcenterdef] WITH(NOLOCK)
+
+				set identity_insert [adm_costcenterdef] ON
+			
+				INSERT INTO [adm_costcenterdef] ([CostCenterID],[CostCenterColID],[ResourceID],[CostCenterName],[SysTableName],[UserColumnName],[SysColumnName],[ColumnTypeSeqNumber],[UserColumnType],[ColumnDataType],[UserDefaultValue],[UserProbableValues],[ColumnOrder],[IsMandatory],[IsEditable],[IsVisible],[IsCostCenterUserDefined],[IsColumnUserDefined],[IsCCDeleted],[IsColumnDeleted],[ColumnCostCenterID],[ColumnCCListViewTypeID],[FetchMaxRows],[IsColumnGroup],[ColumnGroupNumber],[SectionSeqNumber],[SectionID],[SectionName],[RowNo],[ColumnNo],[ColumnSpan],[IsColumnInUse],[UIWidth],[CompanyGUID],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[IsUnique],[IsForeignKey],[ParentCostCenterID],[ParentCostCenterColID],[IsValidReportBuilderCol],[ParentCostCenterSysName],[ParentCostCenterColSysName],[ParentCCDefaultColID],[LinkData],[LocalReference],[Decimal],[TextFormat])
+				VALUES(@FeatureID,@CostCenterColID,@rid,@FeatureName,'COM_CC'+CONVERT(NVARCHAR,@FeatureID),'MultipleDevices','MultipleDevices',NULL,'CheckBox','TEXT',NULL,NULL,0,0,1,1,0,0,0,0,0,0,NULL,0,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,NULL,'693E656C-CD0D-486D-AFAC-FC36CBFFAF0D','A5203D77-8DD2-499D-8BB7-9495333DC917',NULL,'Admin',4,NULL,NULL,0,0,NULL,NULL,1,NULL,NULL,NULL,NULL,NULL,NULL,NULL)
+				set identity_insert [adm_costcenterdef] OFF
+
+				update [adm_costcenterdef] set SectionID=null,RowNo=7,ColumnNo=1,IsMandatory=0,IsVisible=0,SectionSeqNumber=101 where CostCenterColID=@CostCenterColID
+
+	END
+
+	if not exists(select * from sys.columns where object_id('com_cc'+convert(varchar,@FeatureID))=object_id and name='DeviceIDAlpha')
+	BEGIN
+		SET @SQL='ALTER TABLE com_cc'+convert(varchar,@FeatureID)+' ADD DeviceIDAlpha nvarchar(max);'
+		EXEC (@SQL)
+		
+				SELECT @Rid=MAX([ResourceID])+1 FROM [Com_LanguageResources] WITH(NOLOCK)
+
+			INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+				VALUES(@rid,'DeviceID',1,'English','DeviceID','448BFA36',NULL,'ADMIN',4,NULL,NULL,'')
+
+				INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+				VALUES(@rid,'DeviceID',2,'Arabic','DeviceID','448BFA36',NULL,'ADMIN',4,NULL,NULL,'')
+				
+				SELECT @CostCenterColID=MAX(CostCenterColID)+1 FROM [adm_costcenterdef] WITH(NOLOCK)
+
+					set identity_insert [adm_costcenterdef] ON
+				INSERT INTO [adm_costcenterdef] ([CostCenterID],[CostCenterColID],[ResourceID],[CostCenterName],[SysTableName],[UserColumnName],[SysColumnName],[ColumnTypeSeqNumber],[UserColumnType],[ColumnDataType],[UserDefaultValue],[UserProbableValues],[ColumnOrder],[IsMandatory],[IsEditable],[IsVisible],[IsCostCenterUserDefined],[IsColumnUserDefined],[IsCCDeleted],[IsColumnDeleted],[ColumnCostCenterID],[ColumnCCListViewTypeID],[FetchMaxRows],[IsColumnGroup],[ColumnGroupNumber],[SectionSeqNumber],[SectionID],[SectionName],[RowNo],[ColumnNo],[ColumnSpan],[IsColumnInUse],[UIWidth],[CompanyGUID],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[IsUnique],[IsForeignKey],[ParentCostCenterID],[ParentCostCenterColID],[IsValidReportBuilderCol],[ParentCostCenterSysName],[ParentCostCenterColSysName],[ParentCCDefaultColID],[LinkData],[LocalReference],[Decimal],[TextFormat])
+				VALUES(@FeatureID,@CostCenterColID,@rid,@FeatureName,'COM_CC'+CONVERT(NVARCHAR,@FeatureID),'DeviceID','DeviceID',NULL,'TEXT','TEXT',NULL,NULL,0,0,1,1,0,0,0,0,0,0,NULL,0,NULL,NULL,NULL,NULL,NULL,NULL,NULL,1,NULL,'693E656C-CD0D-486D-AFAC-FC36CBFFAF0D','A5203D77-8DD2-499D-8BB7-9495333DC917',NULL,'Admin',4,NULL,NULL,0,0,NULL,NULL,1,NULL,NULL,NULL,NULL,NULL,NULL,NULL)
+
+				set identity_insert [adm_costcenterdef] OFF
+
+				update [adm_costcenterdef] set SectionID=null,RowNo=7,ColumnNo=0,IsMandatory=0,IsVisible=0,SectionSeqNumber=100 where CostCenterColID=@CostCenterColID
+	END
+
+END
+
+end

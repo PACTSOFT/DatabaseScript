@@ -1,0 +1,10 @@
+--Sameer
+
+if not exists(select * from sys.columns where object_id('ren_tenant')=object_id and name='MultipleDevices')
+                                        BEGIN
+ALTER TABLE ren_tenant ADD MultipleDevices bit default 0 with values;
+                                        END
+										if not exists(select * from sys.columns where object_id('ren_tenant')=object_id and name='DeviceID')
+                                        BEGIN
+alter table ren_tenant ADD DeviceID nvarchar(max)
+                                        END

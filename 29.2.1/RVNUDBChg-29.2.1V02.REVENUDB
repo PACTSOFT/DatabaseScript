@@ -1,0 +1,75 @@
+--Sajid
+DECLARE @Rid INT,@ribbid int
+SELECT @Rid=MAX([ResourceID])+1 FROM [Com_LanguageResources] WITH(NOLOCK) 
+
+IF NOT EXISTS(SELECT RibbonViewID FROM [ADM_RibbonView] WITH(NOLOCK) WHERE RibbonViewID=850 AND FeatureActionName='Activities')
+BEGIN
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid,'Activities',1,'English','Activities',NEWID(),NULL,'Admin',convert(float,getdate()),NULL,NULL,'Activities') 
+
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid,'Activities',2,'Arabic','Activities',NEWID(),NULL,'Admin',convert(float,getdate()),NULL,NULL,'Activities') 
+
+	INSERT INTO [ADM_Features]([FeatureID],[ParentFeatureID],[Name],[SysName],[ResourceID],[FeatureTypeID],[FeatureTypeName],[IsEnabled],[IsUserDefined],[FeatureTypeResourceID],[Description],[ApplicationID],[StatusID],[CreatedDate],[CreatedBy],[TableName],[AllowCustomization],[PrimaryKey])
+	VALUES(514,1,'Activities','Activities',@Rid,1,'Activities',1,0,NULL,'Activities',1,1,CONVERT(FLOAT,GETDATE()),'ADMIN','CRM_Activities',0,NULL)
+
+	DECLARE @FeatureActionID INT
+	select @FeatureActionID=MAX(FeatureActionID)+1 from ADM_FeatureAction 
+
+	SET IDENTITY_INSERT [ADM_FeatureAction] ON
+	INSERT INTO [ADM_FeatureAction] ([FeatureActionID],[Name],[ResourceID],[FeatureID],[FeatureActionTypeID],[ApplicationID],[GridShortCut],[Description],[Status],[CreatedDate],[CreatedBy])VALUES(@FeatureActionID+1,'Create',NULL,514,962,1,NULL,NULL,1,4.076648155243055e+004,'ADMIN')
+	INSERT INTO [ADM_FeatureAction] ([FeatureActionID],[Name],[ResourceID],[FeatureID],[FeatureActionTypeID],[ApplicationID],[GridShortCut],[Description],[Status],[CreatedDate],[CreatedBy])VALUES(@FeatureActionID+2,'Read',NULL,514,963,1,NULL,NULL,1,4.076648155243055e+004,'ADMIN')
+	INSERT INTO [ADM_FeatureAction] ([FeatureActionID],[Name],[ResourceID],[FeatureID],[FeatureActionTypeID],[ApplicationID],[GridShortCut],[Description],[Status],[CreatedDate],[CreatedBy])VALUES(@FeatureActionID+3,'Edit',NULL,514,964,1,NULL,NULL,1,4.076648155262346e+004,'ADMIN')
+	INSERT INTO [ADM_FeatureAction] ([FeatureActionID],[Name],[ResourceID],[FeatureID],[FeatureActionTypeID],[ApplicationID],[GridShortCut],[Description],[Status],[CreatedDate],[CreatedBy])VALUES(@FeatureActionID+4,'Delete',NULL,514,965,1,NULL,NULL,1,4.076648155277778e+004,'ADMIN')
+	INSERT INTO [ADM_FeatureAction] ([FeatureActionID],[Name],[ResourceID],[FeatureID],[FeatureActionTypeID],[ApplicationID],[GridShortCut],[Description],[Status],[CreatedDate],[CreatedBy])VALUES(@FeatureActionID+11,'Customize',NULL,514,966,1,NULL,NULL,1,4.072671064918980e+004,'Admin')
+
+	SET IDENTITY_INSERT [ADM_FeatureAction] OFF
+
+	INSERT INTO [ADM_FeatureActionRoleMap]([RoleID],[FeatureActionID],[Description],[Status],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate])
+	SELECT 1,[FeatureActionID],NULL,1,'Admin',CONVERT(FLOAT,GETDATE()),NULL,NULL
+	FROM [ADM_FeatureAction] WITH(NOLOCK) WHERE FeatureID=514 
+
+	--RIBBON
+	SET @Rid= @Rid+1
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid,'Activities',1,'English','Activities','GUID',NULL,'Admin',convert(float,getdate()),NULL,NULL,'Activities') 
+
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid,'Activities',2,'Arabic','Activities','GUID',NULL,'Admin',convert(float,getdate()),NULL,NULL,'Activities') 
+
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid+1,'Activities',1,'English','Activities','GUID',NULL,'Admin',convert(float,getdate()),NULL,NULL,'Activities') 
+
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid+1,'Activities',2,'Arabic','Activities','GUID',NULL,'Admin',convert(float,getdate()),NULL,NULL,'Activities') 
+
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid+2,'Activities',1,'English','Activities','GUID',NULL,'Admin',convert(float,getdate()),NULL,NULL,'Activities') 
+
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid+2,'Activities',2,'Arabic','Activities','GUID',NULL,'Admin',convert(float,getdate()),NULL,NULL,'Activities') 
+
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid+3,'Activities',1,'English','Activities','GUID',NULL,'Admin',convert(float,getdate()),NULL,NULL,'Activities') 
+
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid+3,'Activities',2,'Arabic','Activities','GUID',NULL,'Admin',convert(float,getdate()),NULL,NULL,'Activities') 
+
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid+4,'Activities',1,'English','Activities','GUID',NULL,'Admin',convert(float,getdate()),NULL,NULL,'Activities') 
+
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid+4,'Activities',2,'Arabic','Activities','GUID',NULL,'Admin',convert(float,getdate()),NULL,NULL,'Activities') 
+
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid+5,'Activities',1,'English','Activities','GUID',NULL,'Admin',convert(float,getdate()),NULL,NULL,'Activities') 
+
+	INSERT INTO [Com_LanguageResources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+	VALUES(@Rid+5,'Activities',2,'Arabic','Activities','GUID',NULL,'Admin',convert(float,getdate()),NULL,NULL,'Activities') 
+
+	INSERT INTO [ADM_RibbonView]([RibbonViewID],[TabID],[GroupID],[DrpID],[TabName],[GroupName],[DrpName],[TabResourceID],[GroupResourceID],[DrpResourceID],[TabOrder],[GroupOrder],[FeatureID],[FeatureActionID],[FeatureActionResourceID],[FeatureActionName],[TabKeyTip],[GroupKeyTip],[DrpKeyTip],[ButtonKeyTip],[IsEnabled],[ScreenName],[ScreenResourceID],[ImageType],[ImagePath],[DrpImage],[ToolTipTitleResourceID],[ToolTipTitle],[ToolTipImg],[ToolTipDescResourceID],[ToolTipDesc],[RoleID],[UserID],[UserName],[CompanyGUID],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[DisplayName],[DisplayNameResourceID],[ColumnOrder],[ShowInWeb],[IsMobile])
+	SELECT 850,[TabID],35,null,[TabName],GroupName,'Activities',[TabResourceID],[GroupResourceID],null,[TabOrder],[GroupOrder],514,@FeatureActionID+2,@Rid+1,'Activities',NULL,NULL,NULL,NULL,1,'Activities',@Rid+2,0,'Activity.png','Activity.png',@Rid+3,'Activities','Activity.png',@Rid+4,'Activities',1,1,'Admin','CompanyGUID',NEWID(),'Activities','Admin',CONVERT(FLOAT,GETDATE()),NULL,NULL,'Activities',@Rid+5,0,1,0
+	FROM [ADM_RibbonView] with(nolock) where ribbonviewid=177
+END
+
+

@@ -1,0 +1,7 @@
+--Waseem
+IF NOT EXISTS(SELECT * FROM COM_CostCenterPreferences WHERE CostCenterID=83 AND Name='ActivityAsPopup')
+BEGIN
+	INSERT INTO COM_CostCenterPreferences
+	SELECT 83,83,ResourceID,Name,'False','False',ProbableValues,GUID,Description,CreatedBy,CreatedDate,ModifiedBy,ModifiedDate 
+	FROM COM_CostCenterPreferences WHERE CostCenterID=86 AND Name='ActivityAsPopup'
+END

@@ -1,0 +1,32 @@
+--Ikram
+alter table REN_Property add TermProfile INT
+alter table REN_Property add CloseProfile INT
+
+declare @Rid int
+select @Rid=MAX(ResourceID) from COM_LanguageResources 
+
+set @Rid=@Rid+1
+
+set identity_insert [ADM_CostCenterDef] ON
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'TermProfile',1,'English','Termination Profile','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+ 
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'TermProfile',2,'Arabic','Termination Profile','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+INSERT [dbo].[ADM_CostCenterDef] ([CostCenterID], [CostCenterColID], [ResourceID], [CostCenterName], [SysTableName], [UserColumnName], [SysColumnName], [ColumnTypeSeqNumber], [UserColumnType], [ColumnDataType], [UserDefaultValue], [UserProbableValues], [ColumnOrder], [IsMandatory], [IsEditable], [IsVisible], [IsCostCenterUserDefined], [IsColumnUserDefined], [IsCCDeleted], [IsColumnDeleted], [ColumnCostCenterID], [ColumnCCListViewTypeID], [FetchMaxRows], [IsColumnGroup], [ColumnGroupNumber], [SectionSeqNumber], [SectionID], [SectionName], [RowNo], [ColumnNo], [ColumnSpan], [IsColumnInUse], [UIWidth], [CompanyGUID], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate], [IsUnique], [IsForeignKey], [ParentCostCenterID], [ParentCostCenterColID], [IsValidReportBuilderCol], [ParentCostCenterSysName], [ParentCostCenterColSysName], [ParentCCDefaultColID], [LinkData], [LocalReference], [Decimal], [TextFormat], [Filter], [IsRepeat], [LastValueVouchers], [IsnoTab], [dependancy], [dependanton], [IsTransfer], [DbFilter], [CrFilter], [ShowInQuickAdd], [QuickAddOrder], [Calculate], [Cformula], [IsReEvaluate], [IgnoreChar], [WaterMark])
+VALUES (92,55196,  @Rid, N'Contract', N'REN_Property', N'Termination Profile', N'TermProfile', 0, N'COMBOBOX', N'String', N'', N'', 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, NULL, 0, NULL, 100, NULL, NULL, 8, 1, 1, 1, 100, N'CompanyGUID', N'094D7155-54D7-4F7E-8CC2-AF40F8226858', N'', N'ADMIN', 22, NULL, NULL, 0, 1, NULL, 0, 1, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, 649, NULL)
+
+
+set @Rid=@Rid+1
+ 
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'CloseProfile',1,'English','Close Profile','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+ 
+INSERT INTO [com_languageresources] ([ResourceID],[ResourceName],[LanguageID],[LanguageName],[ResourceData],[GUID],[Description],[CreatedBy],[CreatedDate],[ModifiedBy],[ModifiedDate],[FEATURE])
+VALUES(@Rid,'CloseProfile',2,'Arabic','Close Profile','A18AA097-DF5D-41CD-9AFF-22C66D20097A',NULL,'ADMIN',4.072966253163580e+004,NULL,NULL,'')
+
+INSERT [dbo].[ADM_CostCenterDef] ([CostCenterID], [CostCenterColID], [ResourceID], [CostCenterName], [SysTableName], [UserColumnName], [SysColumnName], [ColumnTypeSeqNumber], [UserColumnType], [ColumnDataType], [UserDefaultValue], [UserProbableValues], [ColumnOrder], [IsMandatory], [IsEditable], [IsVisible], [IsCostCenterUserDefined], [IsColumnUserDefined], [IsCCDeleted], [IsColumnDeleted], [ColumnCostCenterID], [ColumnCCListViewTypeID], [FetchMaxRows], [IsColumnGroup], [ColumnGroupNumber], [SectionSeqNumber], [SectionID], [SectionName], [RowNo], [ColumnNo], [ColumnSpan], [IsColumnInUse], [UIWidth], [CompanyGUID], [GUID], [Description], [CreatedBy], [CreatedDate], [ModifiedBy], [ModifiedDate], [IsUnique], [IsForeignKey], [ParentCostCenterID], [ParentCostCenterColID], [IsValidReportBuilderCol], [ParentCostCenterSysName], [ParentCostCenterColSysName], [ParentCCDefaultColID], [LinkData], [LocalReference], [Decimal], [TextFormat], [Filter], [IsRepeat], [LastValueVouchers], [IsnoTab], [dependancy], [dependanton], [IsTransfer], [DbFilter], [CrFilter], [ShowInQuickAdd], [QuickAddOrder], [Calculate], [Cformula], [IsReEvaluate], [IgnoreChar], [WaterMark])
+VALUES (92,55195,  @Rid, N'Contract', N'REN_Property', N'Close Profile', N'CloseProfile', 0, N'COMBOBOX', N'String', N'', N'', 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, NULL, 0, NULL, 100, NULL, NULL, 8, 1, 1, 1, 100, N'CompanyGUID', N'094D7155-54D7-4F7E-8CC2-AF40F8226858', N'', N'ADMIN', 22, NULL, NULL, 0, 1, NULL, 0, 1, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, 649, NULL)
+
+set identity_insert [ADM_CostCenterDef] OFF

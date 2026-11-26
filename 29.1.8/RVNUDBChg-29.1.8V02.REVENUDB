@@ -1,0 +1,10 @@
+--khaja
+INSERT INTO INV_GSTMapping (GSTType,ValueType,GSTColumnName,CostCenterID,SysColumnName,IsCalc,Reference,DefColumnName,DefReference,IsRequired)
+VALUES('UAEUBL','Seller','RegIdentificationScheme_Seller',0,'',0,0,'acAlpha29',4,'CM')
+INSERT INTO INV_GSTMapping (GSTType,ValueType,GSTColumnName,CostCenterID,SysColumnName,IsCalc,Reference,DefColumnName,DefReference,IsRequired)
+VALUES('UAEUBL','Buyer','RegIdentificationScheme_Buyer',0,'',0,0,'CCNID96',2,'O')
+
+
+UPDATE INV_GSTMapping SET DefColumnName='acAlpha62',DefReference=2 WHERE CostCenterID=0 AND GSTType='UAEUBL' AND GSTColumnName='RegIdentification_Buyer'
+UPDATE INV_GSTMapping SET DefColumnName='CCNID94',DefReference=2 WHERE CostCenterID=0 AND GSTType='UAEUBL' AND GSTColumnName='RegistrationType_Buyer'
+UPDATE INV_GSTMapping SET DefColumnName='acAlpha63',DefReference=2 WHERE CostCenterID=0 AND GSTType='UAEUBL' AND GSTColumnName='RegistrationAgency_Buyer'

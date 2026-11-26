@@ -1,0 +1,14 @@
+--KHAJA
+update INV_GSTMapping set DefColumnName='dcCCNID91'  where CostCenterID=0 and GSTType='UAEUBL' and GSTColumnName='GoodsandServicesType'
+update INV_GSTMapping set DefColumnName='dcCCNID71'  where CostCenterID=0 and GSTType='UAEUBL' and GSTColumnName='ItemType'
+
+update INV_GSTMapping set DefColumnName='AddressName',DefReference=2  where CostCenterID=0 and GSTType='UAEUBL' and GSTColumnName='PartyName_Delivery'
+update INV_GSTMapping set DefColumnName='acAlpha61',DefReference=2  where CostCenterID=0 and GSTType='UAEUBL' and GSTColumnName='ElectronicAddress_Delivery'
+update INV_GSTMapping set DefColumnName='acAlpha51',DefReference=2  where CostCenterID=0 and GSTType='UAEUBL' and GSTColumnName='VATNumber_Delivery'
+update INV_GSTMapping set DefColumnName='Address1',DefReference=2  where CostCenterID=0 and GSTType='UAEUBL' and GSTColumnName='AddressLine1_Delivery'
+update INV_GSTMapping set DefColumnName='Address2',DefReference=2  where CostCenterID=0 and GSTType='UAEUBL' and GSTColumnName='AddressLine2_Delivery'
+update INV_GSTMapping set DefColumnName='Address3',DefReference=2  where CostCenterID=0 and GSTType='UAEUBL' and GSTColumnName='AddressLine3_Delivery'
+update INV_GSTMapping set DefColumnName='City',DefReference=2  where CostCenterID=0 and GSTType='UAEUBL' and GSTColumnName='City_Delivery'
+update INV_GSTMapping set DefColumnName='CCNID59',DefReference=2  where CostCenterID=0 and GSTType='UAEUBL' and GSTColumnName='State_Delivery'
+update INV_GSTMapping set DefColumnName='Zip',DefReference=2  where CostCenterID=0 and GSTType='UAEUBL' and GSTColumnName='PostCode_Delivery'
+update INV_GSTMapping set DefColumnName='CCNID58',DefReference=2  where CostCenterID=0 and GSTType='UAEUBL' and GSTColumnName='Country_Delivery'
